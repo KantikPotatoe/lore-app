@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, createPage, categoryColor, CATEGORIES } from '../db'
+import { db, createPage, categoryColor, statusColor, pageStatus, CATEGORIES } from '../db'
 
 export default function Sidebar() {
   const navigate = useNavigate()
@@ -78,7 +78,12 @@ export default function Sidebar() {
                 className={p.id === currentId ? 'page-link active' : 'page-link'}
               >
                 <span className="dot" style={{ background: categoryColor(p.category) }} />
-                {p.title}
+                <span className="page-link-title">{p.title}</span>
+                <span
+                  className="status-pip"
+                  title={pageStatus(p)}
+                  style={{ background: statusColor(pageStatus(p)) }}
+                />
               </Link>
             ))}
           </div>

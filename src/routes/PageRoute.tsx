@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, updatePage, deletePage, getOrCreatePageByTitle, defaultInfobox, CATEGORIES, categoryColor, type Infobox as InfoboxType } from '../db'
+import { db, updatePage, deletePage, getOrCreatePageByTitle, defaultInfobox, CATEGORIES, STATUSES, categoryColor, statusColor, pageStatus, type Infobox as InfoboxType } from '../db'
 import LoreEditor from '../components/LoreEditor'
 import Infobox from '../components/Infobox'
+import Backlinks from '../components/Backlinks'
 
 export default function PageRoute() {
   const { id = '' } = useParams()
@@ -85,6 +86,22 @@ export default function PageRoute() {
           )}
 
           {editing ? (
+            <select
+              className="category-select"
+              value={pageStatus(page)}
+              onChange={(e) => updatePage(id, { status: e.target.value })}
+            >
+              {STATUSES.map((s) => (
+                <option key={s.name} value={s.name}>{s.name}</option>
+              ))}
+            </select>
+          ) : (
+            <span className="status-badge" style={{ borderColor: statusColor(pageStatus(page)), color: statusColor(pageStatus(page)) }}>
+              {pageStatus(page)}
+            </span>
+          )}
+
+          {editing ? (
             <input
               className="summary-input"
               value={page.summary}
@@ -148,6 +165,8 @@ export default function PageRoute() {
               </button>
             )
           )}
+
+          <Backlinks pageId={id} />
         </div>
       </div>
     </div>

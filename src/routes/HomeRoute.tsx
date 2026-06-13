@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, createPage, importAll, categoryColor } from '../db'
+import { db, createPage, importAll, categoryColor, statusColor, pageStatus } from '../db'
 import {
   LAST_BACKUP_KEY,
   downloadBackup,
@@ -84,7 +84,10 @@ export default function HomeRoute() {
           <div className="card-grid">
             {recent.map((p) => (
               <Link key={p.id} to={`/page/${p.id}`} className="lore-card">
-                <span className="card-badge" style={{ background: categoryColor(p.category) }}>{p.category}</span>
+                <div className="card-badges">
+                  <span className="card-badge" style={{ background: categoryColor(p.category) }}>{p.category}</span>
+                  <span className="status-badge" style={{ borderColor: statusColor(pageStatus(p)), color: statusColor(pageStatus(p)) }}>{pageStatus(p)}</span>
+                </div>
                 <h3>{p.title}</h3>
                 {p.summary && <p>{p.summary}</p>}
               </Link>
