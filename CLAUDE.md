@@ -39,7 +39,7 @@ Three routes inside a persistent `<Sidebar>` + `<main>` shell:
 
 | Path | Component | Purpose |
 |---|---|---|
-| `/` | `HomeRoute` | Dashboard: recent pages, stats, backup & safety |
+| `/` | `HomeRoute` | Customisable overview: editable hero/about, wiki stats (by type & status), recent pages, backup & safety |
 | `/page/:id` | `PageRoute` | Page view/edit: header (title/category/status), editor, infobox, backlinks |
 | `/map` | `MapRoute` | Leaflet map with pins |
 | `/templates` | `TemplatesRoute` | Manage infobox templates: add/rename/delete, edit & reorder field/separator rows |
@@ -57,6 +57,10 @@ Uses Leaflet with a custom CRS so the uploaded image fills the map bounds. Pins 
 ### Infobox & backlinks — `src/components/Infobox.tsx`, `Backlinks.tsx`
 
 The infobox is rendered in `PageRoute`'s right-hand aside: an image (data URL), caption, and a mix of label/value fields and full-width separator headings. The template picker / page-type select (`applyTemplate` in `db.ts`) **replaces** the infobox rows with the chosen template's rows — carrying over values for matching labels, but not keeping leftover rows from the old template — and links to `/templates` for editing the templates themselves. Editing a template does **not** auto-rewrite existing pages; the Templates screen offers an explicit "Apply to existing pages" button (`applyTemplateToPages`, value-preserving) for that. Separators with no filled field beneath them are hidden in view mode (`dropEmptySeparators`). Field values support `[[links]]`, rendered via `WikiText.tsx` (the shared helper that turns `[[Name]]` in a plain string into clickable links). Below it, `Backlinks` lists every page that links here.
+
+### Home overview — `src/routes/HomeRoute.tsx`
+
+The landing page is a customisable wiki overview. A `HomeConfig` (title, tagline, about, and per-section visibility toggles) is stored as a single `meta` row (`home-config`); a "Customize" toggle edits it inline. To avoid rapid edits to different fields clobbering each other through the async live query, the config is loaded once into local `draft` state that acts as the source of truth and is persisted on change. The overview computes counts by type (coloured chips) and by status (segmented bar) from all pages, plus a recent-pages grid.
 
 ### Backup & data safety — `src/backup.ts`
 
