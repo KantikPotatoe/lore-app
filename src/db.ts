@@ -232,24 +232,20 @@ export async function defaultInfobox(category: string): Promise<Infobox> {
   }
 }
 
-/** Switch an infobox to a template, preserving values the user already filled
- *  in for fields with matching labels, and keeping their custom fields. */
+/** Switch an infobox to a template: its rows become exactly the template's
+ *  rows (replacing whatever was there before), but any value the user already
+ *  filled in for a field with a matching label is carried over. The image and
+ *  caption are kept. */
 export function applyTemplate(box: Infobox, tpl: InfoboxTemplate): Infobox {
   const byLabel = new Map(
     box.fields.filter((fld) => fld.kind !== 'separator').map((fld) => [fld.label.toLowerCase(), fld]),
   )
-  const next: InfoboxField[] = tpl.items.map((it) => {
+  const fields: InfoboxField[] = tpl.items.map((it) => {
     if (it.separator) return { id: crypto.randomUUID(), label: it.label, value: '', kind: 'separator' as const }
     const existing = byLabel.get(it.label.toLowerCase())
     return { id: existing?.id ?? crypto.randomUUID(), label: it.label, value: existing?.value ?? '' }
   })
-  // Keep any custom fields the user added that aren't part of the new template.
-  const templateSet = new Set(tpl.items.filter((it) => !it.separator).map((it) => it.label.toLowerCase()))
-  for (const fld of box.fields) {
-    if (fld.kind === 'separator') continue // old template separators are dropped
-    if (!templateSet.has(fld.label.toLowerCase())) next.push(fld)
-  }
-  return { ...box, template: tpl.name, fields: next }
+  return { ...box, template: tpl.name, fields }
 }
 
 // -- template CRUD (used by the Templates screen) ---------------------------
@@ -272,6 +268,22 @@ export async function deleteTemplate(id: string): Promise<void> {
 export async function resetTemplate(id: string): Promise<void> {
   const original = BUILTIN_TEMPLATES.find((t) => t.id === id)
   if (original) await db.templates.put({ ...original })
+}
+
+/** Pages whose infobox was built from the template of this name. */
+export async function pagesUsingTemplate(name: string): Promise<LorePage[]> {
+  const pages = await db.pages.toArray()
+  return pages.filter((p) => p.infobox?.template === name)
+}
+
+/** Re-apply a template's current rows to every page using it, preserving any
+ *  values already entered. Returns how many pages were updated. */
+export async function applyTemplateToPages(tpl: InfoboxTemplate): Promise<number> {
+  const targets = await pagesUsingTemplate(tpl.name)
+  await Promise.all(
+    targets.map((p) => db.pages.update(p.id, { infobox: applyTemplate(p.infobox!, tpl), updatedAt: now() })),
+  )
+  return targets.length
 }
 
 // ---------------------------------------------------------------------------
