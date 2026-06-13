@@ -1,4 +1,4 @@
-import Dexie, { type Table } from 'dexie'
+import Dexie, { liveQuery, type Table } from 'dexie'
 
 // ---------------------------------------------------------------------------
 // Data model
@@ -60,7 +60,9 @@ export interface MapPin {
   pageId: string | null // linked lore page, or null
 }
 
-// Categories with colors used across the UI. Add your own freely.
+// A page's "type" (Character, Country, Place…) is just a template — see
+// BUILTIN_TEMPLATES below. Each template carries a colour, used for badges,
+// dots and accents across the UI. These built-in colours double as fallbacks.
 export const CATEGORIES = [
   { name: 'Character', color: '#e0a458' },
   { name: 'Country', color: '#7eb09b' },
@@ -71,8 +73,21 @@ export const CATEGORIES = [
   { name: 'Lore', color: '#a0a0a0' },
 ] as const
 
+/** A palette of pleasant accent colours offered when picking a type's colour. */
+export const TYPE_COLORS = [
+  '#e0a458', '#7eb09b', '#8aa4c7', '#c77e9c', '#b59ad6', '#d68a6f',
+  '#d6c46f', '#6fc7b8', '#9c8af0', '#cf6f6f', '#7fa86f', '#a0a0a0',
+] as const
+
+// A synchronous cache of "type name → colour" so categoryColor() stays cheap to
+// call during rendering. Seeded from the built-ins, then kept in sync with the
+// templates table (see the liveQuery subscription after the db is created).
+let categoryColors: Record<string, string> = Object.fromEntries(
+  CATEGORIES.map((c) => [c.name.toLowerCase(), c.color as string]),
+)
+
 export function categoryColor(name: string): string {
-  return CATEGORIES.find((c) => c.name === name)?.color ?? '#a0a0a0'
+  return categoryColors[name.toLowerCase()] ?? '#a0a0a0'
 }
 
 // Development status of a page, shown as a badge so you can see at a glance how
@@ -113,57 +128,59 @@ export interface TemplateItem {
   separator?: boolean
 }
 
-/** A reusable set of infobox rows, applied to a page's infobox. */
+/** A page type: a coloured category plus the starter rows for its infobox. */
 export interface InfoboxTemplate {
   id: string
   name: string
+  color: string // accent colour for this type's badges/dots
   items: TemplateItem[]
   builtin: boolean // true for the shipped starter templates
 }
 
 const sep = (label: string): TemplateItem => ({ label, separator: true })
 const f = (label: string): TemplateItem => ({ label })
+const hue = (name: string): string => CATEGORIES.find((c) => c.name === name)?.color ?? '#a0a0a0'
 
-// The starter templates. A few ship with separators already in place to show
-// how they group related fields.
+// The starter types. Each has a colour and a set of infobox rows; a few ship
+// with separators already in place to show how they group related fields.
 export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
   {
-    id: 'builtin-character', name: 'Character', builtin: true, items: [
+    id: 'builtin-character', name: 'Character', color: hue('Character'), builtin: true, items: [
       f('Epithet'), f('Species'), f('Gender'), f('Age'),
       sep('Allegiance'), f('Status'), f('Affiliation'), f('Occupation'),
       sep('Life'), f('Born'), f('Died'),
     ],
   },
   {
-    id: 'builtin-country', name: 'Country', builtin: true, items: [
+    id: 'builtin-country', name: 'Country', color: hue('Country'), builtin: true, items: [
       f('Capital'), f('Government'), f('Ruler'),
       sep('People'), f('Population'), f('Languages'),
       sep('Economy'), f('Currency'), f('Formed'),
     ],
   },
   {
-    id: 'builtin-place', name: 'Place', builtin: true, items: [
+    id: 'builtin-place', name: 'Place', color: hue('Place'), builtin: true, items: [
       f('Type'), f('Region'), f('Population'), f('Ruler'), f('Founded'), f('Notable for'),
     ],
   },
   {
-    id: 'builtin-faction', name: 'Faction', builtin: true, items: [
+    id: 'builtin-faction', name: 'Faction', color: hue('Faction'), builtin: true, items: [
       f('Type'), f('Leader'), f('Headquarters'), f('Founded'), f('Members'),
       sep('Relations'), f('Allies'), f('Enemies'),
     ],
   },
   {
-    id: 'builtin-item', name: 'Item', builtin: true, items: [
+    id: 'builtin-item', name: 'Item', color: hue('Item'), builtin: true, items: [
       f('Type'), f('Owner'), f('Creator'), f('Origin'), f('Material'), f('Powers'),
     ],
   },
   {
-    id: 'builtin-event', name: 'Event', builtin: true, items: [
+    id: 'builtin-event', name: 'Event', color: hue('Event'), builtin: true, items: [
       f('Type'), f('Date'), f('Location'), f('Participants'), f('Outcome'),
     ],
   },
   {
-    id: 'builtin-lore', name: 'Lore', builtin: true, items: [
+    id: 'builtin-lore', name: 'Lore', color: hue('Lore'), builtin: true, items: [
       f('Type'), f('Related to'),
     ],
   },
@@ -178,12 +195,20 @@ function itemsToFields(items: TemplateItem[]): InfoboxField[] {
   )
 }
 
-/** Add any built-in templates that aren't in the database yet. Never overwrites
- *  existing rows, so user edits to a built-in survive. Call once on app start. */
+/** Add any built-in templates that aren't in the database yet, and backfill a
+ *  colour on any older template that predates the coloured-types feature. Never
+ *  overwrites a colour you've chosen. Call once on app start. */
 export async function seedTemplates(): Promise<void> {
-  const existing = new Set((await db.templates.toArray()).map((t) => t.id))
+  const current = await db.templates.toArray()
+  const existing = new Set(current.map((t) => t.id))
   const missing = BUILTIN_TEMPLATES.filter((t) => !existing.has(t.id))
   if (missing.length) await db.templates.bulkAdd(missing)
+
+  const builtinById = new Map(BUILTIN_TEMPLATES.map((t) => [t.id, t.color]))
+  const needColor = current.filter((t) => !t.color)
+  await Promise.all(
+    needColor.map((t) => db.templates.update(t.id, { color: builtinById.get(t.id) ?? '#a0a0a0' })),
+  )
 }
 
 /** All templates, alphabetical by name. Falls back to the built-ins if the
@@ -229,9 +254,9 @@ export function applyTemplate(box: Infobox, tpl: InfoboxTemplate): Infobox {
 
 // -- template CRUD (used by the Templates screen) ---------------------------
 
-export async function createTemplate(name: string): Promise<string> {
+export async function createTemplate(name: string, color: string = '#a0a0a0'): Promise<string> {
   const id = crypto.randomUUID()
-  await db.templates.add({ id, name: name.trim() || 'New template', items: [], builtin: false })
+  await db.templates.add({ id, name: name.trim() || 'New template', color, items: [], builtin: false })
   return id
 }
 
@@ -293,6 +318,16 @@ export class LoreDB extends Dexie {
 }
 
 export const db = new LoreDB()
+
+// Keep the synchronous colour cache in sync with the templates table, so every
+// page type (built-in or one you add) shows its colour everywhere instantly.
+liveQuery(() => db.templates.toArray()).subscribe((tpls) => {
+  const next: Record<string, string> = Object.fromEntries(
+    CATEGORIES.map((c) => [c.name.toLowerCase(), c.color as string]),
+  )
+  for (const t of tpls) if (t.color) next[t.name.toLowerCase()] = t.color
+  categoryColors = next
+})
 
 export async function getMeta<T = unknown>(key: string): Promise<T | undefined> {
   return (await db.meta.get(key))?.value as T | undefined

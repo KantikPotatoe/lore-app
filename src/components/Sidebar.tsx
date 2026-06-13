@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, createPage, categoryColor, statusColor, pageStatus, CATEGORIES } from '../db'
+import { db, createPage, categoryColor, statusColor, pageStatus } from '../db'
 
 export default function Sidebar() {
   const navigate = useNavigate()
@@ -9,6 +9,7 @@ export default function Sidebar() {
   const [search, setSearch] = useState('')
 
   const pages = useLiveQuery(() => db.pages.orderBy('title').toArray(), []) ?? []
+  const templates = useLiveQuery(() => db.templates.toArray(), []) ?? []
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -92,7 +93,7 @@ export default function Sidebar() {
       </div>
 
       <div className="sidebar-footer">
-        {CATEGORIES.length} categories · {pages.length} pages
+        {templates.length} types · {pages.length} pages
       </div>
     </aside>
   )

@@ -24,12 +24,12 @@ The single source of truth: TypeScript interfaces, the Dexie schema, all CRUD he
 Key types:
 - `LorePage` — a wiki article with rich-text `content` (HTML), `summary`, `tags`, a `status`, and an optional `Infobox`
 - `Infobox` / `InfoboxField` — the wiki-style sidebar card; fields are seeded from a template but fully customisable per page. A field with `kind: 'separator'` is a full-width section heading (its `label` is the heading; `value` is unused)
-- `InfoboxTemplate` / `TemplateItem` — a named, ordered list of starter rows (fields or separators) stored in the `templates` table; editable from the Templates screen
+- `InfoboxTemplate` / `TemplateItem` — a **page type**: a named, coloured category (`color`) plus an ordered list of starter infobox rows (fields or separators). Stored in the `templates` table and editable from the Templates screen. A page's `category` is the name of a template; choosing a type also seeds its infobox
 - `WorldMap` — an uploaded image stored as a data URL
 - `MapPin` — a lat/lng point on a map, optionally linked to a `LorePage`
 - `MetaEntry` — key/value app settings (e.g. last-backup time); Dexie schema is at **v3**
 
-Defined here (add new ones here): `CATEGORIES` (accent colors), `BUILTIN_TEMPLATES` (starter rows per category, some with separators already placed), `STATUSES` (Stub/Draft/WIP/Complete) with `pageStatus()`/`statusColor()`. Templates are DB-backed: `seedTemplates()` (called on app start) adds any missing built-ins without overwriting edits; `getTemplates()`/`createTemplate()`/`updateTemplate()`/`deleteTemplate()`/`resetTemplate()` are the CRUD helpers, and `applyTemplate()` swaps a page's infobox rows while preserving entered values. `getBacklinks()`/`linkedTitles()` compute reverse links by scanning each page's body `<a data-wikilink>` anchors and infobox `[[…]]` values.
+Defined here (add new ones here): `BUILTIN_TEMPLATES` (the shipped page types — name, colour, and starter rows, some with separators already placed), `TYPE_COLORS` (palette for the colour picker), `STATUSES` (Stub/Draft/WIP/Complete) with `pageStatus()`/`statusColor()`. `CATEGORIES` is now just the built-in colour fallback. Page types are DB-backed: `seedTemplates()` (called on app start) adds any missing built-ins and backfills colours without overwriting edits; `getTemplates()`/`createTemplate()`/`updateTemplate()`/`deleteTemplate()`/`resetTemplate()` are the CRUD helpers, and `applyTemplate()` swaps a page's infobox rows while preserving entered values. `categoryColor()` reads a synchronous cache kept in sync with the `templates` table via a `liveQuery` subscription, so a type's colour updates everywhere instantly. `getBacklinks()`/`linkedTitles()` compute reverse links by scanning each page's body `<a data-wikilink>` anchors and infobox `[[…]]` values.
 
 `useLiveQuery` from `dexie-react-hooks` is used throughout for reactive reads; IndexedDB changes auto-re-render components.
 
