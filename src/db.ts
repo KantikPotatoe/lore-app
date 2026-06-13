@@ -6,11 +6,15 @@ import Dexie, { type Table } from 'dexie'
 // Everything you write is stored locally in your browser (IndexedDB) via Dexie.
 // Nothing leaves your machine. Use the Export button to make backup files.
 
-/** One row of an infobox: a labelled piece of information. */
+/** One row of an infobox.
+ *  Normally a labelled piece of information (label + value). When `kind` is
+ *  'separator' the row is instead a full-width section heading: `label` holds
+ *  the heading text and `value` is unused. */
 export interface InfoboxField {
   id: string
   label: string
   value: string
+  kind?: 'separator'
 }
 
 /** The wiki-style sidebar box on a page: a picture plus labelled fields.
@@ -94,50 +98,155 @@ export function pageStatus(page: Pick<LorePage, 'status'>): string {
 // ---------------------------------------------------------------------------
 // Infobox templates
 // ---------------------------------------------------------------------------
-// Each template is just a list of starter field labels. Pick a different
-// template and the fields change. You can still rename, add, or remove fields
-// on any page — templates are only a convenient starting point.
-export const INFOBOX_TEMPLATES: Record<string, string[]> = {
-  Character: ['Epithet', 'Species', 'Gender', 'Age', 'Status', 'Affiliation', 'Occupation', 'Born', 'Died'],
-  Country: ['Capital', 'Government', 'Ruler', 'Population', 'Languages', 'Currency', 'Formed'],
-  Place: ['Type', 'Region', 'Population', 'Ruler', 'Founded', 'Notable for'],
-  Faction: ['Type', 'Leader', 'Headquarters', 'Founded', 'Members', 'Allies', 'Enemies'],
-  Item: ['Type', 'Owner', 'Creator', 'Origin', 'Material', 'Powers'],
-  Event: ['Type', 'Date', 'Location', 'Participants', 'Outcome'],
-  Lore: ['Type', 'Related to'],
+// A template is a named, ordered list of starter rows. Each row is either a
+// field (a label you fill in) or a separator (a section heading). Pick a
+// different template and the rows change. You can still rename, add, remove, or
+// reorder rows on any page — templates are only a convenient starting point.
+//
+// Templates live in the database (the `templates` table) so they can be edited
+// and new ones added from the Templates screen. The built-ins below are seeded
+// on first run and re-seeded only if missing (your edits are never overwritten).
+
+/** One row in a template: a field, or a separator (`separator: true`). */
+export interface TemplateItem {
+  label: string
+  separator?: boolean
 }
 
-export const INFOBOX_TEMPLATE_NAMES = Object.keys(INFOBOX_TEMPLATES)
-
-function fieldsForTemplate(template: string): InfoboxField[] {
-  return (INFOBOX_TEMPLATES[template] ?? []).map((label) => ({
-    id: crypto.randomUUID(),
-    label,
-    value: '',
-  }))
+/** A reusable set of infobox rows, applied to a page's infobox. */
+export interface InfoboxTemplate {
+  id: string
+  name: string
+  items: TemplateItem[]
+  builtin: boolean // true for the shipped starter templates
 }
 
-/** A fresh infobox seeded from the template matching the given category. */
-export function defaultInfobox(category: string): Infobox {
-  const template = INFOBOX_TEMPLATES[category] ? category : 'Lore'
-  return { template, image: null, caption: '', fields: fieldsForTemplate(template) }
+const sep = (label: string): TemplateItem => ({ label, separator: true })
+const f = (label: string): TemplateItem => ({ label })
+
+// The starter templates. A few ship with separators already in place to show
+// how they group related fields.
+export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
+  {
+    id: 'builtin-character', name: 'Character', builtin: true, items: [
+      f('Epithet'), f('Species'), f('Gender'), f('Age'),
+      sep('Allegiance'), f('Status'), f('Affiliation'), f('Occupation'),
+      sep('Life'), f('Born'), f('Died'),
+    ],
+  },
+  {
+    id: 'builtin-country', name: 'Country', builtin: true, items: [
+      f('Capital'), f('Government'), f('Ruler'),
+      sep('People'), f('Population'), f('Languages'),
+      sep('Economy'), f('Currency'), f('Formed'),
+    ],
+  },
+  {
+    id: 'builtin-place', name: 'Place', builtin: true, items: [
+      f('Type'), f('Region'), f('Population'), f('Ruler'), f('Founded'), f('Notable for'),
+    ],
+  },
+  {
+    id: 'builtin-faction', name: 'Faction', builtin: true, items: [
+      f('Type'), f('Leader'), f('Headquarters'), f('Founded'), f('Members'),
+      sep('Relations'), f('Allies'), f('Enemies'),
+    ],
+  },
+  {
+    id: 'builtin-item', name: 'Item', builtin: true, items: [
+      f('Type'), f('Owner'), f('Creator'), f('Origin'), f('Material'), f('Powers'),
+    ],
+  },
+  {
+    id: 'builtin-event', name: 'Event', builtin: true, items: [
+      f('Type'), f('Date'), f('Location'), f('Participants'), f('Outcome'),
+    ],
+  },
+  {
+    id: 'builtin-lore', name: 'Lore', builtin: true, items: [
+      f('Type'), f('Related to'),
+    ],
+  },
+]
+
+/** Turn template rows into fresh infobox fields (new ids each time). */
+function itemsToFields(items: TemplateItem[]): InfoboxField[] {
+  return items.map((it) =>
+    it.separator
+      ? { id: crypto.randomUUID(), label: it.label, value: '', kind: 'separator' as const }
+      : { id: crypto.randomUUID(), label: it.label, value: '' },
+  )
 }
 
-/** Switch an infobox to a new template, preserving any values the user already
- *  filled in for fields with matching labels, and keeping custom fields. */
-export function applyTemplate(box: Infobox, template: string): Infobox {
-  const byLabel = new Map(box.fields.map((f) => [f.label.toLowerCase(), f]))
-  const templateLabels = INFOBOX_TEMPLATES[template] ?? []
-  const next: InfoboxField[] = templateLabels.map((label) => {
-    const existing = byLabel.get(label.toLowerCase())
-    return { id: existing?.id ?? crypto.randomUUID(), label, value: existing?.value ?? '' }
+/** Add any built-in templates that aren't in the database yet. Never overwrites
+ *  existing rows, so user edits to a built-in survive. Call once on app start. */
+export async function seedTemplates(): Promise<void> {
+  const existing = new Set((await db.templates.toArray()).map((t) => t.id))
+  const missing = BUILTIN_TEMPLATES.filter((t) => !existing.has(t.id))
+  if (missing.length) await db.templates.bulkAdd(missing)
+}
+
+/** All templates, alphabetical by name. Falls back to the built-ins if the
+ *  database hasn't been seeded yet. */
+export async function getTemplates(): Promise<InfoboxTemplate[]> {
+  const all = await db.templates.toArray()
+  const list = all.length ? all : BUILTIN_TEMPLATES
+  return [...list].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/** A fresh infobox seeded from the template whose name matches the category
+ *  (falling back to "Lore"). */
+export async function defaultInfobox(category: string): Promise<Infobox> {
+  const all = await getTemplates()
+  const tpl = all.find((t) => t.name === category) ?? all.find((t) => t.name === 'Lore') ?? all[0]
+  return {
+    template: tpl?.name ?? category,
+    image: null,
+    caption: '',
+    fields: tpl ? itemsToFields(tpl.items) : [],
+  }
+}
+
+/** Switch an infobox to a template, preserving values the user already filled
+ *  in for fields with matching labels, and keeping their custom fields. */
+export function applyTemplate(box: Infobox, tpl: InfoboxTemplate): Infobox {
+  const byLabel = new Map(
+    box.fields.filter((fld) => fld.kind !== 'separator').map((fld) => [fld.label.toLowerCase(), fld]),
+  )
+  const next: InfoboxField[] = tpl.items.map((it) => {
+    if (it.separator) return { id: crypto.randomUUID(), label: it.label, value: '', kind: 'separator' as const }
+    const existing = byLabel.get(it.label.toLowerCase())
+    return { id: existing?.id ?? crypto.randomUUID(), label: it.label, value: existing?.value ?? '' }
   })
   // Keep any custom fields the user added that aren't part of the new template.
-  const templateSet = new Set(templateLabels.map((l) => l.toLowerCase()))
-  for (const f of box.fields) {
-    if (!templateSet.has(f.label.toLowerCase())) next.push(f)
+  const templateSet = new Set(tpl.items.filter((it) => !it.separator).map((it) => it.label.toLowerCase()))
+  for (const fld of box.fields) {
+    if (fld.kind === 'separator') continue // old template separators are dropped
+    if (!templateSet.has(fld.label.toLowerCase())) next.push(fld)
   }
-  return { ...box, template, fields: next }
+  return { ...box, template: tpl.name, fields: next }
+}
+
+// -- template CRUD (used by the Templates screen) ---------------------------
+
+export async function createTemplate(name: string): Promise<string> {
+  const id = crypto.randomUUID()
+  await db.templates.add({ id, name: name.trim() || 'New template', items: [], builtin: false })
+  return id
+}
+
+export async function updateTemplate(id: string, changes: Partial<InfoboxTemplate>): Promise<void> {
+  await db.templates.update(id, changes)
+}
+
+export async function deleteTemplate(id: string): Promise<void> {
+  await db.templates.delete(id)
+}
+
+/** Restore a built-in template's rows to their shipped defaults. */
+export async function resetTemplate(id: string): Promise<void> {
+  const original = BUILTIN_TEMPLATES.find((t) => t.id === id)
+  if (original) await db.templates.put({ ...original })
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +264,7 @@ export class LoreDB extends Dexie {
   maps!: Table<WorldMap, string>
   pins!: Table<MapPin, string>
   meta!: Table<MetaEntry, string>
+  templates!: Table<InfoboxTemplate, string>
 
   constructor() {
     super('lore-app')
@@ -170,6 +280,14 @@ export class LoreDB extends Dexie {
       maps: 'id, name, createdAt',
       pins: 'id, mapId, pageId',
       meta: '&key',
+    })
+    // v3 adds editable infobox templates; existing data is preserved.
+    this.version(3).stores({
+      pages: 'id, title, category, updatedAt',
+      maps: 'id, name, createdAt',
+      pins: 'id, mapId, pageId',
+      meta: '&key',
+      templates: 'id, name',
     })
   }
 }
@@ -202,7 +320,7 @@ export async function createPage(partial: Partial<LorePage> = {}): Promise<strin
     summary: partial.summary || '',
     status: partial.status || DEFAULT_STATUS,
     tags: partial.tags || [],
-    infobox: partial.infobox ?? defaultInfobox(category),
+    infobox: partial.infobox ?? (await defaultInfobox(category)),
     createdAt: now(),
     updatedAt: now(),
   }
@@ -289,20 +407,24 @@ export async function addPin(mapId: string, lat: number, lng: number): Promise<s
 // ---------------------------------------------------------------------------
 
 export async function exportAll(): Promise<string> {
-  const [pages, maps, pins] = await Promise.all([
+  const [pages, maps, pins, templates] = await Promise.all([
     db.pages.toArray(),
     db.maps.toArray(),
     db.pins.toArray(),
+    db.templates.toArray(),
   ])
-  return JSON.stringify({ version: 1, exportedAt: now(), pages, maps, pins }, null, 2)
+  return JSON.stringify({ version: 2, exportedAt: now(), pages, maps, pins, templates }, null, 2)
 }
 
 export async function importAll(json: string): Promise<void> {
   const data = JSON.parse(json)
-  await db.transaction('rw', db.pages, db.maps, db.pins, async () => {
-    await Promise.all([db.pages.clear(), db.maps.clear(), db.pins.clear()])
+  await db.transaction('rw', db.pages, db.maps, db.pins, db.templates, async () => {
+    await Promise.all([db.pages.clear(), db.maps.clear(), db.pins.clear(), db.templates.clear()])
     if (data.pages) await db.pages.bulkAdd(data.pages)
     if (data.maps) await db.maps.bulkAdd(data.maps)
     if (data.pins) await db.pins.bulkAdd(data.pins)
+    if (data.templates) await db.templates.bulkAdd(data.templates)
   })
+  // Older backups have no templates — make sure the built-ins exist.
+  await seedTemplates()
 }

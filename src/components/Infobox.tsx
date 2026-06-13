@@ -1,8 +1,10 @@
 import { useRef } from 'react'
+import { Link } from 'react-router-dom'
+import { useLiveQuery } from 'dexie-react-hooks'
 import {
+  db,
   type Infobox,
   type InfoboxField,
-  INFOBOX_TEMPLATE_NAMES,
   applyTemplate,
 } from '../db'
 import WikiText from './WikiText'
@@ -24,22 +26,28 @@ interface Props {
 
 export default function Infobox({ box, editable, onChange, onRemove, title, accent, onWikiClick }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
+  const templates = useLiveQuery(() => db.templates.orderBy('name').toArray(), []) ?? []
 
-  const filledFields = box.fields.filter((f) => f.value.trim())
-  const hasContent = box.image || filledFields.length > 0
+  // A separator only "counts" as content if it has a following field with a value.
+  const filledFields = box.fields.filter((fld) => fld.kind === 'separator' || fld.value.trim())
+  const visibleRows = dropEmptySeparators(filledFields)
+  const hasContent = box.image || box.fields.some((fld) => fld.kind !== 'separator' && fld.value.trim())
 
   // In view mode, an empty infobox shows nothing at all.
   if (!editable && !hasContent) return null
 
   // -- field helpers --------------------------------------------------------
   function setField(id: string, patch: Partial<InfoboxField>) {
-    onChange({ ...box, fields: box.fields.map((f) => (f.id === id ? { ...f, ...patch } : f)) })
+    onChange({ ...box, fields: box.fields.map((fld) => (fld.id === id ? { ...fld, ...patch } : fld)) })
   }
   function addField() {
     onChange({ ...box, fields: [...box.fields, { id: crypto.randomUUID(), label: 'New field', value: '' }] })
   }
+  function addSeparator() {
+    onChange({ ...box, fields: [...box.fields, { id: crypto.randomUUID(), label: 'Section', value: '', kind: 'separator' }] })
+  }
   function removeField(id: string) {
-    onChange({ ...box, fields: box.fields.filter((f) => f.id !== id) })
+    onChange({ ...box, fields: box.fields.filter((fld) => fld.id !== id) })
   }
 
   // -- image helpers --------------------------------------------------------
@@ -49,6 +57,11 @@ export default function Infobox({ box, editable, onChange, onRemove, title, acce
     const dataUrl = await readFileAsDataURL(file)
     onChange({ ...box, image: dataUrl })
     e.target.value = ''
+  }
+
+  function changeTemplate(name: string) {
+    const tpl = templates.find((t) => t.name === name)
+    if (tpl) onChange(applyTemplate(box, tpl))
   }
 
   return (
@@ -89,50 +102,86 @@ export default function Infobox({ box, editable, onChange, onRemove, title, acce
       {editable && (
         <div className="infobox-template">
           <label>Template</label>
-          <select value={box.template} onChange={(e) => onChange(applyTemplate(box, e.target.value))}>
-            {INFOBOX_TEMPLATE_NAMES.map((t) => <option key={t} value={t}>{t}</option>)}
+          <select value={box.template} onChange={(e) => changeTemplate(e.target.value)}>
+            {/* Show the current template even if it has since been renamed/deleted. */}
+            {!templates.some((t) => t.name === box.template) && (
+              <option value={box.template}>{box.template}</option>
+            )}
+            {templates.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
           </select>
+          <Link to="/templates" className="infobox-template-edit" title="Edit templates">✎</Link>
         </div>
       )}
 
       {/* Fields */}
       <div className="infobox-fields">
         {editable
-          ? box.fields.map((f) => (
-              <div key={f.id} className="infobox-row editing">
-                <input
-                  className="infobox-label-input"
-                  value={f.label}
-                  onChange={(e) => setField(f.id, { label: e.target.value })}
-                />
-                <input
-                  className="infobox-value-input"
-                  placeholder="value…"
-                  value={f.value}
-                  onChange={(e) => setField(f.id, { value: e.target.value })}
-                />
-                <button className="tag-x" title="Remove field" onClick={() => removeField(f.id)}>×</button>
-              </div>
-            ))
-          : filledFields.map((f) => (
-              <div key={f.id} className="infobox-row">
-                <span className="infobox-label">{f.label}</span>
-                <span className="infobox-value">
-                  <WikiText value={f.value} onWikiClick={onWikiClick} />
-                </span>
-              </div>
-            ))}
+          ? box.fields.map((fld) =>
+              fld.kind === 'separator' ? (
+                <div key={fld.id} className="infobox-row editing separator">
+                  <input
+                    className="infobox-separator-input"
+                    value={fld.label}
+                    placeholder="Section heading…"
+                    onChange={(e) => setField(fld.id, { label: e.target.value })}
+                  />
+                  <button className="tag-x" title="Remove separator" onClick={() => removeField(fld.id)}>×</button>
+                </div>
+              ) : (
+                <div key={fld.id} className="infobox-row editing">
+                  <input
+                    className="infobox-label-input"
+                    value={fld.label}
+                    onChange={(e) => setField(fld.id, { label: e.target.value })}
+                  />
+                  <input
+                    className="infobox-value-input"
+                    placeholder="value…"
+                    value={fld.value}
+                    onChange={(e) => setField(fld.id, { value: e.target.value })}
+                  />
+                  <button className="tag-x" title="Remove field" onClick={() => removeField(fld.id)}>×</button>
+                </div>
+              ),
+            )
+          : visibleRows.map((fld) =>
+              fld.kind === 'separator' ? (
+                <div key={fld.id} className="infobox-separator">{fld.label}</div>
+              ) : (
+                <div key={fld.id} className="infobox-row">
+                  <span className="infobox-label">{fld.label}</span>
+                  <span className="infobox-value">
+                    <WikiText value={fld.value} onWikiClick={onWikiClick} />
+                  </span>
+                </div>
+              ),
+            )}
       </div>
 
       {editable && (
         <div className="infobox-actions">
           <button className="mini-btn" onClick={addField}>＋ Add field</button>
+          <button className="mini-btn" onClick={addSeparator}>＋ Add separator</button>
           <button className="mini-btn danger" onClick={onRemove}>Delete infobox</button>
           <span className="infobox-hint">Use [[Name]] to link a page</span>
         </div>
       )}
     </aside>
   )
+}
+
+/** Hide separators in view mode that head no visible fields (e.g. a trailing
+ *  heading, or one whose section is entirely empty). */
+function dropEmptySeparators(rows: InfoboxField[]): InfoboxField[] {
+  return rows.filter((row, i) => {
+    if (row.kind !== 'separator') return true
+    // Keep only if some field appears before the next separator.
+    for (let j = i + 1; j < rows.length; j++) {
+      if (rows[j].kind === 'separator') break
+      return true
+    }
+    return false
+  })
 }
 
 function readFileAsDataURL(file: File): Promise<string> {

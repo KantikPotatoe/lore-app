@@ -159,7 +159,7 @@ export default function PageRoute() {
             editing && (
               <button
                 className="ghost-btn add-infobox-btn"
-                onClick={() => updatePage(id, { infobox: defaultInfobox(page.category) })}
+                onClick={async () => updatePage(id, { infobox: await defaultInfobox(page.category) })}
               >
                 ＋ Add infobox
               </button>

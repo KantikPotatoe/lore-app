@@ -273,6 +273,64 @@ a { color: inherit; text-decoration: none; }
 .mini-btn.danger:hover { background: #2e1c1a; }
 .infobox-hint { flex-basis: 100%; color: var(--ink-faint); font-size: 11.5px; margin-top: 2px; }
 
+.infobox-template-edit { margin-left: 2px; color: var(--ink-faint); font-size: 13px; padding: 2px 4px; border-radius: 5px; }
+.infobox-template-edit:hover { color: var(--accent); }
+
+/* Section separator inside an infobox. */
+.infobox-separator {
+  font-family: var(--display); font-size: 12px; letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--ink-dim); background: var(--bg-2); text-align: center;
+  padding: 5px 12px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.infobox-row.editing.separator { background: var(--bg-2); }
+.infobox-separator-input {
+  flex: 1; min-width: 0; background: var(--panel-2); border: 1px dashed var(--border); color: var(--ink-dim);
+  border-radius: 6px; padding: 5px 7px; font-weight: 600; text-align: center;
+  text-transform: uppercase; letter-spacing: 0.5px; font-size: 12px;
+}
+
+/* --- Templates screen ----------------------------------------------------- */
+.templates-header h1 { font-family: var(--display); margin: 0 0 6px; }
+.templates-intro { color: var(--ink-dim); max-width: 60ch; margin: 0 0 18px; }
+.templates-layout { display: grid; grid-template-columns: 220px 1fr; gap: 18px; align-items: start; }
+
+.templates-list { display: flex; flex-direction: column; gap: 4px; }
+.template-pick {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left;
+  background: var(--panel); border: 1px solid var(--border); color: var(--ink);
+  border-radius: 8px; padding: 9px 11px; font-size: 14px;
+}
+.template-pick:hover { background: var(--panel-2); }
+.template-pick.active { border-color: var(--accent); color: var(--accent); }
+.template-pick-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.template-builtin-tag { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--ink-faint); flex-shrink: 0; }
+.template-new { margin-top: 6px; }
+
+.template-editor {
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px;
+}
+.template-editor.empty { display: flex; align-items: center; justify-content: center; min-height: 160px; }
+.template-editor-head { display: flex; gap: 10px; margin-bottom: 14px; }
+.template-name-input {
+  flex: 1; background: var(--bg-2); border: 1px solid var(--border); color: var(--ink);
+  border-radius: 7px; padding: 8px 11px; font-family: var(--display); font-size: 18px;
+}
+
+.template-items { display: flex; flex-direction: column; gap: 6px; }
+.template-item { display: flex; align-items: center; gap: 8px; }
+.template-item-move { display: flex; flex-direction: column; line-height: 0.7; }
+.template-item-move .tag-x { padding: 0 4px; font-size: 9px; }
+.template-item-label {
+  flex: 1; min-width: 0; background: var(--bg-2); border: 1px solid var(--border); color: var(--ink);
+  border-radius: 6px; padding: 6px 9px;
+}
+.template-item.separator .template-item-label {
+  border-style: dashed; text-transform: uppercase; letter-spacing: 0.5px; font-size: 12.5px;
+  color: var(--ink-dim); font-weight: 600;
+}
+.template-item-kind { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--ink-faint); width: 62px; flex-shrink: 0; }
+.template-editor-actions { display: flex; gap: 8px; margin-top: 14px; }
+
 /* --- Backup banner & status ----------------------------------------------- */
 .backup-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 14px;
