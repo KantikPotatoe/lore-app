@@ -60,23 +60,40 @@ export interface MapPin {
   pageId: string | null // linked lore page, or null
 }
 
-// A page's "type" (Character, Country, Place…) is just a template — see
+// A page's "type" (Character, Country, Deity…) is just a template — see
 // BUILTIN_TEMPLATES below. Each template carries a colour, used for badges,
 // dots and accents across the UI. These built-in colours double as fallbacks.
 export const CATEGORIES = [
   { name: 'Character', color: '#e0a458' },
   { name: 'Country', color: '#7eb09b' },
-  { name: 'Place', color: '#8aa4c7' },
-  { name: 'Faction', color: '#c77e9c' },
+  { name: 'Deity', color: '#d9c069' },
+  { name: 'Geography', color: '#8fae6f' },
   { name: 'Item', color: '#b59ad6' },
-  { name: 'Event', color: '#d68a6f' },
-  { name: 'Lore', color: '#a0a0a0' },
+  { name: 'Organization', color: '#c77e9c' },
+  { name: 'Religion', color: '#c2a25a' },
+  { name: 'Species', color: '#6fb6a3' },
+  { name: 'Settlement', color: '#8aa4c7' },
+  { name: 'Condition', color: '#cf8f5a' },
+  { name: 'Conflict', color: '#cf6f6f' },
+  { name: 'Document', color: '#b0a486' },
+  { name: 'Culture', color: '#d68a6f' },
+  { name: 'Language', color: '#9aa0cf' },
+  { name: 'Material', color: '#a98e6a' },
+  { name: 'Myth', color: '#b58ad0' },
+  { name: 'Technology', color: '#6f9cc7' },
+  { name: 'Tradition', color: '#d3a85f' },
+  { name: 'Spell', color: '#9c8af0' },
 ] as const
+
+/** The type a brand-new page starts as (you can change it on the page). */
+export const DEFAULT_CATEGORY = 'Character'
 
 /** A palette of pleasant accent colours offered when picking a type's colour. */
 export const TYPE_COLORS = [
-  '#e0a458', '#7eb09b', '#8aa4c7', '#c77e9c', '#b59ad6', '#d68a6f',
-  '#d6c46f', '#6fc7b8', '#9c8af0', '#cf6f6f', '#7fa86f', '#a0a0a0',
+  '#e0a458', '#d9c069', '#d3a85f', '#c2a25a', '#cf8f5a', '#d68a6f',
+  '#cf6f6f', '#c77e9c', '#b58ad0', '#b59ad6', '#9c8af0', '#9aa0cf',
+  '#6f9cc7', '#8aa4c7', '#6fb6a3', '#7eb09b', '#8fae6f', '#a98e6a',
+  '#b0a486', '#a0a0a0',
 ] as const
 
 // A synchronous cache of "type name → colour" so categoryColor() stays cheap to
@@ -141,7 +158,7 @@ const sep = (label: string): TemplateItem => ({ label, separator: true })
 const f = (label: string): TemplateItem => ({ label })
 const hue = (name: string): string => CATEGORIES.find((c) => c.name === name)?.color ?? '#a0a0a0'
 
-// The starter types. Each has a colour and a set of infobox rows; a few ship
+// The starter types. Each has a colour and a set of infobox rows; several ship
 // with separators already in place to show how they group related fields.
 export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
   {
@@ -159,14 +176,15 @@ export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
     ],
   },
   {
-    id: 'builtin-place', name: 'Place', color: hue('Place'), builtin: true, items: [
-      f('Type'), f('Region'), f('Population'), f('Ruler'), f('Founded'), f('Notable for'),
+    id: 'builtin-deity', name: 'Deity', color: hue('Deity'), builtin: true, items: [
+      f('Domain'), f('Pantheon'), f('Symbol'), f('Gender'), f('Alignment'),
+      sep('Worship'), f('Followers'), f('Holy day'), f('Temples'),
     ],
   },
   {
-    id: 'builtin-faction', name: 'Faction', color: hue('Faction'), builtin: true, items: [
-      f('Type'), f('Leader'), f('Headquarters'), f('Founded'), f('Members'),
-      sep('Relations'), f('Allies'), f('Enemies'),
+    id: 'builtin-geography', name: 'Geography', color: hue('Geography'), builtin: true, items: [
+      f('Type'), f('Region'), f('Climate'), f('Area'),
+      sep('Features'), f('Terrain'), f('Flora & fauna'), f('Notable for'),
     ],
   },
   {
@@ -175,13 +193,80 @@ export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
     ],
   },
   {
-    id: 'builtin-event', name: 'Event', color: hue('Event'), builtin: true, items: [
-      f('Type'), f('Date'), f('Location'), f('Participants'), f('Outcome'),
+    id: 'builtin-organization', name: 'Organization', color: hue('Organization'), builtin: true, items: [
+      f('Type'), f('Leader'), f('Headquarters'), f('Founded'), f('Members'),
+      sep('Relations'), f('Allies'), f('Rivals'),
     ],
   },
   {
-    id: 'builtin-lore', name: 'Lore', color: hue('Lore'), builtin: true, items: [
-      f('Type'), f('Related to'),
+    id: 'builtin-religion', name: 'Religion', color: hue('Religion'), builtin: true, items: [
+      f('Type'), f('Deities'), f('Founder'), f('Founded'),
+      sep('Practice'), f('Followers'), f('Holy text'), f('Rituals'),
+    ],
+  },
+  {
+    id: 'builtin-species', name: 'Species', color: hue('Species'), builtin: true, items: [
+      f('Classification'), f('Habitat'), f('Diet'), f('Lifespan'),
+      sep('Traits'), f('Intelligence'), f('Size'), f('Distinctive features'),
+    ],
+  },
+  {
+    id: 'builtin-settlement', name: 'Settlement', color: hue('Settlement'), builtin: true, items: [
+      f('Type'), f('Region'), f('Population'), f('Government'), f('Ruler'), f('Founded'), f('Notable for'),
+    ],
+  },
+  {
+    id: 'builtin-condition', name: 'Condition', color: hue('Condition'), builtin: true, items: [
+      f('Type'), f('Cause'), f('Symptoms'), f('Transmission'), f('Cure'), f('Notable cases'),
+    ],
+  },
+  {
+    id: 'builtin-conflict', name: 'Conflict', color: hue('Conflict'), builtin: true, items: [
+      f('Type'), f('Date'), f('Location'),
+      sep('Sides'), f('Belligerents'), f('Commanders'),
+      sep('Result'), f('Outcome'), f('Casualties'),
+    ],
+  },
+  {
+    id: 'builtin-document', name: 'Document', color: hue('Document'), builtin: true, items: [
+      f('Type'), f('Author'), f('Date written'), f('Language'), f('Location'), f('Contents'),
+    ],
+  },
+  {
+    id: 'builtin-culture', name: 'Culture', color: hue('Culture'), builtin: true, items: [
+      f('Region'), f('People'), f('Language'), f('Religion'),
+      sep('Ways'), f('Values'), f('Customs'), f('Arts'),
+    ],
+  },
+  {
+    id: 'builtin-language', name: 'Language', color: hue('Language'), builtin: true, items: [
+      f('Family'), f('Spoken by'), f('Region'), f('Writing system'), f('Status'),
+    ],
+  },
+  {
+    id: 'builtin-material', name: 'Material', color: hue('Material'), builtin: true, items: [
+      f('Type'), f('Source'), f('Properties'), f('Rarity'), f('Uses'),
+    ],
+  },
+  {
+    id: 'builtin-myth', name: 'Myth', color: hue('Myth'), builtin: true, items: [
+      f('Type'), f('Origin culture'), f('Figures'), f('Themes'), f('Related to'),
+    ],
+  },
+  {
+    id: 'builtin-technology', name: 'Technology', color: hue('Technology'), builtin: true, items: [
+      f('Type'), f('Inventor'), f('Invented'), f('Function'), f('Materials'), f('Users'),
+    ],
+  },
+  {
+    id: 'builtin-tradition', name: 'Tradition', color: hue('Tradition'), builtin: true, items: [
+      f('Type'), f('Culture'), f('Occasion'), f('Participants'), f('Origin'),
+    ],
+  },
+  {
+    id: 'builtin-spell', name: 'Spell', color: hue('Spell'), builtin: true, items: [
+      f('School'), f('Caster'), f('Effect'),
+      sep('Casting'), f('Components'), f('Range'), f('Duration'),
     ],
   },
 ]
@@ -195,17 +280,25 @@ function itemsToFields(items: TemplateItem[]): InfoboxField[] {
   )
 }
 
-/** Add any built-in templates that aren't in the database yet, and backfill a
- *  colour on any older template that predates the coloured-types feature. Never
- *  overwrites a colour you've chosen. Call once on app start. */
+/** Reconcile the templates table with the shipped built-ins: add any that are
+ *  missing, drop built-ins we no longer ship, and backfill a colour on older
+ *  rows. Never touches a template you created or a colour/rows you edited on a
+ *  still-shipped built-in. Call once on app start. */
 export async function seedTemplates(): Promise<void> {
   const current = await db.templates.toArray()
   const existing = new Set(current.map((t) => t.id))
+  const shippedIds = new Set(BUILTIN_TEMPLATES.map((t) => t.id))
+
   const missing = BUILTIN_TEMPLATES.filter((t) => !existing.has(t.id))
   if (missing.length) await db.templates.bulkAdd(missing)
 
+  // Remove built-ins that are no longer part of the shipped set (your own
+  // custom types, builtin === false, are always left alone).
+  const obsolete = current.filter((t) => t.builtin && !shippedIds.has(t.id))
+  await Promise.all(obsolete.map((t) => db.templates.delete(t.id)))
+
   const builtinById = new Map(BUILTIN_TEMPLATES.map((t) => [t.id, t.color]))
-  const needColor = current.filter((t) => !t.color)
+  const needColor = current.filter((t) => !t.color && !obsolete.includes(t))
   await Promise.all(
     needColor.map((t) => db.templates.update(t.id, { color: builtinById.get(t.id) ?? '#a0a0a0' })),
   )
@@ -220,10 +313,10 @@ export async function getTemplates(): Promise<InfoboxTemplate[]> {
 }
 
 /** A fresh infobox seeded from the template whose name matches the category
- *  (falling back to "Lore"). */
+ *  (falling back to the default type, then the first available). */
 export async function defaultInfobox(category: string): Promise<Infobox> {
   const all = await getTemplates()
-  const tpl = all.find((t) => t.name === category) ?? all.find((t) => t.name === 'Lore') ?? all[0]
+  const tpl = all.find((t) => t.name === category) ?? all.find((t) => t.name === DEFAULT_CATEGORY) ?? all[0]
   return {
     template: tpl?.name ?? category,
     image: null,
@@ -358,7 +451,7 @@ const now = () => Date.now()
 
 export async function createPage(partial: Partial<LorePage> = {}): Promise<string> {
   const id = uid()
-  const category = partial.category || 'Lore'
+  const category = partial.category || DEFAULT_CATEGORY
   const page: LorePage = {
     id,
     title: partial.title?.trim() || 'Untitled',
