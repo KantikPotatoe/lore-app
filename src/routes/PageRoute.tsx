@@ -18,6 +18,10 @@ export default function PageRoute() {
 
   if (page === undefined) return <div className="content-pad">Loading…</div>
   if (page === null) return <div className="content-pad">This page doesn’t exist (it may have been deleted).</div>
+  // The live query can briefly return the PREVIOUS page's data right after you
+  // navigate. Wait until the loaded page actually matches the URL, otherwise the
+  // editor would mount with stale content and keep it (see key={id} below).
+  if (page.id !== id) return <div className="content-pad">Loading…</div>
 
   async function followWikiLink(title: string) {
     const targetId = await getOrCreatePageByTitle(title)
