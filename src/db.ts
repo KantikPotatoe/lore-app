@@ -123,10 +123,17 @@ export function applyTemplate(box: Infobox, template: string): Infobox {
 // Database
 // ---------------------------------------------------------------------------
 
+/** A small key/value row for app settings like "when did we last back up". */
+export interface MetaEntry {
+  key: string
+  value: unknown
+}
+
 export class LoreDB extends Dexie {
   pages!: Table<LorePage, string>
   maps!: Table<WorldMap, string>
   pins!: Table<MapPin, string>
+  meta!: Table<MetaEntry, string>
 
   constructor() {
     super('lore-app')
@@ -136,10 +143,25 @@ export class LoreDB extends Dexie {
       maps: 'id, name, createdAt',
       pins: 'id, mapId, pageId',
     })
+    // v2 adds a meta table (app settings); existing data is preserved.
+    this.version(2).stores({
+      pages: 'id, title, category, updatedAt',
+      maps: 'id, name, createdAt',
+      pins: 'id, mapId, pageId',
+      meta: '&key',
+    })
   }
 }
 
 export const db = new LoreDB()
+
+export async function getMeta<T = unknown>(key: string): Promise<T | undefined> {
+  return (await db.meta.get(key))?.value as T | undefined
+}
+
+export async function setMeta(key: string, value: unknown): Promise<void> {
+  await db.meta.put({ key, value })
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
