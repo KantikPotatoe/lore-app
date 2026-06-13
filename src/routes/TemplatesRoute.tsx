@@ -6,6 +6,7 @@ import {
   updateTemplate,
   deleteTemplate,
   resetTemplate,
+  TYPE_COLORS,
   type InfoboxTemplate,
   type TemplateItem,
 } from '../db'
@@ -62,10 +63,11 @@ export default function TemplatesRoute() {
   return (
     <div className="templates-view content-pad">
       <header className="templates-header">
-        <h1>Infobox templates</h1>
+        <h1>Page types &amp; templates</h1>
         <p className="templates-intro">
-          Templates are starter rows for a page's infobox. Edit them here, or add your own —
-          changes apply the next time a template is chosen on a page.
+          Each type (Character, Country, Place…) is a coloured category plus the starter rows for
+          its infobox. Edit them here or add your own — new types appear in the type picker on every
+          page, and choosing a type fills in its infobox rows.
         </p>
       </header>
 
@@ -78,6 +80,7 @@ export default function TemplatesRoute() {
               className={t.id === selectedId ? 'template-pick active' : 'template-pick'}
               onClick={() => setSelectedId(t.id)}
             >
+              <span className="template-pick-dot" style={{ background: t.color }} />
               <span className="template-pick-name">{t.name}</span>
               {t.builtin && <span className="template-builtin-tag">built-in</span>}
             </button>
@@ -93,15 +96,35 @@ export default function TemplatesRoute() {
                 className="template-name-input"
                 value={selected.name}
                 onChange={(e) => updateTemplate(selected.id, { name: e.target.value })}
-                placeholder="Template name"
+                placeholder="Type name"
               />
               {selected.builtin ? (
-                <button className="mini-btn" onClick={() => resetTemplate(selected.id)} title="Restore shipped rows">
+                <button className="mini-btn" onClick={() => resetTemplate(selected.id)} title="Restore shipped colour and rows">
                   ↺ Reset
                 </button>
               ) : (
                 <button className="mini-btn danger" onClick={() => handleDelete(selected)}>Delete</button>
               )}
+            </div>
+
+            <div className="template-color-row">
+              <span className="template-color-label">Colour</span>
+              {TYPE_COLORS.map((c) => (
+                <button
+                  key={c}
+                  className={selected.color?.toLowerCase() === c ? 'color-swatch active' : 'color-swatch'}
+                  style={{ background: c }}
+                  title={c}
+                  onClick={() => updateTemplate(selected.id, { color: c })}
+                />
+              ))}
+              <input
+                type="color"
+                className="color-custom"
+                value={selected.color ?? '#a0a0a0'}
+                title="Custom colour"
+                onChange={(e) => updateTemplate(selected.id, { color: e.target.value })}
+              />
             </div>
 
             <div className="template-items">

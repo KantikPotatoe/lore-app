@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, updatePage, deletePage, getOrCreatePageByTitle, defaultInfobox, CATEGORIES, STATUSES, categoryColor, statusColor, pageStatus, type Infobox as InfoboxType } from '../db'
+import { db, updatePage, deletePage, getOrCreatePageByTitle, defaultInfobox, applyTemplate, STATUSES, categoryColor, statusColor, pageStatus, type Infobox as InfoboxType, type LorePage } from '../db'
 import LoreEditor from '../components/LoreEditor'
 import Infobox from '../components/Infobox'
 import Backlinks from '../components/Backlinks'
@@ -10,6 +10,7 @@ export default function PageRoute() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const page = useLiveQuery(() => db.pages.get(id), [id])
+  const templates = useLiveQuery(() => db.templates.orderBy('name').toArray(), []) ?? []
 
   const [editing, setEditing] = useState(false)
   const [tagInput, setTagInput] = useState('')
@@ -38,6 +39,15 @@ export default function PageRoute() {
 
   async function removeTag(tag: string) {
     await updatePage(id, { tags: page!.tags.filter((t) => t !== tag) })
+  }
+
+  // Changing a page's type also re-seeds its infobox from that template
+  // (keeping any values already filled in).
+  async function changeCategory(category: string) {
+    const changes: Partial<LorePage> = { category }
+    const tpl = templates.find((t) => t.name === category)
+    if (tpl && page!.infobox) changes.infobox = applyTemplate(page!.infobox, tpl)
+    await updatePage(id, changes)
   }
 
   async function handleDelete() {
@@ -73,10 +83,14 @@ export default function PageRoute() {
             <select
               className="category-select"
               value={page.category}
-              onChange={(e) => updatePage(id, { category: e.target.value })}
+              onChange={(e) => changeCategory(e.target.value)}
             >
-              {CATEGORIES.map((c) => (
-                <option key={c.name} value={c.name}>{c.name}</option>
+              {/* Keep the current type listed even if it was renamed/removed. */}
+              {!templates.some((t) => t.name === page.category) && (
+                <option value={page.category}>{page.category}</option>
+              )}
+              {templates.map((t) => (
+                <option key={t.id} value={t.name}>{t.name}</option>
               ))}
             </select>
           ) : (
