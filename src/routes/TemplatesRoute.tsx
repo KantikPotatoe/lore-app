@@ -6,6 +6,7 @@ import {
   updateTemplate,
   deleteTemplate,
   resetTemplate,
+  applyTemplateToPages,
   TYPE_COLORS,
   type InfoboxTemplate,
   type TemplateItem,
@@ -13,7 +14,9 @@ import {
 
 export default function TemplatesRoute() {
   const templates = useLiveQuery(() => db.templates.orderBy('name').toArray(), [])
+  const pages = useLiveQuery(() => db.pages.toArray(), []) ?? []
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [note, setNote] = useState('')
 
   // Default the selection to the first template once they've loaded.
   useEffect(() => {
@@ -22,9 +25,19 @@ export default function TemplatesRoute() {
     }
   }, [templates, selectedId])
 
+  // Clear the "applied" note whenever you switch templates.
+  useEffect(() => setNote(''), [selectedId])
+
   if (!templates) return <div className="content-pad">Loading…</div>
 
   const selected = templates.find((t) => t.id === selectedId) ?? null
+  const usedByCount = selected ? pages.filter((p) => p.infobox?.template === selected.name).length : 0
+
+  async function applyToPages() {
+    if (!selected) return
+    const n = await applyTemplateToPages(selected)
+    setNote(n === 0 ? 'No pages use this type yet.' : `Updated ${n} page${n === 1 ? '' : 's'}.`)
+  }
 
   async function handleNew() {
     const id = await createTemplate('New template')
@@ -152,6 +165,19 @@ export default function TemplatesRoute() {
             <div className="template-editor-actions">
               <button className="mini-btn" onClick={() => addItem({ label: 'New field' })}>＋ Add field</button>
               <button className="mini-btn" onClick={() => addItem({ label: 'Section', separator: true })}>＋ Add separator</button>
+            </div>
+
+            <div className="template-apply-row">
+              <button className="mini-btn" disabled={usedByCount === 0} onClick={applyToPages}>
+                Apply to existing pages
+              </button>
+              <span className="template-apply-hint">
+                {note || (
+                  usedByCount === 0
+                    ? 'No pages use this type yet.'
+                    : `Push these rows to ${usedByCount} page${usedByCount === 1 ? '' : 's'} using this type (values are kept).`
+                )}
+              </span>
             </div>
           </section>
         ) : (

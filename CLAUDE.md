@@ -56,7 +56,7 @@ Uses Leaflet with a custom CRS so the uploaded image fills the map bounds. Pins 
 
 ### Infobox & backlinks — `src/components/Infobox.tsx`, `Backlinks.tsx`
 
-The infobox is rendered in `PageRoute`'s right-hand aside: an image (data URL), caption, and a mix of label/value fields and full-width separator headings. The template picker (`applyTemplate` in `db.ts`) swaps row presets while preserving entered values, and links to `/templates` for editing the templates themselves. Separators with no filled field beneath them are hidden in view mode (`dropEmptySeparators`). Field values support `[[links]]`, rendered via `WikiText.tsx` (the shared helper that turns `[[Name]]` in a plain string into clickable links). Below it, `Backlinks` lists every page that links here.
+The infobox is rendered in `PageRoute`'s right-hand aside: an image (data URL), caption, and a mix of label/value fields and full-width separator headings. The template picker / page-type select (`applyTemplate` in `db.ts`) **replaces** the infobox rows with the chosen template's rows — carrying over values for matching labels, but not keeping leftover rows from the old template — and links to `/templates` for editing the templates themselves. Editing a template does **not** auto-rewrite existing pages; the Templates screen offers an explicit "Apply to existing pages" button (`applyTemplateToPages`, value-preserving) for that. Separators with no filled field beneath them are hidden in view mode (`dropEmptySeparators`). Field values support `[[links]]`, rendered via `WikiText.tsx` (the shared helper that turns `[[Name]]` in a plain string into clickable links). Below it, `Backlinks` lists every page that links here.
 
 ### Backup & data safety — `src/backup.ts`
 
