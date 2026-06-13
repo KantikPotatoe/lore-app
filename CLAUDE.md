@@ -19,17 +19,18 @@ There are no automated tests in this project.
 
 ### Data layer — `src/db.ts`
 
-The single source of truth for everything: TypeScript interfaces, the Dexie schema, all CRUD helpers, infobox templates, category definitions, and backup (export/import) functions. When touching data concerns, start here.
+The single source of truth: TypeScript interfaces, the Dexie schema, all CRUD helpers, infobox templates, category/status definitions, backlink computation, and export/import. When touching data concerns, start here.
 
 Key types:
-- `LorePage` — a wiki article (character, place, event, etc.) with rich-text `content` (HTML), `tags`, a `summary`, and an optional `Infobox`
-- `Infobox` / `InfoboxField` — the wiki-style sidebar card; fields are seeded from `INFOBOX_TEMPLATES` but are fully customisable per page
+- `LorePage` — a wiki article with rich-text `content` (HTML), `summary`, `tags`, a `status`, and an optional `Infobox`
+- `Infobox` / `InfoboxField` — the wiki-style sidebar card; fields are seeded from `INFOBOX_TEMPLATES` but fully customisable per page
 - `WorldMap` — an uploaded image stored as a data URL
 - `MapPin` — a lat/lng point on a map, optionally linked to a `LorePage`
+- `MetaEntry` — key/value app settings (e.g. last-backup time); Dexie schema is at **v2**
 
-`CATEGORIES` (with accent colors) and `INFOBOX_TEMPLATES` (starter field labels per category) are both defined in `db.ts` — add new ones there.
+Defined here (add new ones here): `CATEGORIES` (accent colors), `INFOBOX_TEMPLATES` (starter fields per category), `STATUSES` (Stub/Draft/WIP/Complete) with `pageStatus()`/`statusColor()`. `getBacklinks()`/`linkedTitles()` compute reverse links by scanning each page's body `<a data-wikilink>` anchors and infobox `[[…]]` values.
 
-`useLiveQuery` from `dexie-react-hooks` is used throughout the UI for reactive reads; changes to IndexedDB automatically re-render components.
+`useLiveQuery` from `dexie-react-hooks` is used throughout for reactive reads; IndexedDB changes auto-re-render components.
 
 ### Routing — `src/App.tsx`
 
@@ -37,9 +38,11 @@ Three routes inside a persistent `<Sidebar>` + `<main>` shell:
 
 | Path | Component | Purpose |
 |---|---|---|
-| `/` | `HomeRoute` | Dashboard: recent pages, stats, export/import |
-| `/page/:id` | `PageRoute` | Full page view/edit with infobox |
+| `/` | `HomeRoute` | Dashboard: recent pages, stats, backup & safety |
+| `/page/:id` | `PageRoute` | Page view/edit: header (title/category/status), editor, infobox, backlinks |
 | `/map` | `MapRoute` | Leaflet map with pins |
+
+`<BackupBanner>` (in the shell) reminds you when there are un-backed-up changes. The sidebar lists pages by category with a status pip on each.
 
 ### Rich text editor — `src/components/LoreEditor.tsx` + `src/extensions/WikiLink.ts`
 
@@ -49,10 +52,10 @@ Three routes inside a persistent `<Sidebar>` + `<main>` shell:
 
 Uses Leaflet with a custom CRS so the uploaded image fills the map bounds. Pins are stored in `db.pins` and can be linked to a lore page.
 
-### Infobox — `src/components/Infobox.tsx`
+### Infobox & backlinks — `src/components/Infobox.tsx`, `Backlinks.tsx`
 
-Rendered in the right-hand aside of `PageRoute`. Supports an image (stored as a data URL), a caption, and a list of label/value fields. The template picker (`applyTemplate` in `db.ts`) swaps field presets while preserving any values already entered.
+The infobox is rendered in `PageRoute`'s right-hand aside: an image (data URL), caption, and label/value fields. The template picker (`applyTemplate` in `db.ts`) swaps field presets while preserving entered values. Field values support `[[links]]`, rendered via `WikiText.tsx` (the shared helper that turns `[[Name]]` in a plain string into clickable links). Below it, `Backlinks` lists every page that links here.
 
-### Backup
+### Backup & data safety — `src/backup.ts`
 
-`exportAll()` / `importAll()` in `db.ts` serialise the entire database to/from a JSON file. Import replaces all existing data — there is no merge.
+`exportAll()` / `importAll()` in `db.ts` serialise the whole DB to/from JSON (import **replaces** all data — no merge). `backup.ts` wraps this with: a timestamped `downloadBackup()` that records the time in the `meta` table, `requestPersistentStorage()` (called on app start) to avoid eviction, and `hasUnbackedUpChanges()` powering the banner and Home status. Data is browser-local, so off-device backups matter.
