@@ -5,12 +5,16 @@ import BackupBanner from './components/BackupBanner'
 import HomeRoute from './routes/HomeRoute'
 import PageRoute from './routes/PageRoute'
 import MapRoute from './routes/MapRoute'
+import TemplatesRoute from './routes/TemplatesRoute'
 import { requestPersistentStorage } from './backup'
+import { seedTemplates } from './db'
 
 export default function App() {
-  // Ask the browser to keep our data persistently so it isn't auto-evicted.
+  // Ask the browser to keep our data persistently so it isn't auto-evicted, and
+  // make sure the built-in infobox templates exist.
   useEffect(() => {
     requestPersistentStorage()
+    seedTemplates()
   }, [])
 
   return (
@@ -22,6 +26,7 @@ export default function App() {
           <Route path="/" element={<HomeRoute />} />
           <Route path="/page/:id" element={<PageRoute />} />
           <Route path="/map" element={<MapRoute />} />
+          <Route path="/templates" element={<TemplatesRoute />} />
         </Routes>
       </main>
     </div>

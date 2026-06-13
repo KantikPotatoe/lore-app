@@ -23,12 +23,13 @@ The single source of truth: TypeScript interfaces, the Dexie schema, all CRUD he
 
 Key types:
 - `LorePage` — a wiki article with rich-text `content` (HTML), `summary`, `tags`, a `status`, and an optional `Infobox`
-- `Infobox` / `InfoboxField` — the wiki-style sidebar card; fields are seeded from `INFOBOX_TEMPLATES` but fully customisable per page
+- `Infobox` / `InfoboxField` — the wiki-style sidebar card; fields are seeded from a template but fully customisable per page. A field with `kind: 'separator'` is a full-width section heading (its `label` is the heading; `value` is unused)
+- `InfoboxTemplate` / `TemplateItem` — a named, ordered list of starter rows (fields or separators) stored in the `templates` table; editable from the Templates screen
 - `WorldMap` — an uploaded image stored as a data URL
 - `MapPin` — a lat/lng point on a map, optionally linked to a `LorePage`
-- `MetaEntry` — key/value app settings (e.g. last-backup time); Dexie schema is at **v2**
+- `MetaEntry` — key/value app settings (e.g. last-backup time); Dexie schema is at **v3**
 
-Defined here (add new ones here): `CATEGORIES` (accent colors), `INFOBOX_TEMPLATES` (starter fields per category), `STATUSES` (Stub/Draft/WIP/Complete) with `pageStatus()`/`statusColor()`. `getBacklinks()`/`linkedTitles()` compute reverse links by scanning each page's body `<a data-wikilink>` anchors and infobox `[[…]]` values.
+Defined here (add new ones here): `CATEGORIES` (accent colors), `BUILTIN_TEMPLATES` (starter rows per category, some with separators already placed), `STATUSES` (Stub/Draft/WIP/Complete) with `pageStatus()`/`statusColor()`. Templates are DB-backed: `seedTemplates()` (called on app start) adds any missing built-ins without overwriting edits; `getTemplates()`/`createTemplate()`/`updateTemplate()`/`deleteTemplate()`/`resetTemplate()` are the CRUD helpers, and `applyTemplate()` swaps a page's infobox rows while preserving entered values. `getBacklinks()`/`linkedTitles()` compute reverse links by scanning each page's body `<a data-wikilink>` anchors and infobox `[[…]]` values.
 
 `useLiveQuery` from `dexie-react-hooks` is used throughout for reactive reads; IndexedDB changes auto-re-render components.
 
@@ -41,6 +42,7 @@ Three routes inside a persistent `<Sidebar>` + `<main>` shell:
 | `/` | `HomeRoute` | Dashboard: recent pages, stats, backup & safety |
 | `/page/:id` | `PageRoute` | Page view/edit: header (title/category/status), editor, infobox, backlinks |
 | `/map` | `MapRoute` | Leaflet map with pins |
+| `/templates` | `TemplatesRoute` | Manage infobox templates: add/rename/delete, edit & reorder field/separator rows |
 
 `<BackupBanner>` (in the shell) reminds you when there are un-backed-up changes. The sidebar lists pages by category with a status pip on each.
 
@@ -54,8 +56,12 @@ Uses Leaflet with a custom CRS so the uploaded image fills the map bounds. Pins 
 
 ### Infobox & backlinks — `src/components/Infobox.tsx`, `Backlinks.tsx`
 
-The infobox is rendered in `PageRoute`'s right-hand aside: an image (data URL), caption, and label/value fields. The template picker (`applyTemplate` in `db.ts`) swaps field presets while preserving entered values. Field values support `[[links]]`, rendered via `WikiText.tsx` (the shared helper that turns `[[Name]]` in a plain string into clickable links). Below it, `Backlinks` lists every page that links here.
+The infobox is rendered in `PageRoute`'s right-hand aside: an image (data URL), caption, and a mix of label/value fields and full-width separator headings. The template picker (`applyTemplate` in `db.ts`) swaps row presets while preserving entered values, and links to `/templates` for editing the templates themselves. Separators with no filled field beneath them are hidden in view mode (`dropEmptySeparators`). Field values support `[[links]]`, rendered via `WikiText.tsx` (the shared helper that turns `[[Name]]` in a plain string into clickable links). Below it, `Backlinks` lists every page that links here.
 
 ### Backup & data safety — `src/backup.ts`
 
-`exportAll()` / `importAll()` in `db.ts` serialise the whole DB to/from JSON (import **replaces** all data — no merge). `backup.ts` wraps this with: a timestamped `downloadBackup()` that records the time in the `meta` table, `requestPersistentStorage()` (called on app start) to avoid eviction, and `hasUnbackedUpChanges()` powering the banner and Home status. Data is browser-local, so off-device backups matter.
+`exportAll()` / `importAll()` in `db.ts` serialise the whole DB (pages, maps, pins, and templates) to/from JSON (import **replaces** all data — no merge; older backups without templates re-seed the built-ins). `backup.ts` wraps this with: a timestamped `downloadBackup()` that records the time in the `meta` table, `requestPersistentStorage()` (called on app start) to avoid eviction, and `hasUnbackedUpChanges()` powering the banner and Home status. Data is browser-local, so off-device backups matter.
+
+## Git Usage
+
+Follow Gitflow structures for workflow with git.

@@ -51,6 +51,7 @@ export default function Sidebar() {
       <nav className="top-nav">
         <Link to="/" className={location.pathname === '/' ? 'nav-item active' : 'nav-item'}>Home</Link>
         <Link to="/map" className={location.pathname.startsWith('/map') ? 'nav-item active' : 'nav-item'}>Maps</Link>
+        <Link to="/templates" className={location.pathname.startsWith('/templates') ? 'nav-item active' : 'nav-item'}>Templates</Link>
       </nav>
 
       <div className="sidebar-actions">
