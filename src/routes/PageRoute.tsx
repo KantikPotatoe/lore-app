@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, updatePage, deletePage, getOrCreatePageByTitle, CATEGORIES, categoryColor } from '../db'
+import { db, updatePage, deletePage, getOrCreatePageByTitle, defaultInfobox, CATEGORIES, categoryColor, type Infobox as InfoboxType } from '../db'
 import LoreEditor from '../components/LoreEditor'
+import Infobox from '../components/Infobox'
 
 export default function PageRoute() {
   const { id = '' } = useParams()
@@ -111,13 +112,39 @@ export default function PageRoute() {
         </div>
       </header>
 
-      <LoreEditor
-        key={id}
-        content={page.content}
-        editable={editing}
-        onChange={(html) => updatePage(id, { content: html })}
-        onWikiClick={followWikiLink}
-      />
+      <div className="page-body">
+        <div className="page-main">
+          <LoreEditor
+            key={id}
+            content={page.content}
+            editable={editing}
+            onChange={(html) => updatePage(id, { content: html })}
+            onWikiClick={followWikiLink}
+          />
+        </div>
+
+        <div className="page-aside">
+          {page.infobox ? (
+            <Infobox
+              box={page.infobox}
+              editable={editing}
+              title={page.title}
+              accent={categoryColor(page.category)}
+              onChange={(box: InfoboxType) => updatePage(id, { infobox: box })}
+              onRemove={() => updatePage(id, { infobox: undefined })}
+            />
+          ) : (
+            editing && (
+              <button
+                className="ghost-btn add-infobox-btn"
+                onClick={() => updatePage(id, { infobox: defaultInfobox(page.category) })}
+              >
+                ＋ Add infobox
+              </button>
+            )
+          )}
+        </div>
+      </div>
     </div>
   )
 }
