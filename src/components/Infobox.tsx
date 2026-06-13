@@ -5,6 +5,7 @@ import {
   INFOBOX_TEMPLATE_NAMES,
   applyTemplate,
 } from '../db'
+import WikiText from './WikiText'
 
 interface Props {
   box: Infobox
@@ -17,9 +18,11 @@ interface Props {
   title: string
   /** Accent color (from the page category) for the heading bar. */
   accent: string
+  /** Follow a [[wiki link]] in a field value (view mode). */
+  onWikiClick: (title: string) => void
 }
 
-export default function Infobox({ box, editable, onChange, onRemove, title, accent }: Props) {
+export default function Infobox({ box, editable, onChange, onRemove, title, accent, onWikiClick }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const filledFields = box.fields.filter((f) => f.value.trim())
@@ -114,7 +117,9 @@ export default function Infobox({ box, editable, onChange, onRemove, title, acce
           : filledFields.map((f) => (
               <div key={f.id} className="infobox-row">
                 <span className="infobox-label">{f.label}</span>
-                <span className="infobox-value">{f.value}</span>
+                <span className="infobox-value">
+                  <WikiText value={f.value} onWikiClick={onWikiClick} />
+                </span>
               </div>
             ))}
       </div>
@@ -123,6 +128,7 @@ export default function Infobox({ box, editable, onChange, onRemove, title, acce
         <div className="infobox-actions">
           <button className="mini-btn" onClick={addField}>＋ Add field</button>
           <button className="mini-btn danger" onClick={onRemove}>Delete infobox</button>
+          <span className="infobox-hint">Use [[Name]] to link a page</span>
         </div>
       )}
     </aside>

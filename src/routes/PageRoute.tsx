@@ -136,6 +136,7 @@ export default function PageRoute() {
               accent={categoryColor(page.category)}
               onChange={(box: InfoboxType) => updatePage(id, { infobox: box })}
               onRemove={() => updatePage(id, { infobox: undefined })}
+              onWikiClick={followWikiLink}
             />
           ) : (
             editing && (
