@@ -6,6 +6,22 @@ import Dexie, { type Table } from 'dexie'
 // Everything you write is stored locally in your browser (IndexedDB) via Dexie.
 // Nothing leaves your machine. Use the Export button to make backup files.
 
+/** One row of an infobox: a labelled piece of information. */
+export interface InfoboxField {
+  id: string
+  label: string
+  value: string
+}
+
+/** The wiki-style sidebar box on a page: a picture plus labelled fields.
+ *  Which fields appear is seeded from a template (see INFOBOX_TEMPLATES). */
+export interface Infobox {
+  template: string // which template the fields came from
+  image: string | null // data URL of the picture, or null
+  caption: string // optional caption under the image
+  fields: InfoboxField[]
+}
+
 /** A single lore page: a character, country, place, item, event, etc. */
 export interface LorePage {
   id: string
@@ -14,6 +30,7 @@ export interface LorePage {
   content: string // rich-text HTML produced by the editor
   summary: string // short one-line description, shown in lists
   tags: string[]
+  infobox?: Infobox // optional wiki infobox (older pages may not have one)
   createdAt: number
   updatedAt: number
 }
@@ -54,6 +71,55 @@ export function categoryColor(name: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Infobox templates
+// ---------------------------------------------------------------------------
+// Each template is just a list of starter field labels. Pick a different
+// template and the fields change. You can still rename, add, or remove fields
+// on any page — templates are only a convenient starting point.
+export const INFOBOX_TEMPLATES: Record<string, string[]> = {
+  Character: ['Epithet', 'Species', 'Gender', 'Age', 'Status', 'Affiliation', 'Occupation', 'Born', 'Died'],
+  Country: ['Capital', 'Government', 'Ruler', 'Population', 'Languages', 'Currency', 'Formed'],
+  Place: ['Type', 'Region', 'Population', 'Ruler', 'Founded', 'Notable for'],
+  Faction: ['Type', 'Leader', 'Headquarters', 'Founded', 'Members', 'Allies', 'Enemies'],
+  Item: ['Type', 'Owner', 'Creator', 'Origin', 'Material', 'Powers'],
+  Event: ['Type', 'Date', 'Location', 'Participants', 'Outcome'],
+  Lore: ['Type', 'Related to'],
+}
+
+export const INFOBOX_TEMPLATE_NAMES = Object.keys(INFOBOX_TEMPLATES)
+
+function fieldsForTemplate(template: string): InfoboxField[] {
+  return (INFOBOX_TEMPLATES[template] ?? []).map((label) => ({
+    id: crypto.randomUUID(),
+    label,
+    value: '',
+  }))
+}
+
+/** A fresh infobox seeded from the template matching the given category. */
+export function defaultInfobox(category: string): Infobox {
+  const template = INFOBOX_TEMPLATES[category] ? category : 'Lore'
+  return { template, image: null, caption: '', fields: fieldsForTemplate(template) }
+}
+
+/** Switch an infobox to a new template, preserving any values the user already
+ *  filled in for fields with matching labels, and keeping custom fields. */
+export function applyTemplate(box: Infobox, template: string): Infobox {
+  const byLabel = new Map(box.fields.map((f) => [f.label.toLowerCase(), f]))
+  const templateLabels = INFOBOX_TEMPLATES[template] ?? []
+  const next: InfoboxField[] = templateLabels.map((label) => {
+    const existing = byLabel.get(label.toLowerCase())
+    return { id: existing?.id ?? crypto.randomUUID(), label, value: existing?.value ?? '' }
+  })
+  // Keep any custom fields the user added that aren't part of the new template.
+  const templateSet = new Set(templateLabels.map((l) => l.toLowerCase()))
+  for (const f of box.fields) {
+    if (!templateSet.has(f.label.toLowerCase())) next.push(f)
+  }
+  return { ...box, template, fields: next }
+}
+
+// ---------------------------------------------------------------------------
 // Database
 // ---------------------------------------------------------------------------
 
@@ -84,13 +150,15 @@ const now = () => Date.now()
 
 export async function createPage(partial: Partial<LorePage> = {}): Promise<string> {
   const id = uid()
+  const category = partial.category || 'Lore'
   const page: LorePage = {
     id,
     title: partial.title?.trim() || 'Untitled',
-    category: partial.category || 'Lore',
+    category,
     content: partial.content || '',
     summary: partial.summary || '',
     tags: partial.tags || [],
+    infobox: partial.infobox ?? defaultInfobox(category),
     createdAt: now(),
     updatedAt: now(),
   }
