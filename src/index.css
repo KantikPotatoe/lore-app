@@ -237,6 +237,7 @@ a { color: inherit; text-decoration: none; }
 .mini-btn:hover { background: var(--panel-2); color: var(--ink); }
 .mini-btn.danger { color: var(--danger); }
 .mini-btn.danger:hover { background: #2e1c1a; }
+.infobox-hint { flex-basis: 100%; color: var(--ink-faint); font-size: 11.5px; margin-top: 2px; }
 
 /* --- Backup banner & status ----------------------------------------------- */
 .backup-banner {
