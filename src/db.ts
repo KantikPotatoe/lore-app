@@ -168,6 +168,8 @@ export interface InfoboxTemplate {
 
 const sep = (label: string): TemplateItem => ({ label, separator: true })
 const f = (label: string): TemplateItem => ({ label })
+const ref = (label: string, refType: string): TemplateItem => ({ label, fieldType: 'ref', refType })
+const num = (label: string): TemplateItem => ({ label, fieldType: 'number' })
 const hue = (name: string): string => CATEGORIES.find((c) => c.name === name)?.color ?? '#a0a0a0'
 
 // The starter types. Each has a colour and a set of infobox rows; several ship
@@ -175,21 +177,21 @@ const hue = (name: string): string => CATEGORIES.find((c) => c.name === name)?.c
 export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
   {
     id: 'builtin-character', name: 'Character', color: hue('Character'), builtin: true, items: [
-      f('Epithet'), f('Species'), f('Gender'), f('Age'),
-      sep('Allegiance'), f('Status'), f('Affiliation'), f('Occupation'),
+      f('Epithet'), ref('Species', 'Species'), f('Gender'), num('Age'),
+      sep('Allegiance'), f('Status'), ref('Affiliation', 'Organization'), f('Occupation'),
       sep('Life'), f('Born'), f('Died'),
     ],
   },
   {
     id: 'builtin-country', name: 'Country', color: hue('Country'), builtin: true, items: [
-      f('Capital'), f('Government'), f('Ruler'),
-      sep('People'), f('Population'), f('Languages'),
+      ref('Capital', 'Settlement'), f('Government'), ref('Ruler', 'Character'),
+      sep('People'), num('Population'), ref('Languages', 'Language'),
       sep('Economy'), f('Currency'), f('Formed'),
     ],
   },
   {
     id: 'builtin-deity', name: 'Deity', color: hue('Deity'), builtin: true, items: [
-      f('Domain'), f('Pantheon'), f('Symbol'), f('Gender'), f('Alignment'),
+      f('Domain'), ref('Pantheon', 'Religion'), f('Symbol'), f('Gender'), f('Alignment'),
       sep('Worship'), f('Followers'), f('Holy day'), f('Temples'),
     ],
   },
@@ -201,30 +203,30 @@ export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
   },
   {
     id: 'builtin-item', name: 'Item', color: hue('Item'), builtin: true, items: [
-      f('Type'), f('Owner'), f('Creator'), f('Origin'), f('Material'), f('Powers'),
+      f('Type'), ref('Owner', 'Character'), ref('Creator', 'Character'), f('Origin'), ref('Material', 'Material'), f('Powers'),
     ],
   },
   {
     id: 'builtin-organization', name: 'Organization', color: hue('Organization'), builtin: true, items: [
-      f('Type'), f('Leader'), f('Headquarters'), f('Founded'), f('Members'),
-      sep('Relations'), f('Allies'), f('Rivals'),
+      f('Type'), ref('Leader', 'Character'), f('Headquarters'), f('Founded'), num('Members'),
+      sep('Relations'), ref('Allies', 'Organization'), ref('Rivals', 'Organization'),
     ],
   },
   {
     id: 'builtin-religion', name: 'Religion', color: hue('Religion'), builtin: true, items: [
-      f('Type'), f('Deities'), f('Founder'), f('Founded'),
+      f('Type'), ref('Deities', 'Deity'), ref('Founder', 'Character'), f('Founded'),
       sep('Practice'), f('Followers'), f('Holy text'), f('Rituals'),
     ],
   },
   {
     id: 'builtin-species', name: 'Species', color: hue('Species'), builtin: true, items: [
-      f('Classification'), f('Habitat'), f('Diet'), f('Lifespan'),
+      f('Classification'), f('Habitat'), f('Diet'), num('Lifespan'),
       sep('Traits'), f('Intelligence'), f('Size'), f('Distinctive features'),
     ],
   },
   {
     id: 'builtin-settlement', name: 'Settlement', color: hue('Settlement'), builtin: true, items: [
-      f('Type'), f('Region'), f('Population'), f('Government'), f('Ruler'), f('Founded'), f('Notable for'),
+      f('Type'), ref('Region', 'Geography'), num('Population'), f('Government'), ref('Ruler', 'Character'), f('Founded'), f('Notable for'),
     ],
   },
   {
@@ -235,18 +237,18 @@ export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
   {
     id: 'builtin-conflict', name: 'Conflict', color: hue('Conflict'), builtin: true, items: [
       f('Type'), f('Date'), f('Location'),
-      sep('Sides'), f('Belligerents'), f('Commanders'),
+      sep('Sides'), ref('Belligerents', 'Organization'), ref('Commanders', 'Character'),
       sep('Result'), f('Outcome'), f('Casualties'),
     ],
   },
   {
     id: 'builtin-document', name: 'Document', color: hue('Document'), builtin: true, items: [
-      f('Type'), f('Author'), f('Date written'), f('Language'), f('Location'), f('Contents'),
+      f('Type'), ref('Author', 'Character'), f('Date written'), ref('Language', 'Language'), f('Location'), f('Contents'),
     ],
   },
   {
     id: 'builtin-culture', name: 'Culture', color: hue('Culture'), builtin: true, items: [
-      f('Region'), f('People'), f('Language'), f('Religion'),
+      f('Region'), f('People'), ref('Language', 'Language'), ref('Religion', 'Religion'),
       sep('Ways'), f('Values'), f('Customs'), f('Arts'),
     ],
   },
@@ -267,17 +269,17 @@ export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
   },
   {
     id: 'builtin-technology', name: 'Technology', color: hue('Technology'), builtin: true, items: [
-      f('Type'), f('Inventor'), f('Invented'), f('Function'), f('Materials'), f('Users'),
+      f('Type'), ref('Inventor', 'Character'), f('Invented'), f('Function'), f('Materials'), f('Users'),
     ],
   },
   {
     id: 'builtin-tradition', name: 'Tradition', color: hue('Tradition'), builtin: true, items: [
-      f('Type'), f('Culture'), f('Occasion'), f('Participants'), f('Origin'),
+      f('Type'), ref('Culture', 'Culture'), f('Occasion'), f('Participants'), f('Origin'),
     ],
   },
   {
     id: 'builtin-spell', name: 'Spell', color: hue('Spell'), builtin: true, items: [
-      f('School'), f('Caster'), f('Effect'),
+      f('School'), ref('Caster', 'Character'), f('Effect'),
       sep('Casting'), f('Components'), f('Range'), f('Duration'),
     ],
   },
