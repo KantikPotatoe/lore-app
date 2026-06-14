@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, updatePage, deletePage, getOrCreatePageByTitle, defaultInfobox, applyTemplate, STATUSES, categoryColor, statusColor, pageStatus, type Infobox as InfoboxType, type LorePage } from '../db'
@@ -17,8 +17,14 @@ export default function PageRoute() {
   const [tagInput, setTagInput] = useState('')
   const mainRef = useRef<HTMLDivElement>(null)
 
-  // Start in view mode whenever you open a different page.
-  useEffect(() => setEditing(false), [id])
+  // Start in view mode whenever you open a different page. Resetting during
+  // render (rather than in an effect) avoids a flash of the previous page's
+  // edit state — see react.dev "You Might Not Need an Effect".
+  const [prevId, setPrevId] = useState(id)
+  if (id !== prevId) {
+    setPrevId(id)
+    setEditing(false)
+  }
 
   if (page === undefined) return <div className="content-pad">Loading…</div>
   if (page === null) return <div className="content-pad">This page doesn’t exist (it may have been deleted).</div>

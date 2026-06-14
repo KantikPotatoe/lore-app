@@ -60,9 +60,12 @@ export default function HomeRoute() {
   // fields clobber one another.
   const savedConfig = useLiveQuery(() => getMeta<Partial<HomeConfig>>(HOME_CONFIG_KEY), [])
   const [draft, setDraft] = useState<HomeConfig | null>(null)
-  useEffect(() => {
-    if (savedConfig !== undefined && draft === null) setDraft({ ...DEFAULT_HOME, ...(savedConfig ?? {}) })
-  }, [savedConfig, draft])
+  // Initialise the draft from the saved config the first time it loads. Adjusting
+  // state during render (instead of in an effect) is React's recommended pattern
+  // for deriving state from an async/changing input.
+  if (savedConfig !== undefined && draft === null) {
+    setDraft({ ...DEFAULT_HOME, ...(savedConfig ?? {}) })
+  }
   const cfg: HomeConfig = draft ?? { ...DEFAULT_HOME, ...(savedConfig ?? {}) }
 
   const pages = useLiveQuery(() => db.pages.toArray(), []) ?? NO_PAGES
