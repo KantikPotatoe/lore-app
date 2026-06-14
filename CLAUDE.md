@@ -55,9 +55,13 @@ The sidebar lists pages grouped by category; category headers are `<Link>`s to `
 
 Uses Leaflet with a custom CRS so the uploaded image fills the map bounds. Pins are stored in `db.pins` and can be linked to a lore page.
 
-### Infobox & backlinks — `src/components/Infobox.tsx`, `Backlinks.tsx`
+### Page right sidebar — `src/components/Infobox.tsx`, `TableOfContents.tsx`, `Backlinks.tsx`
 
-The infobox is rendered in `PageRoute`'s right-hand aside: an image (data URL), caption, and a mix of label/value fields and full-width separator headings. The template picker / page-type select (`applyTemplate` in `db.ts`) **replaces** the infobox rows with the chosen template's rows — carrying over values for matching labels, but not keeping leftover rows from the old template — and links to `/templates` for editing the templates themselves. Editing a template does **not** auto-rewrite existing pages; the Templates screen offers an explicit "Apply to existing pages" button (`applyTemplateToPages`, value-preserving) for that. Separators with no filled field beneath them are hidden in view mode (`dropEmptySeparators`). Field values support `[[links]]`, rendered via `WikiText.tsx` (the shared helper that turns `[[Name]]` in a plain string into clickable links). Below it, `Backlinks` lists every page that links here.
+The `.page-aside` is a sticky scrollable column (`position: sticky; max-height: calc(100vh - 32px); overflow-y: auto`) containing three stacked elements:
+
+1. **TableOfContents** — scans `h2`/`h3` tags in `.page-main` after render (`setTimeout(0)`), injects slugified `id` attributes, and renders a Contents nav. Only shown when there are more than 3 headings. Active section tracked via `IntersectionObserver`; clicking entries smooth-scrolls. Re-scans whenever `pageId` changes.
+2. **Infobox** — wiki-style sidebar card: image (data URL), caption, and label/value fields seeded from a template but fully customisable. `applyTemplate()` in `db.ts` swaps rows while preserving entered values. Separators with no filled field beneath are hidden in view mode (`dropEmptySeparators`). Field values support `[[links]]` via `WikiText.tsx`.
+3. **Backlinks** — lists every page that links here, computed by scanning `<a data-wikilink>` anchors and infobox `[[…]]` values.
 
 ### Home overview — `src/routes/HomeRoute.tsx`
 
