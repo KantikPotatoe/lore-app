@@ -6,15 +6,23 @@ import Dexie, { liveQuery, type Table } from 'dexie'
 // Everything you write is stored locally in your browser (IndexedDB) via Dexie.
 // Nothing leaves your machine. Use the Export button to make backup files.
 
+/** The kind of an infobox field. Absent ⇒ 'text' (so older data stays valid). */
+export type FieldType = 'text' | 'ref' | 'number'
+
 /** One row of an infobox.
  *  Normally a labelled piece of information (label + value). When `kind` is
  *  'separator' the row is instead a full-width section heading: `label` holds
- *  the heading text and `value` is unused. */
+ *  the heading text and `value` is unused.
+ *  `fieldType` makes a field typed: 'ref' fields store one or more `[[Title]]`
+ *  tokens in `value` and are bound to `refType` (a page-type name); 'number'
+ *  fields store a numeric string in `value`. */
 export interface InfoboxField {
   id: string
   label: string
   value: string
   kind?: 'separator'
+  fieldType?: FieldType
+  refType?: string
 }
 
 /** The wiki-style sidebar box on a page: a picture plus labelled fields.
@@ -139,10 +147,14 @@ export function pageStatus(page: Pick<LorePage, 'status'>): string {
 // and new ones added from the Templates screen. The built-ins below are seeded
 // on first run and re-seeded only if missing (your edits are never overwritten).
 
-/** One row in a template: a field, or a separator (`separator: true`). */
+/** One row in a template: a field, or a separator (`separator: true`).
+ *  A field may declare a `fieldType`; 'ref' fields also carry a `refType`
+ *  (the name of the page-type whose pages the field links to). */
 export interface TemplateItem {
   label: string
   separator?: boolean
+  fieldType?: FieldType
+  refType?: string
 }
 
 /** A page type: a coloured category plus the starter rows for its infobox. */
@@ -276,7 +288,7 @@ function itemsToFields(items: TemplateItem[]): InfoboxField[] {
   return items.map((it) =>
     it.separator
       ? { id: crypto.randomUUID(), label: it.label, value: '', kind: 'separator' as const }
-      : { id: crypto.randomUUID(), label: it.label, value: '' },
+      : { id: crypto.randomUUID(), label: it.label, value: '', fieldType: it.fieldType ?? 'text', refType: it.refType },
   )
 }
 
@@ -336,9 +348,30 @@ export function applyTemplate(box: Infobox, tpl: InfoboxTemplate): Infobox {
   const fields: InfoboxField[] = tpl.items.map((it) => {
     if (it.separator) return { id: crypto.randomUUID(), label: it.label, value: '', kind: 'separator' as const }
     const existing = byLabel.get(it.label.toLowerCase())
-    return { id: existing?.id ?? crypto.randomUUID(), label: it.label, value: existing?.value ?? '' }
+    return {
+      id: existing?.id ?? crypto.randomUUID(),
+      label: it.label,
+      value: existing?.value ?? '',
+      fieldType: it.fieldType ?? 'text',
+      refType: it.refType,
+    }
   })
   return { ...box, template: tpl.name, fields }
+}
+
+/** Parse a ref field's value ("[[A]] [[B]]") into an ordered list of titles. */
+export function parseRefTitles(value: string): string[] {
+  const out: string[] = []
+  for (const m of value.matchAll(/\[\[([^\]]+)\]\]/g)) {
+    const t = m[1].trim()
+    if (t) out.push(t)
+  }
+  return out
+}
+
+/** Serialise a list of titles back into a ref field value ("[[A]] [[B]]"). */
+export function serializeRefTitles(titles: string[]): string {
+  return titles.map((t) => `[[${t.trim()}]]`).filter((s) => s !== '[[]]').join(' ')
 }
 
 // -- template CRUD (used by the Templates screen) ---------------------------
