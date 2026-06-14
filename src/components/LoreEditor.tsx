@@ -9,6 +9,8 @@ interface Props {
   onChange: (html: string) => void
   /** Called when a [[wiki link]] is clicked, with the linked page title. */
   onWikiClick: (title: string) => void
+  /** Lowercased titles of existing pages; missing ones render as broken (view mode). */
+  knownTitles?: Set<string>
 }
 
 /** Toolbar button helper. */
@@ -31,7 +33,7 @@ function Btn({ active, onClick, title, children }: {
   )
 }
 
-export default function LoreEditor({ content, editable, onChange, onWikiClick }: Props) {
+export default function LoreEditor({ content, editable, onChange, onWikiClick, knownTitles }: Props) {
   const editor = useEditor({
     extensions: [StarterKit, WikiLink],
     content,
@@ -43,6 +45,17 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick }:
   useEffect(() => {
     editor?.setEditable(editable)
   }, [editable, editor])
+
+  // In view mode, flag links whose target page no longer exists. Mirrors the
+  // post-render DOM pass TableOfContents uses; edit mode is left untouched so
+  // authoring isn't disrupted.
+  useEffect(() => {
+    if (!editor || editable || !knownTitles) return
+    editor.view.dom.querySelectorAll('a.wiki-link').forEach((a) => {
+      const t = a.getAttribute('data-title')?.trim().toLowerCase()
+      a.classList.toggle('is-broken', !!t && !knownTitles.has(t))
+    })
+  }, [editor, editable, knownTitles, content])
 
   if (!editor) return null
 
