@@ -6,15 +6,23 @@ import Dexie, { liveQuery, type Table } from 'dexie'
 // Everything you write is stored locally in your browser (IndexedDB) via Dexie.
 // Nothing leaves your machine. Use the Export button to make backup files.
 
+/** The kind of an infobox field. Absent ⇒ 'text' (so older data stays valid). */
+export type FieldType = 'text' | 'ref' | 'number'
+
 /** One row of an infobox.
  *  Normally a labelled piece of information (label + value). When `kind` is
  *  'separator' the row is instead a full-width section heading: `label` holds
- *  the heading text and `value` is unused. */
+ *  the heading text and `value` is unused.
+ *  `fieldType` makes a field typed: 'ref' fields store one or more `[[Title]]`
+ *  tokens in `value` and are bound to `refType` (a page-type name); 'number'
+ *  fields store a numeric string in `value`. */
 export interface InfoboxField {
   id: string
   label: string
   value: string
   kind?: 'separator'
+  fieldType?: FieldType
+  refType?: string
 }
 
 /** The wiki-style sidebar box on a page: a picture plus labelled fields.
@@ -139,10 +147,14 @@ export function pageStatus(page: Pick<LorePage, 'status'>): string {
 // and new ones added from the Templates screen. The built-ins below are seeded
 // on first run and re-seeded only if missing (your edits are never overwritten).
 
-/** One row in a template: a field, or a separator (`separator: true`). */
+/** One row in a template: a field, or a separator (`separator: true`).
+ *  A field may declare a `fieldType`; 'ref' fields also carry a `refType`
+ *  (the name of the page-type whose pages the field links to). */
 export interface TemplateItem {
   label: string
   separator?: boolean
+  fieldType?: FieldType
+  refType?: string
 }
 
 /** A page type: a coloured category plus the starter rows for its infobox. */
@@ -156,6 +168,8 @@ export interface InfoboxTemplate {
 
 const sep = (label: string): TemplateItem => ({ label, separator: true })
 const f = (label: string): TemplateItem => ({ label })
+const ref = (label: string, refType: string): TemplateItem => ({ label, fieldType: 'ref', refType })
+const num = (label: string): TemplateItem => ({ label, fieldType: 'number' })
 const hue = (name: string): string => CATEGORIES.find((c) => c.name === name)?.color ?? '#a0a0a0'
 
 // The starter types. Each has a colour and a set of infobox rows; several ship
@@ -163,21 +177,21 @@ const hue = (name: string): string => CATEGORIES.find((c) => c.name === name)?.c
 export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
   {
     id: 'builtin-character', name: 'Character', color: hue('Character'), builtin: true, items: [
-      f('Epithet'), f('Species'), f('Gender'), f('Age'),
-      sep('Allegiance'), f('Status'), f('Affiliation'), f('Occupation'),
+      f('Epithet'), ref('Species', 'Species'), f('Gender'), num('Age'),
+      sep('Allegiance'), f('Status'), ref('Affiliation', 'Organization'), f('Occupation'),
       sep('Life'), f('Born'), f('Died'),
     ],
   },
   {
     id: 'builtin-country', name: 'Country', color: hue('Country'), builtin: true, items: [
-      f('Capital'), f('Government'), f('Ruler'),
-      sep('People'), f('Population'), f('Languages'),
+      ref('Capital', 'Settlement'), f('Government'), ref('Ruler', 'Character'),
+      sep('People'), num('Population'), ref('Languages', 'Language'),
       sep('Economy'), f('Currency'), f('Formed'),
     ],
   },
   {
     id: 'builtin-deity', name: 'Deity', color: hue('Deity'), builtin: true, items: [
-      f('Domain'), f('Pantheon'), f('Symbol'), f('Gender'), f('Alignment'),
+      f('Domain'), ref('Pantheon', 'Religion'), f('Symbol'), f('Gender'), f('Alignment'),
       sep('Worship'), f('Followers'), f('Holy day'), f('Temples'),
     ],
   },
@@ -189,30 +203,30 @@ export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
   },
   {
     id: 'builtin-item', name: 'Item', color: hue('Item'), builtin: true, items: [
-      f('Type'), f('Owner'), f('Creator'), f('Origin'), f('Material'), f('Powers'),
+      f('Type'), ref('Owner', 'Character'), ref('Creator', 'Character'), f('Origin'), ref('Material', 'Material'), f('Powers'),
     ],
   },
   {
     id: 'builtin-organization', name: 'Organization', color: hue('Organization'), builtin: true, items: [
-      f('Type'), f('Leader'), f('Headquarters'), f('Founded'), f('Members'),
-      sep('Relations'), f('Allies'), f('Rivals'),
+      f('Type'), ref('Leader', 'Character'), f('Headquarters'), f('Founded'), num('Members'),
+      sep('Relations'), ref('Allies', 'Organization'), ref('Rivals', 'Organization'),
     ],
   },
   {
     id: 'builtin-religion', name: 'Religion', color: hue('Religion'), builtin: true, items: [
-      f('Type'), f('Deities'), f('Founder'), f('Founded'),
+      f('Type'), ref('Deities', 'Deity'), ref('Founder', 'Character'), f('Founded'),
       sep('Practice'), f('Followers'), f('Holy text'), f('Rituals'),
     ],
   },
   {
     id: 'builtin-species', name: 'Species', color: hue('Species'), builtin: true, items: [
-      f('Classification'), f('Habitat'), f('Diet'), f('Lifespan'),
+      f('Classification'), f('Habitat'), f('Diet'), num('Lifespan'),
       sep('Traits'), f('Intelligence'), f('Size'), f('Distinctive features'),
     ],
   },
   {
     id: 'builtin-settlement', name: 'Settlement', color: hue('Settlement'), builtin: true, items: [
-      f('Type'), f('Region'), f('Population'), f('Government'), f('Ruler'), f('Founded'), f('Notable for'),
+      f('Type'), ref('Region', 'Geography'), num('Population'), f('Government'), ref('Ruler', 'Character'), f('Founded'), f('Notable for'),
     ],
   },
   {
@@ -223,18 +237,18 @@ export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
   {
     id: 'builtin-conflict', name: 'Conflict', color: hue('Conflict'), builtin: true, items: [
       f('Type'), f('Date'), f('Location'),
-      sep('Sides'), f('Belligerents'), f('Commanders'),
+      sep('Sides'), ref('Belligerents', 'Organization'), ref('Commanders', 'Character'),
       sep('Result'), f('Outcome'), f('Casualties'),
     ],
   },
   {
     id: 'builtin-document', name: 'Document', color: hue('Document'), builtin: true, items: [
-      f('Type'), f('Author'), f('Date written'), f('Language'), f('Location'), f('Contents'),
+      f('Type'), ref('Author', 'Character'), f('Date written'), ref('Language', 'Language'), f('Location'), f('Contents'),
     ],
   },
   {
     id: 'builtin-culture', name: 'Culture', color: hue('Culture'), builtin: true, items: [
-      f('Region'), f('People'), f('Language'), f('Religion'),
+      f('Region'), f('People'), ref('Language', 'Language'), ref('Religion', 'Religion'),
       sep('Ways'), f('Values'), f('Customs'), f('Arts'),
     ],
   },
@@ -255,17 +269,17 @@ export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
   },
   {
     id: 'builtin-technology', name: 'Technology', color: hue('Technology'), builtin: true, items: [
-      f('Type'), f('Inventor'), f('Invented'), f('Function'), f('Materials'), f('Users'),
+      f('Type'), ref('Inventor', 'Character'), f('Invented'), f('Function'), f('Materials'), f('Users'),
     ],
   },
   {
     id: 'builtin-tradition', name: 'Tradition', color: hue('Tradition'), builtin: true, items: [
-      f('Type'), f('Culture'), f('Occasion'), f('Participants'), f('Origin'),
+      f('Type'), ref('Culture', 'Culture'), f('Occasion'), f('Participants'), f('Origin'),
     ],
   },
   {
     id: 'builtin-spell', name: 'Spell', color: hue('Spell'), builtin: true, items: [
-      f('School'), f('Caster'), f('Effect'),
+      f('School'), ref('Caster', 'Character'), f('Effect'),
       sep('Casting'), f('Components'), f('Range'), f('Duration'),
     ],
   },
@@ -276,7 +290,7 @@ function itemsToFields(items: TemplateItem[]): InfoboxField[] {
   return items.map((it) =>
     it.separator
       ? { id: crypto.randomUUID(), label: it.label, value: '', kind: 'separator' as const }
-      : { id: crypto.randomUUID(), label: it.label, value: '' },
+      : { id: crypto.randomUUID(), label: it.label, value: '', fieldType: it.fieldType ?? 'text', refType: it.refType },
   )
 }
 
@@ -336,9 +350,30 @@ export function applyTemplate(box: Infobox, tpl: InfoboxTemplate): Infobox {
   const fields: InfoboxField[] = tpl.items.map((it) => {
     if (it.separator) return { id: crypto.randomUUID(), label: it.label, value: '', kind: 'separator' as const }
     const existing = byLabel.get(it.label.toLowerCase())
-    return { id: existing?.id ?? crypto.randomUUID(), label: it.label, value: existing?.value ?? '' }
+    return {
+      id: existing?.id ?? crypto.randomUUID(),
+      label: it.label,
+      value: existing?.value ?? '',
+      fieldType: it.fieldType ?? 'text',
+      refType: it.refType,
+    }
   })
   return { ...box, template: tpl.name, fields }
+}
+
+/** Parse a ref field's value ("[[A]] [[B]]") into an ordered list of titles. */
+export function parseRefTitles(value: string): string[] {
+  const out: string[] = []
+  for (const m of value.matchAll(/\[\[([^\]]+)\]\]/g)) {
+    const t = m[1].trim()
+    if (t) out.push(t)
+  }
+  return out
+}
+
+/** Serialise a list of titles back into a ref field value ("[[A]] [[B]]"). */
+export function serializeRefTitles(titles: string[]): string {
+  return titles.map((t) => t.trim()).filter(Boolean).map((t) => `[[${t}]]`).join(' ')
 }
 
 // -- template CRUD (used by the Templates screen) ---------------------------
