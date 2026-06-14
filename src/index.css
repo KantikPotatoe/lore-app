@@ -450,4 +450,76 @@ a { color: inherit; text-decoration: none; }
 .pin-panel-head h3 { margin: 0; font-family: var(--display); }
 .pin-panel label { font-size: 12px; color: var(--ink-faint); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
 .pin-panel input, .pin-panel select { background: var(--bg-2); border: 1px solid var(--border); color: var(--ink); border-radius: 7px; padding: 8px 10px; }
+
+/* ── Category Browse ─────────────────────────────────────────────────────── */
+.browse-route { padding: 32px 36px; max-width: 1200px; }
+
+.browse-header {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 28px; flex-wrap: wrap;
+}
+.browse-title {
+  font-family: var(--display); font-size: 28px; margin: 0; display: flex; align-items: baseline; gap: 10px;
+}
+.browse-count {
+  font-size: 15px; font-family: var(--sans); color: var(--ink-faint); font-weight: 400;
+}
+.browse-header .primary-btn { margin-left: auto; }
+
+.browse-empty {
+  color: var(--ink-dim); font-style: italic; margin-top: 40px; text-align: center;
+}
+.browse-empty .link-btn {
+  background: none; border: none; color: var(--accent); cursor: pointer; font-style: italic;
+  font-size: inherit; padding: 0; text-decoration: underline;
+}
+
+.browse-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.browse-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; text-decoration: none; color: inherit;
+  display: flex; flex-direction: column;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.browse-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.45);
+}
+
+.browse-card-img {
+  width: 100%; height: 160px; overflow: hidden; flex-shrink: 0;
+}
+.browse-card-img img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.browse-card-placeholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--display); font-size: 56px; opacity: 0.9;
+}
+
+.browse-card-body {
+  padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px;
+}
+.browse-card-name {
+  font-family: var(--display); font-size: 14px; font-weight: 600;
+  line-height: 1.3; color: var(--ink);
+}
+.browse-card-summary {
+  font-size: 12px; color: var(--ink-dim); line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.browse-card-status {
+  margin-top: 6px; font-size: 11px; border: 1px solid; border-radius: 20px;
+  padding: 1px 7px; align-self: flex-start; font-family: var(--sans);
+}
+
+/* Make category group headers in sidebar act as links */
+.group-label { text-decoration: none; }
+.group-label:hover { opacity: 0.85; }
+.group-label.active { text-decoration: underline; }
 .pin-panel-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }

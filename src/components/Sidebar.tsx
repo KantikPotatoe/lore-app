@@ -47,6 +47,10 @@ export default function Sidebar() {
     ? location.pathname.split('/page/')[1]
     : null
 
+  const browseCategory = location.pathname.startsWith('/browse/')
+    ? decodeURIComponent(location.pathname.split('/browse/')[1])
+    : null
+
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -74,9 +78,13 @@ export default function Sidebar() {
         {grouped.length === 0 && <p className="empty-hint">No pages yet. Create your first one!</p>}
         {grouped.map(([category, items]) => (
           <div key={category} className="page-group">
-            <div className="group-label" style={{ color: categoryColor(category) }}>
+            <Link
+              to={`/browse/${encodeURIComponent(category)}`}
+              className={`group-label${browseCategory === category ? ' active' : ''}`}
+              style={{ color: categoryColor(category) }}
+            >
               {category} <span className="group-count">{items.length}</span>
-            </div>
+            </Link>
             {items.map((p) => (
               <Link
                 key={p.id}

@@ -6,6 +6,7 @@ import HomeRoute from './routes/HomeRoute'
 import PageRoute from './routes/PageRoute'
 import MapRoute from './routes/MapRoute'
 import TemplatesRoute from './routes/TemplatesRoute'
+import CategoryRoute from './routes/CategoryRoute'
 import { requestPersistentStorage } from './backup'
 import { seedTemplates } from './db'
 
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/page/:id" element={<PageRoute />} />
           <Route path="/map" element={<MapRoute />} />
           <Route path="/templates" element={<TemplatesRoute />} />
+          <Route path="/browse/:category" element={<CategoryRoute />} />
         </Routes>
       </main>
     </div>
