@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, addMap, addPin, type MapPin } from '../db'
 import MapView from '../components/MapView'
+import { compressImage } from '../imageUtils'
 
 export default function MapRoute() {
   const navigate = useNavigate()
@@ -27,7 +28,7 @@ export default function MapRoute() {
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const dataUrl = await readFileAsDataURL(file)
+    const dataUrl = await compressImage(file, 4096)
     const { width, height } = await imageSize(dataUrl)
     const name = file.name.replace(/\.[^.]+$/, '')
     const id = await addMap(name, dataUrl, width, height)
@@ -119,15 +120,6 @@ export default function MapRoute() {
       </div>
     </div>
   )
-}
-
-function readFileAsDataURL(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
 }
 
 function imageSize(src: string): Promise<{ width: number; height: number }> {

@@ -8,6 +8,7 @@ import {
   applyTemplate,
 } from '../db'
 import WikiText from './WikiText'
+import { compressImage } from '../imageUtils'
 
 interface Props {
   box: Infobox
@@ -54,7 +55,7 @@ export default function Infobox({ box, editable, onChange, onRemove, title, acce
   async function pickImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const dataUrl = await readFileAsDataURL(file)
+    const dataUrl = await compressImage(file, 800)
     onChange({ ...box, image: dataUrl })
     e.target.value = ''
   }
@@ -184,11 +185,3 @@ function dropEmptySeparators(rows: InfoboxField[]): InfoboxField[] {
   })
 }
 
-function readFileAsDataURL(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
