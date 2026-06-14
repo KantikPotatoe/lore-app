@@ -11,6 +11,12 @@ npm run lint     # ESLint
 npm run preview  # serve the built dist/ locally
 ```
 
+The dev/preview server is **pinned to port 5174** (`strictPort` in `vite.config.ts`)
+and launched via `start-lore-codex.cmd`, which always opens Firefox at
+`http://localhost:5174`. This is deliberate: IndexedDB is keyed to the origin, so a
+drifting port would present an empty database and make saved lore look lost. Do not
+change the port in one place without changing it in the other.
+
 There are no automated tests in this project.
 
 ## Architecture
