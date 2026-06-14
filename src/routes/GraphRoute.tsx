@@ -80,7 +80,7 @@ export default function GraphRoute() {
         </select>
 
         <button
-          className={showArrows ? 'primary-btn' : 'ghost-btn'}
+          className={`ghost-btn${showArrows ? ' active' : ''}`}
           onClick={() => setShowArrows((v) => !v)}
         >
           {showArrows ? '➜ Arrows on' : '➜ Arrows off'}
