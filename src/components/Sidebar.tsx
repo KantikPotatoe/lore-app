@@ -1,14 +1,18 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, createPage, categoryColor, statusColor, pageStatus } from '../db'
+import { db, createPage, categoryColor, statusColor, pageStatus, type LorePage } from '../db'
+
+// Stable empty array so the live queries don't hand `useMemo` a fresh `[]`
+// (and force a recompute) on every render while data is still loading.
+const NO_PAGES: LorePage[] = []
 
 export default function Sidebar() {
   const navigate = useNavigate()
   const location = useLocation()
   const [search, setSearch] = useState('')
 
-  const pages = useLiveQuery(() => db.pages.orderBy('title').toArray(), []) ?? []
+  const pages = useLiveQuery(() => db.pages.orderBy('title').toArray(), []) ?? NO_PAGES
   const templates = useLiveQuery(() => db.templates.toArray(), []) ?? []
 
   const filtered = useMemo(() => {
