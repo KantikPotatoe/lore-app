@@ -56,6 +56,13 @@ export default function GraphView({
   const [hoverId, setHoverId] = useState<string | null>(null)
   const fgRef = useRef<ForceGraphMethods<GNode, GLink> | undefined>(undefined)
 
+  // Timestamp of the most recent selection, for the one-shot pulse.
+  const pulseStart = useRef<number>(0)
+  const pulseId = useRef<string | null>(null)
+  // Eased focus strength 0..1 and the last frame time, for the dim fade.
+  const focusAmt = useRef<number>(0)
+  const lastFrame = useRef<number>(0)
+
   // react-force-graph only emits single clicks; disambiguate a double-click
   // (navigate) from a single click (focus) with a short timer.
   const clickTimer = useRef<number | null>(null)
@@ -67,22 +74,48 @@ export default function GraphView({
     [focusId, data.links],
   )
 
+  useEffect(() => {
+    if (selectedId) {
+      pulseId.current = selectedId
+      pulseStart.current = performance.now()
+    }
+  }, [selectedId])
+
   const paintNode = useCallback(
     (node: GNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const x = node.x ?? 0
       const y = node.y ?? 0
-      const dimmed = neighbourIds != null && !neighbourIds.has(String(node.id))
-      const r = radiusFor(node.degree)
 
-      ctx.globalAlpha = dimmed ? 0.15 : 1
+      // Ease focusAmt toward 1 when something is focused, else back to 0.
+      const now = performance.now()
+      const dt = lastFrame.current ? now - lastFrame.current : 16
+      lastFrame.current = now
+      const target = neighbourIds != null ? 1 : 0
+      const step = dt / 200 // ~200ms full fade
+      focusAmt.current += Math.sign(target - focusAmt.current) * step
+      focusAmt.current = Math.max(0, Math.min(1, focusAmt.current))
+
+      const isDim = neighbourIds != null && !neighbourIds.has(String(node.id))
+      const baseAlpha = isDim ? 1 - 0.85 * focusAmt.current : 1
+
+      let r = radiusFor(node.degree)
+      // One-shot pop on the just-selected node.
+      if (pulseId.current === String(node.id)) {
+        const t = (now - pulseStart.current) / 300
+        if (t < 1) {
+          const ease = 1 - Math.pow(1 - t, 3) // easeOutCubic
+          r *= 1 + 0.4 * (1 - ease) // starts ~1.4x, settles to 1x
+        }
+      }
+
+      ctx.globalAlpha = baseAlpha
       ctx.beginPath()
       ctx.arc(x, y, r, 0, 2 * Math.PI)
       ctx.fillStyle = categoryColor(node.category)
       ctx.fill()
 
-      // Draw the title under the node once we are zoomed in enough to read it,
-      // or always for the hovered/neighbour nodes.
-      if (globalScale > 1.2 || (neighbourIds != null && !dimmed)) {
+      // Draw the title under the node once zoomed in, or for focused nodes.
+      if (globalScale > 1.2 || (neighbourIds != null && !isDim)) {
         const fontSize = 12 / globalScale
         ctx.font = `${fontSize}px sans-serif`
         ctx.textAlign = 'center'
