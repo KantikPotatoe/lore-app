@@ -148,11 +148,7 @@ export default function GraphRoute() {
 
         <button
           className={`ghost-btn${panelOpen ? ' active' : ''}`}
-          onClick={() => {
-            setPanelOpen((v) => !v)
-            // Let the canvas re-measure its parent after the layout changes.
-            requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
-          }}
+          onClick={() => setPanelOpen((v) => !v)}
         >
           {panelOpen ? '☰ Hide lists' : '☰ Hubs & orphans'}
         </button>

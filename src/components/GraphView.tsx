@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ForceGraph2D, {
   type ForceGraphMethods,
@@ -55,6 +55,23 @@ export default function GraphView({
   const navigate = useNavigate()
   const [hoverId, setHoverId] = useState<string | null>(null)
   const fgRef = useRef<ForceGraphMethods<GNode, GLink> | undefined>(undefined)
+
+  // react-force-graph sizes itself to the window unless given explicit
+  // width/height, which overflows our container (clipped, off-centre, and the
+  // graph fails to reflow when the side panel opens). Track the container's own
+  // size and feed it in instead.
+  const wrapRef = useRef<HTMLDivElement | null>(null)
+  const [size, setSize] = useState({ width: 0, height: 0 })
+  useLayoutEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      setSize({ width, height })
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   // Timestamp of the most recent selection, for the one-shot pulse.
   const pulseStart = useRef<number>(0)
@@ -153,10 +170,13 @@ export default function GraphView({
   )
 
   return (
-    <ForceGraph2D<GraphNode, GraphLink>
-      ref={fgRef}
-      graphData={data}
-      nodeId="id"
+    <div ref={wrapRef} style={{ width: '100%', height: '100%' }}>
+      <ForceGraph2D<GraphNode, GraphLink>
+        ref={fgRef}
+        width={size.width}
+        height={size.height}
+        graphData={data}
+        nodeId="id"
       nodeCanvasObject={paintNode}
       nodePointerAreaPaint={(node: GNode, color: string, ctx: CanvasRenderingContext2D) => {
         ctx.fillStyle = color
@@ -184,6 +204,7 @@ export default function GraphView({
       }}
       onBackgroundClick={() => onSelect(null)}
       backgroundColor="#15130f"
-    />
+      />
+    </div>
   )
 }
