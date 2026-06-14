@@ -35,16 +35,17 @@ Defined here (add new ones here): `BUILTIN_TEMPLATES` (the ~19 shipped page type
 
 ### Routing — `src/App.tsx`
 
-Three routes inside a persistent `<Sidebar>` + `<main>` shell:
+All routes live inside a persistent `<Sidebar>` + `<main>` shell with a `<BackupBanner>`.
 
 | Path | Component | Purpose |
 |---|---|---|
 | `/` | `HomeRoute` | Customisable overview: editable hero/about, wiki stats (by type & status), recent pages, backup & safety |
 | `/page/:id` | `PageRoute` | Page view/edit: header (title/category/status), editor, infobox, backlinks |
+| `/browse/:category` | `CategoryRoute` | Image grid of all pages in a category; clicking the category header in the sidebar navigates here |
 | `/map` | `MapRoute` | Leaflet map with pins |
 | `/templates` | `TemplatesRoute` | Manage infobox templates: add/rename/delete, edit & reorder field/separator rows |
 
-`<BackupBanner>` (in the shell) reminds you when there are un-backed-up changes. The sidebar lists pages by category with a status pip on each.
+The sidebar lists pages grouped by category; category headers are `<Link>`s to `/browse/:category`.
 
 ### Rich text editor — `src/components/LoreEditor.tsx` + `src/extensions/WikiLink.ts`
 
