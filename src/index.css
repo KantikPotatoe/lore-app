@@ -542,3 +542,50 @@ a { color: inherit; text-decoration: none; }
 .toc-entry:hover { color: var(--ink); }
 .toc-entry.toc-h3 { padding-left: 20px; }
 .toc-entry.active { color: var(--accent); border-left-color: var(--accent); }
+
+/* ---- Relationship graph -------------------------------------------------- */
+.graph-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.graph-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 4px 12px;
+}
+.graph-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.graph-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink-dim);
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+}
+.graph-chip:hover { background: var(--panel-2); }
+.graph-chip.off { opacity: 0.4; border-color: var(--border) !important; }
+.graph-hint {
+  color: var(--ink-faint);
+  font-size: 0.85rem;
+  margin-left: auto;
+}
+.graph-body {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.graph-empty { padding: 40px; }

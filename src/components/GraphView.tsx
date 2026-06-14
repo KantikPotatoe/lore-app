@@ -62,7 +62,7 @@ export default function GraphView({ data, showArrows }: { data: GraphData; showA
         ctx.font = `${fontSize}px sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
-        ctx.fillStyle = '#cdd3de'
+        ctx.fillStyle = '#e9e1d2'
         ctx.fillText(node.title, x, y + r + 1)
       }
       ctx.globalAlpha = 1
@@ -95,7 +95,7 @@ export default function GraphView({ data, showArrows }: { data: GraphData; showA
       linkDirectionalArrowRelPos={1}
       onNodeHover={(node) => setHoverId(node ? String(node.id) : null)}
       onNodeClick={(node) => navigate(`/page/${node.id}`)}
-      backgroundColor="#11141a"
+      backgroundColor="#15130f"
     />
   )
 }
