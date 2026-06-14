@@ -371,7 +371,7 @@ export function parseRefTitles(value: string): string[] {
 
 /** Serialise a list of titles back into a ref field value ("[[A]] [[B]]"). */
 export function serializeRefTitles(titles: string[]): string {
-  return titles.map((t) => `[[${t.trim()}]]`).filter((s) => s !== '[[]]').join(' ')
+  return titles.map((t) => t.trim()).filter(Boolean).map((t) => `[[${t}]]`).join(' ')
 }
 
 // -- template CRUD (used by the Templates screen) ---------------------------
