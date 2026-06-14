@@ -51,6 +51,26 @@ export function hasUnbackedUpChanges(lastBackup: number | null, latestChange: nu
   return latestChange > lastBackup
 }
 
+/**
+ * How many pages/maps have changed since the last backup. Used to turn the
+ * vague "you have changes" reminder into a concrete count. When there is no
+ * prior backup, `since` is 0 so every existing page/map counts.
+ */
+export async function unbackedChangeCount(lastBackup: number | null): Promise<number> {
+  const since = lastBackup ?? 0
+  const pages = await db.pages.where('updatedAt').above(since).count()
+  const maps = await db.maps.where('createdAt').above(since).count()
+  return pages + maps
+}
+
+const BACKUP_OVERDUE_MS = 7 * 24 * 60 * 60 * 1000 // one week
+
+/** True if a backup is overdue: never taken, or older than a week. */
+export function isBackupOverdue(lastBackup: number | null): boolean {
+  if (lastBackup === null) return true
+  return Date.now() - lastBackup > BACKUP_OVERDUE_MS
+}
+
 // ---------------------------------------------------------------------------
 // Formatting
 // ---------------------------------------------------------------------------

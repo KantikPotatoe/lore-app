@@ -385,6 +385,12 @@ a { color: inherit; text-decoration: none; }
   background: linear-gradient(180deg, #3a2c12, #2e2410); border-bottom: 1px solid #5a4416;
   color: #f1e2bf; padding: 9px 18px; font-size: 14px;
 }
+.backup-banner.is-urgent {
+  background: linear-gradient(180deg, #4a1d16, #381512);
+  border-bottom-color: #7a2a1d;
+  color: #f7ddd4;
+  font-weight: 600;
+}
 .backup-banner-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .backup-banner-btn {
   background: linear-gradient(180deg, var(--accent-soft), var(--accent)); color: #2a210b;

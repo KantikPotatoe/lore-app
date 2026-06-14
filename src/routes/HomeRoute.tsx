@@ -18,6 +18,7 @@ import {
   downloadBackup,
   latestChangeTime,
   hasUnbackedUpChanges,
+  unbackedChangeCount,
   isStoragePersisted,
   requestPersistentStorage,
   timeAgo,
@@ -78,6 +79,7 @@ export default function HomeRoute() {
   const latestChange = useLiveQuery(() => latestChangeTime(), []) ?? 0
 
   const needsBackup = hasUnbackedUpChanges(lastBackup ?? null, latestChange)
+  const unbacked = useLiveQuery(() => unbackedChangeCount(lastBackup ?? null), [lastBackup, latestChange]) ?? 0
 
   // -- overview figures -----------------------------------------------------
   const total = pages.length
@@ -285,7 +287,7 @@ export default function HomeRoute() {
           <div className={`status-row ${needsBackup ? 'warn' : 'ok'}`}>
             <span className="status-dot" />
             {needsBackup
-              ? 'You have changes that aren’t backed up yet.'
+              ? `${unbacked} change${unbacked === 1 ? '' : 's'} not backed up yet.`
               : 'All changes are backed up.'}
             <span className="status-sub">Last backup: {timeAgo(lastBackup ?? null)}</span>
           </div>
