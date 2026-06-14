@@ -153,7 +153,38 @@ export default function TemplatesRoute() {
                     placeholder={it.separator ? 'Section heading…' : 'Field label…'}
                     onChange={(e) => setItem(i, { label: e.target.value })}
                   />
-                  <span className="template-item-kind">{it.separator ? 'separator' : 'field'}</span>
+                  {it.separator ? (
+                    <span className="template-item-kind">separator</span>
+                  ) : (
+                    <>
+                      <select
+                        className="template-item-type"
+                        value={it.fieldType ?? 'text'}
+                        onChange={(e) => {
+                          const ft = e.target.value as 'text' | 'ref' | 'number'
+                          setItem(i, {
+                            fieldType: ft,
+                            refType: ft === 'ref' ? (it.refType ?? templates[0]?.name) : undefined,
+                          })
+                        }}
+                      >
+                        <option value="text">text</option>
+                        <option value="ref">page link</option>
+                        <option value="number">number</option>
+                      </select>
+                      {it.fieldType === 'ref' && (
+                        <select
+                          className="template-item-reftype"
+                          value={it.refType ?? ''}
+                          onChange={(e) => setItem(i, { refType: e.target.value })}
+                        >
+                          {templates.map((t) => (
+                            <option key={t.id} value={t.name}>{t.name}</option>
+                          ))}
+                        </select>
+                      )}
+                    </>
+                  )}
                   <button className="tag-x" title="Remove row" onClick={() => removeItem(i)}>×</button>
                 </div>
               ))}
