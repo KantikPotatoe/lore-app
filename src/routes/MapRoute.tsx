@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, addMap, addPin, type MapPin } from '../db'
+import { db, addMap, addPin, deleteMap, type MapPin } from '../db'
 import MapView from '../components/MapView'
 import { compressImage } from '../imageUtils'
 
@@ -69,6 +69,18 @@ export default function MapRoute() {
         </button>
         <button className="ghost-btn" onClick={() => fileRef.current?.click()}>⭱ New map</button>
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleUpload} />
+        <button
+          className="ghost-btn danger"
+          onClick={async () => {
+            if (!currentMap) return
+            if (!confirm(`Delete "${currentMap.name}" and all its pins? This cannot be undone.`)) return
+            setSelectedPinId(null)
+            setActiveId(null)
+            await deleteMap(currentMap.id)
+          }}
+        >
+          Delete map
+        </button>
         <span className="map-hint">{pins.length} pins</span>
       </div>
 

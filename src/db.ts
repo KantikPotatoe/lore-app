@@ -536,6 +536,13 @@ export async function addMap(name: string, image: string, width: number, height:
   return id
 }
 
+export async function deleteMap(mapId: string): Promise<void> {
+  await db.transaction('rw', db.maps, db.pins, async () => {
+    await db.maps.delete(mapId)
+    await db.pins.where('mapId').equals(mapId).delete()
+  })
+}
+
 export async function addPin(mapId: string, lat: number, lng: number): Promise<string> {
   const id = uid()
   await db.pins.add({ id, mapId, lat, lng, label: 'New pin', pageId: null })
