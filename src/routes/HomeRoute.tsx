@@ -5,6 +5,7 @@ import {
   db,
   createPage,
   importAll,
+  parseBackup,
   getMeta,
   setMeta,
   categoryColor,
@@ -12,10 +13,12 @@ import {
   pageStatus,
   STATUSES,
   type LorePage,
+  type BackupCounts,
 } from '../db'
 import {
   LAST_BACKUP_KEY,
   downloadBackup,
+  downloadPreImportBackup,
   latestChangeTime,
   hasUnbackedUpChanges,
   unbackedChangeCount,
@@ -23,6 +26,7 @@ import {
   requestPersistentStorage,
   timeAgo,
 } from '../backup'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 /** Personalisable bits of the home page, stored as one row in the meta table. */
 interface HomeConfig {
@@ -53,6 +57,11 @@ export default function HomeRoute() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [persisted, setPersisted] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
+  const [pendingImport, setPendingImport] = useState<{
+    json: string
+    current: BackupCounts
+    incoming: BackupCounts
+  } | null>(null)
   const [customizing, setCustomizing] = useState(false)
 
   // Home config lives in the meta table. We load it once into local state and
@@ -128,11 +137,41 @@ export default function HomeRoute() {
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!confirm('Restoring will REPLACE all current data with this backup file. Continue?')) return
-    await importAll(await file.text())
-    alert('Backup restored.')
+    const text = await file.text()
+    let incoming: BackupCounts
+    try {
+      incoming = parseBackup(text).counts
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'That file could not be read.')
+      e.target.value = ''
+      return
+    }
+    const [pages, maps, pins, templates] = await Promise.all([
+      db.pages.count(),
+      db.maps.count(),
+      db.pins.count(),
+      db.templates.count(),
+    ])
+    setPendingImport({ json: text, current: { pages, maps, pins, templates }, incoming })
     e.target.value = ''
   }
+
+  async function confirmImport() {
+    if (!pendingImport) return
+    const { json } = pendingImport
+    setPendingImport(null)
+    setBusy(true)
+    try {
+      await downloadPreImportBackup()
+      await importAll(json)
+      alert('Backup restored.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const fmtCounts = (c: BackupCounts) =>
+    `${c.pages} pages · ${c.maps} maps · ${c.pins} pins · ${c.templates} page-types`
 
   return (
     <div className="home">
@@ -309,6 +348,27 @@ export default function HomeRoute() {
           <button className="ghost-btn" onClick={() => fileRef.current?.click()}>⭱ Restore from backup</button>
           <input ref={fileRef} type="file" accept="application/json" hidden onChange={handleImport} />
         </div>
+
+        <ConfirmDialog
+          open={pendingImport !== null}
+          danger
+          title="Replace your codex?"
+          confirmLabel="Replace everything"
+          cancelLabel="Cancel"
+          onConfirm={confirmImport}
+          onCancel={() => setPendingImport(null)}
+        >
+          {pendingImport && (
+            <>
+              <p><strong>This replaces everything currently in your codex.</strong></p>
+              <p>
+                <strong>Current:</strong> {fmtCounts(pendingImport.current)}<br />
+                <strong>Incoming:</strong> {fmtCounts(pendingImport.incoming)}
+              </p>
+              <p>Your current data will be downloaded as a recovery file first. <strong>This cannot be undone.</strong></p>
+            </>
+          )}
+        </ConfirmDialog>
 
         <div className="backup-tip">
           <strong>💡 Make backups automatic & safe (recommended):</strong>

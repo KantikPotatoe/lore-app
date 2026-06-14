@@ -22,19 +22,42 @@ export async function isStoragePersisted(): Promise<boolean> {
   return navigator.storage.persisted()
 }
 
-/** Download a timestamped JSON backup of everything and record the time. */
-export async function downloadBackup(): Promise<void> {
-  const json = await exportAll()
+/** Build a JSON blob and trigger a browser download of it. */
+function triggerDownload(json: string, filename: string): void {
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `lore-backup-${backupStamp()}.json`
+  a.download = filename
   document.body.appendChild(a)
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
+}
+
+/** Download a timestamped JSON backup of everything and record the time. */
+export async function downloadBackup(): Promise<void> {
+  const json = await exportAll()
+  triggerDownload(json, `lore-backup-${backupStamp()}.json`)
   await setMeta(LAST_BACKUP_KEY, Date.now())
+}
+
+/**
+ * Download a recovery copy of the current DB right before an import replaces it.
+ * Named distinctly from a normal backup, and deliberately does NOT stamp
+ * LAST_BACKUP_KEY (it's a safety artifact, and the data it captures is about to be
+ * replaced). Skips entirely when the DB is empty — nothing to recover.
+ */
+export async function downloadPreImportBackup(): Promise<void> {
+  const [pages, maps, pins, templates] = await Promise.all([
+    db.pages.count(),
+    db.maps.count(),
+    db.pins.count(),
+    db.templates.count(),
+  ])
+  if (pages + maps + pins + templates === 0) return
+  const json = await exportAll()
+  triggerDownload(json, `lore-pre-import-${backupStamp()}.json`)
 }
 
 /** The most recent time any page or map changed — i.e. the data we'd lose. */
