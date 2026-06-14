@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, updatePage, deletePage, getOrCreatePageByTitle, defaultInfobox, applyTemplate, STATUSES, categoryColor, statusColor, pageStatus, type Infobox as InfoboxType, type LorePage } from '../db'
 import LoreEditor from '../components/LoreEditor'
 import Infobox from '../components/Infobox'
 import Backlinks from '../components/Backlinks'
+import TableOfContents from '../components/TableOfContents'
 
 export default function PageRoute() {
   const { id = '' } = useParams()
@@ -14,6 +15,7 @@ export default function PageRoute() {
 
   const [editing, setEditing] = useState(false)
   const [tagInput, setTagInput] = useState('')
+  const mainRef = useRef<HTMLDivElement>(null)
 
   // Start in view mode whenever you open a different page.
   useEffect(() => setEditing(false), [id])
@@ -148,7 +150,7 @@ export default function PageRoute() {
       </header>
 
       <div className="page-body">
-        <div className="page-main">
+        <div className="page-main" ref={mainRef}>
           <LoreEditor
             key={id}
             content={page.content}
@@ -159,6 +161,7 @@ export default function PageRoute() {
         </div>
 
         <div className="page-aside">
+          <TableOfContents containerRef={mainRef} pageId={page.id} />
           {page.infobox ? (
             <Infobox
               box={page.infobox}
