@@ -41,15 +41,17 @@ export default function TableOfContents({ containerRef, pageId }: Props) {
   }, [pageId, containerRef])
 
   // Track which heading is visible using IntersectionObserver.
+  // Use .content as the root so intersection is relative to the actual scroll container.
   useEffect(() => {
     if (entries.length === 0) return
     observerRef.current?.disconnect()
+    const scrollRoot = document.querySelector('.content') as HTMLElement | null
     observerRef.current = new IntersectionObserver(
       (obs) => {
         const visible = obs.filter((o) => o.isIntersecting)
         if (visible.length > 0) setActiveId(visible[0].target.id)
       },
-      { rootMargin: '-10% 0px -80% 0px' },
+      { root: scrollRoot, rootMargin: '-10% 0px -80% 0px' },
     )
     entries.forEach(({ id }) => {
       const el = document.getElementById(id)
@@ -70,7 +72,19 @@ export default function TableOfContents({ containerRef, pageId }: Props) {
           className={`toc-entry toc-h${e.level}${activeId === e.id ? ' active' : ''}`}
           onClick={(ev) => {
             ev.preventDefault()
-            document.getElementById(e.id)?.scrollIntoView({ behavior: 'smooth' })
+            const target = document.getElementById(e.id)
+            if (!target) return
+            const container = document.querySelector('.content') as HTMLElement | null
+            if (container) {
+              const top =
+                target.getBoundingClientRect().top -
+                container.getBoundingClientRect().top +
+                container.scrollTop -
+                16
+              container.scrollTo({ top, behavior: 'smooth' })
+            } else {
+              target.scrollIntoView({ behavior: 'smooth' })
+            }
             setActiveId(e.id)
           }}
         >
