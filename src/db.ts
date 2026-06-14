@@ -553,7 +553,7 @@ export async function exportAll(): Promise<string> {
     db.pins.toArray(),
     db.templates.toArray(),
   ])
-  return JSON.stringify({ version: 2, exportedAt: now(), pages, maps, pins, templates }, null, 2)
+  return JSON.stringify({ version: 2, exportedAt: now(), pages, maps, pins, templates })
 }
 
 export async function importAll(json: string): Promise<void> {
