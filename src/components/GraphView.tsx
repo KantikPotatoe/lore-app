@@ -91,6 +91,7 @@ export default function GraphView({ data, showArrows }: { data: GraphData; showA
         ctx.fill()
       }}
       linkColor={linkColor}
+      linkDirectionalArrowColor={linkColor}
       linkDirectionalArrowLength={showArrows ? 4 : 0}
       linkDirectionalArrowRelPos={1}
       onNodeHover={(node) => setHoverId(node ? String(node.id) : null)}
