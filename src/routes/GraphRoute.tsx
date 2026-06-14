@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, buildGraphData, categoryColor, type LorePage } from '../db'
 import GraphView from '../components/GraphView'
+import HubsOrphansPanel from '../components/HubsOrphansPanel'
 
 const NO_PAGES: LorePage[] = []
 
@@ -24,6 +25,9 @@ export default function GraphRoute() {
   const [hidden, setHidden] = useState<Set<string>>(new Set())
   const [tag, setTag] = useState('')
   const [showArrows, setShowArrows] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [panelOpen, setPanelOpen] = useState(false)
 
   const filtered = useMemo(() => {
     const nodes = full.nodes.filter(
@@ -39,6 +43,23 @@ export default function GraphRoute() {
     }
   }, [full, hidden, tag])
 
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+    return filtered.nodes
+      .filter((n) => n.title.toLowerCase().includes(q))
+      .slice(0, 8)
+  }, [query, filtered])
+
+  const hubs = useMemo(
+    () => [...filtered.nodes].sort((a, b) => b.degree - a.degree).slice(0, 10).filter((n) => n.degree > 0),
+    [filtered],
+  )
+  const orphans = useMemo(
+    () => filtered.nodes.filter((n) => n.degree === 0).sort((a, b) => a.title.localeCompare(b.title)),
+    [filtered],
+  )
+
   function toggleCategory(cat: string) {
     setHidden((prev) => {
       const next = new Set(prev)
@@ -46,6 +67,12 @@ export default function GraphRoute() {
       else next.add(cat)
       return next
     })
+  }
+
+  function selectNode(id: string) {
+    setSelectedId(null)
+    // Defer so the GraphView effect sees a real change and re-glides.
+    requestAnimationFrame(() => setSelectedId(id))
   }
 
   if (pages.length === 0) {
@@ -74,6 +101,39 @@ export default function GraphRoute() {
           ))}
         </div>
 
+        <div className="graph-search">
+          <input
+            type="text"
+            placeholder="Search pages…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setQuery('')
+              if (e.key === 'Enter' && matches.length > 0) {
+                selectNode(matches[0].id)
+                setQuery('')
+              }
+            }}
+          />
+          {matches.length > 0 && (
+            <ul className="graph-search-results">
+              {matches.map((n) => (
+                <li key={n.id}>
+                  <button
+                    onClick={() => {
+                      selectNode(n.id)
+                      setQuery('')
+                    }}
+                  >
+                    <span className="dot" style={{ background: categoryColor(n.category) }} />
+                    {n.title}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         <select value={tag} onChange={(e) => setTag(e.target.value)}>
           <option value="">All tags</option>
           {tags.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -86,6 +146,13 @@ export default function GraphRoute() {
           {showArrows ? '➜ Arrows on' : '➜ Arrows off'}
         </button>
 
+        <button
+          className={`ghost-btn${panelOpen ? ' active' : ''}`}
+          onClick={() => setPanelOpen((v) => !v)}
+        >
+          {panelOpen ? '☰ Hide lists' : '☰ Hubs & orphans'}
+        </button>
+
         <span className="graph-hint">
           {filtered.nodes.length} pages · {filtered.links.length} links
           {filtered.nodes.length > 300 && ' — filter by type or tag to declutter'}
@@ -93,7 +160,17 @@ export default function GraphRoute() {
       </div>
 
       <div className="graph-body">
-        <GraphView data={filtered} showArrows={showArrows} />
+        <div className="graph-canvas">
+          <GraphView
+            data={filtered}
+            showArrows={showArrows}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
+        </div>
+        {panelOpen && (
+          <HubsOrphansPanel hubs={hubs} orphans={orphans} onSelect={selectNode} />
+        )}
       </div>
     </div>
   )
