@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ForceGraph2D, { type NodeObject, type LinkObject } from 'react-force-graph-2d'
 import { categoryColor, type GraphData, type GraphNode, type GraphLink } from '../db'
@@ -24,23 +24,43 @@ function endId(end: string | GNode): string {
   return typeof end === 'object' ? String(end.id) : end
 }
 
-export default function GraphView({ data, showArrows }: { data: GraphData; showArrows: boolean }) {
+// The focus id (hover or selection) plus its direct neighbours. Everything else
+// is dimmed.
+function neighboursOf(id: string, links: GLink[]): Set<string> {
+  const set = new Set<string>([id])
+  for (const l of links) {
+    const s = endId(l.source)
+    const t = endId(l.target)
+    if (s === id) set.add(t)
+    if (t === id) set.add(s)
+  }
+  return set
+}
+
+export default function GraphView({
+  data,
+  showArrows,
+  selectedId,
+  onSelect,
+}: {
+  data: GraphData
+  showArrows: boolean
+  selectedId: string | null
+  onSelect: (id: string | null) => void
+}) {
   const navigate = useNavigate()
   const [hoverId, setHoverId] = useState<string | null>(null)
 
-  // For the hovered node, the set of node ids that are it or a direct neighbour.
-  // Everything else is dimmed while hovering.
-  const neighbourIds = useMemo(() => {
-    if (!hoverId) return null
-    const set = new Set<string>([hoverId])
-    for (const l of data.links as GLink[]) {
-      const s = endId(l.source)
-      const t = endId(l.target)
-      if (s === hoverId) set.add(t)
-      if (t === hoverId) set.add(s)
-    }
-    return set
-  }, [hoverId, data.links])
+  // react-force-graph only emits single clicks; disambiguate a double-click
+  // (navigate) from a single click (focus) with a short timer.
+  const clickTimer = useRef<number | null>(null)
+
+  // Hover takes precedence over the sticky selection for what gets highlighted.
+  const focusId = hoverId ?? selectedId
+  const neighbourIds = useMemo(
+    () => (focusId ? neighboursOf(focusId, data.links as GLink[]) : null),
+    [focusId, data.links],
+  )
 
   const paintNode = useCallback(
     (node: GNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -95,7 +115,20 @@ export default function GraphView({ data, showArrows }: { data: GraphData; showA
       linkDirectionalArrowLength={showArrows ? 4 : 0}
       linkDirectionalArrowRelPos={1}
       onNodeHover={(node) => setHoverId(node ? String(node.id) : null)}
-      onNodeClick={(node) => navigate(`/page/${node.id}`)}
+      onNodeClick={(node: GNode) => {
+        const id = String(node.id)
+        if (clickTimer.current != null) {
+          window.clearTimeout(clickTimer.current)
+          clickTimer.current = null
+          navigate(`/page/${id}`)
+        } else {
+          clickTimer.current = window.setTimeout(() => {
+            clickTimer.current = null
+            onSelect(id)
+          }, 250)
+        }
+      }}
+      onBackgroundClick={() => onSelect(null)}
       backgroundColor="#15130f"
     />
   )

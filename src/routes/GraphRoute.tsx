@@ -24,6 +24,7 @@ export default function GraphRoute() {
   const [hidden, setHidden] = useState<Set<string>>(new Set())
   const [tag, setTag] = useState('')
   const [showArrows, setShowArrows] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     const nodes = full.nodes.filter(
@@ -93,7 +94,12 @@ export default function GraphRoute() {
       </div>
 
       <div className="graph-body">
-        <GraphView data={filtered} showArrows={showArrows} />
+        <GraphView
+          data={filtered}
+          showArrows={showArrows}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+        />
       </div>
     </div>
   )
