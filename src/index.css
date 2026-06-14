@@ -102,6 +102,51 @@ a { color: inherit; text-decoration: none; }
 .ghost-btn.danger { color: var(--danger); }
 .ghost-btn.danger:hover { background: #2e1c1a; }
 
+/* --- Modal ---------------------------------------------------------------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+}
+.modal-dialog {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  max-width: 460px;
+  width: 100%;
+  padding: 22px 24px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+}
+.modal-title {
+  font-family: var(--display);
+  font-size: 20px;
+  color: var(--ink);
+  margin: 0 0 12px;
+}
+.modal-body {
+  color: var(--ink-dim);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+.modal-actions .primary-btn {
+  width: auto;
+}
+.primary-btn.danger {
+  background: linear-gradient(180deg, #d6786e, var(--danger));
+  color: #2a0f0c;
+}
+
 /* --- Home ----------------------------------------------------------------- */
 .home { max-width: 880px; margin: 0 auto; padding: 48px 40px 80px; }
 .home-hero h1 { font-family: var(--display); font-size: 40px; margin: 0 0 6px; color: var(--ink); }
