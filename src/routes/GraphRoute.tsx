@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, buildGraphData, categoryColor, type LorePage } from '../db'
 import GraphView from '../components/GraphView'
+import HubsOrphansPanel from '../components/HubsOrphansPanel'
 
 const NO_PAGES: LorePage[] = []
 
@@ -26,6 +27,7 @@ export default function GraphRoute() {
   const [showArrows, setShowArrows] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [panelOpen, setPanelOpen] = useState(false)
 
   const filtered = useMemo(() => {
     const nodes = full.nodes.filter(
@@ -48,6 +50,15 @@ export default function GraphRoute() {
       .filter((n) => n.title.toLowerCase().includes(q))
       .slice(0, 8)
   }, [query, filtered])
+
+  const hubs = useMemo(
+    () => [...filtered.nodes].sort((a, b) => b.degree - a.degree).slice(0, 10).filter((n) => n.degree > 0),
+    [filtered],
+  )
+  const orphans = useMemo(
+    () => filtered.nodes.filter((n) => n.degree === 0).sort((a, b) => a.title.localeCompare(b.title)),
+    [filtered],
+  )
 
   function toggleCategory(cat: string) {
     setHidden((prev) => {
@@ -135,6 +146,17 @@ export default function GraphRoute() {
           {showArrows ? '➜ Arrows on' : '➜ Arrows off'}
         </button>
 
+        <button
+          className={`ghost-btn${panelOpen ? ' active' : ''}`}
+          onClick={() => {
+            setPanelOpen((v) => !v)
+            // Let the canvas re-measure its parent after the layout changes.
+            requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
+          }}
+        >
+          {panelOpen ? '☰ Hide lists' : '☰ Hubs & orphans'}
+        </button>
+
         <span className="graph-hint">
           {filtered.nodes.length} pages · {filtered.links.length} links
           {filtered.nodes.length > 300 && ' — filter by type or tag to declutter'}
@@ -142,12 +164,17 @@ export default function GraphRoute() {
       </div>
 
       <div className="graph-body">
-        <GraphView
-          data={filtered}
-          showArrows={showArrows}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-        />
+        <div className="graph-canvas">
+          <GraphView
+            data={filtered}
+            showArrows={showArrows}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
+        </div>
+        {panelOpen && (
+          <HubsOrphansPanel hubs={hubs} orphans={orphans} onSelect={selectNode} />
+        )}
       </div>
     </div>
   )
