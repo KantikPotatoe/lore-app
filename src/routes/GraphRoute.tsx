@@ -25,6 +25,7 @@ export default function GraphRoute() {
   const [tag, setTag] = useState('')
   const [showArrows, setShowArrows] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
 
   const filtered = useMemo(() => {
     const nodes = full.nodes.filter(
@@ -40,6 +41,14 @@ export default function GraphRoute() {
     }
   }, [full, hidden, tag])
 
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+    return filtered.nodes
+      .filter((n) => n.title.toLowerCase().includes(q))
+      .slice(0, 8)
+  }, [query, filtered])
+
   function toggleCategory(cat: string) {
     setHidden((prev) => {
       const next = new Set(prev)
@@ -47,6 +56,12 @@ export default function GraphRoute() {
       else next.add(cat)
       return next
     })
+  }
+
+  function selectNode(id: string) {
+    setSelectedId(null)
+    // Defer so the GraphView effect sees a real change and re-glides.
+    requestAnimationFrame(() => setSelectedId(id))
   }
 
   if (pages.length === 0) {
@@ -73,6 +88,39 @@ export default function GraphRoute() {
               {cat}
             </button>
           ))}
+        </div>
+
+        <div className="graph-search">
+          <input
+            type="text"
+            placeholder="Search pages…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setQuery('')
+              if (e.key === 'Enter' && matches.length > 0) {
+                selectNode(matches[0].id)
+                setQuery('')
+              }
+            }}
+          />
+          {matches.length > 0 && (
+            <ul className="graph-search-results">
+              {matches.map((n) => (
+                <li key={n.id}>
+                  <button
+                    onClick={() => {
+                      selectNode(n.id)
+                      setQuery('')
+                    }}
+                  >
+                    <span className="dot" style={{ background: categoryColor(n.category) }} />
+                    {n.title}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <select value={tag} onChange={(e) => setTag(e.target.value)}>
