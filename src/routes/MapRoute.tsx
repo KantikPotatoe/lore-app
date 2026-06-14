@@ -28,7 +28,7 @@ export default function MapRoute() {
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const dataUrl = await compressImage(file, 4096)
+    const dataUrl = await compressImage(file, 8192, 0.92)
     const { width, height } = await imageSize(dataUrl)
     const name = file.name.replace(/\.[^.]+$/, '')
     const id = await addMap(name, dataUrl, width, height)
