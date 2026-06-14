@@ -24,9 +24,11 @@ interface Props {
   accent: string
   /** Follow a [[wiki link]] in a field value (view mode). */
   onWikiClick: (title: string) => void
+  /** Lowercased titles of existing pages, for broken-link styling. */
+  knownTitles?: Set<string>
 }
 
-export default function Infobox({ box, editable, onChange, onRemove, title, accent, onWikiClick }: Props) {
+export default function Infobox({ box, editable, onChange, onRemove, title, accent, onWikiClick, knownTitles }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const templates = useLiveQuery(() => db.templates.orderBy('name').toArray(), []) ?? []
 
@@ -169,7 +171,7 @@ export default function Infobox({ box, editable, onChange, onRemove, title, acce
                 <div key={fld.id} className="infobox-row">
                   <span className="infobox-label">{fld.label}</span>
                   <span className="infobox-value">
-                    <WikiText value={fld.value} onWikiClick={onWikiClick} />
+                    <WikiText value={fld.value} onWikiClick={onWikiClick} knownTitles={knownTitles} />
                   </span>
                 </div>
               ),
