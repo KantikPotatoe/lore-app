@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, updatePage, deletePage, getOrCreatePageByTitle, defaultInfobox, applyTemplate, STATUSES, categoryColor, statusColor, pageStatus, type Infobox as InfoboxType, type LorePage } from '../db'
+import { db, createPage, updatePage, renamePage, deletePage, findPageIdByTitle, defaultInfobox, applyTemplate, STATUSES, categoryColor, statusColor, pageStatus, type Infobox as InfoboxType, type LorePage } from '../db'
 import LoreEditor from '../components/LoreEditor'
 import Infobox from '../components/Infobox'
 import Backlinks from '../components/Backlinks'
@@ -15,7 +15,14 @@ export default function PageRoute() {
 
   const [editing, setEditing] = useState(false)
   const [tagInput, setTagInput] = useState('')
+  const [titleDraft, setTitleDraft] = useState<string | null>(null)
   const mainRef = useRef<HTMLDivElement>(null)
+
+  // Lowercased titles of all existing pages — drives broken-link styling.
+  const knownTitles = useLiveQuery(
+    async () => new Set((await db.pages.toArray()).map((p) => p.title.trim().toLowerCase())),
+    [],
+  )
 
   // Start in view mode whenever you open a different page. Resetting during
   // render (rather than in an effect) avoids a flash of the previous page's
@@ -24,6 +31,7 @@ export default function PageRoute() {
   if (id !== prevId) {
     setPrevId(id)
     setEditing(false)
+    setTitleDraft(null)
   }
 
   if (page === undefined) return <div className="content-pad">Loading…</div>
@@ -34,8 +42,26 @@ export default function PageRoute() {
   if (page.id !== id) return <div className="content-pad">Loading…</div>
 
   async function followWikiLink(title: string) {
-    const targetId = await getOrCreatePageByTitle(title)
-    navigate(`/page/${targetId}`)
+    const existing = await findPageIdByTitle(title)
+    if (existing) {
+      navigate(`/page/${existing}`)
+      return
+    }
+    if (!confirm(`"${title.trim()}" doesn't exist yet. Create it?`)) return
+    const newId = await createPage({ title: title.trim(), status: 'Stub' })
+    navigate(`/page/${newId}`)
+  }
+
+  async function commitTitle() {
+    if (titleDraft === null) return
+    const next = titleDraft.trim()
+    setTitleDraft(null)
+    if (!next || next === page!.title) return
+    try {
+      await renamePage(id, next)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Could not rename the page.')
+    }
   }
 
   async function addTag() {
@@ -71,15 +97,25 @@ export default function PageRoute() {
           {editing ? (
             <input
               className="title-input"
-              value={page.title}
-              onChange={(e) => updatePage(id, { title: e.target.value })}
+              value={titleDraft ?? page.title}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur()
+              }}
               placeholder="Page title"
             />
           ) : (
             <h1 className="page-title">{page.title}</h1>
           )}
           <div className="page-header-actions">
-            <button className="ghost-btn" onClick={() => setEditing((v) => !v)}>
+            <button
+              className="ghost-btn"
+              onClick={() => {
+                if (editing) commitTitle()
+                setEditing((v) => !v)
+              }}
+            >
               {editing ? '✓ Done' : '✎ Edit'}
             </button>
             <button className="ghost-btn danger" onClick={handleDelete}>🗑</button>
@@ -163,6 +199,7 @@ export default function PageRoute() {
             editable={editing}
             onChange={(html) => updatePage(id, { content: html })}
             onWikiClick={followWikiLink}
+            knownTitles={knownTitles}
           />
         </div>
 
@@ -177,6 +214,7 @@ export default function PageRoute() {
               onChange={(box: InfoboxType) => updatePage(id, { infobox: box })}
               onRemove={() => updatePage(id, { infobox: undefined })}
               onWikiClick={followWikiLink}
+              knownTitles={knownTitles}
             />
           ) : (
             editing && (

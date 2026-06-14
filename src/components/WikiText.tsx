@@ -9,9 +9,11 @@ const WIKILINK_RE = /\[\[([^\]]+)\]\]/g
 interface Props {
   value: string
   onWikiClick: (title: string) => void
+  /** Lowercased titles of existing pages; links not in the set render as broken. */
+  knownTitles?: Set<string>
 }
 
-export default function WikiText({ value, onWikiClick }: Props) {
+export default function WikiText({ value, onWikiClick, knownTitles }: Props) {
   const nodes: React.ReactNode[] = []
   const re = new RegExp(WIKILINK_RE) // fresh instance so lastIndex starts at 0
   let lastIndex = 0
@@ -21,10 +23,11 @@ export default function WikiText({ value, onWikiClick }: Props) {
   while ((match = re.exec(value)) !== null) {
     if (match.index > lastIndex) nodes.push(value.slice(lastIndex, match.index))
     const title = match[1].trim()
+    const broken = knownTitles ? !knownTitles.has(title.toLowerCase()) : false
     nodes.push(
       <a
         key={key++}
-        className="wiki-link"
+        className={broken ? 'wiki-link is-broken' : 'wiki-link'}
         onClick={(e) => {
           e.preventDefault()
           if (title) onWikiClick(title)

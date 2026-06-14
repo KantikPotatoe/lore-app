@@ -514,14 +514,86 @@ export async function deletePage(id: string): Promise<void> {
   await Promise.all(linked.map((p) => db.pins.update(p.id, { pageId: null })))
 }
 
-/** Find a page by its title (case-insensitive); create it if missing. */
-export async function getOrCreatePageByTitle(title: string): Promise<string> {
-  const trimmed = title.trim()
+/** Find an existing page's id by title (case-insensitive), or null. No creation —
+ *  clicking a link to a missing page is handled (with confirmation) by the caller. */
+export async function findPageIdByTitle(title: string): Promise<string | null> {
+  const trimmed = title.trim().toLowerCase()
   const all = await db.pages.toArray()
-  const match = all.find((p) => p.title.toLowerCase() === trimmed.toLowerCase())
-  if (match) return match.id
-  // A page conjured from a link starts life as a stub.
-  return createPage({ title: trimmed, status: 'Stub' })
+  return all.find((p) => p.title.trim().toLowerCase() === trimmed)?.id ?? null
+}
+
+/** Rewrite every reference to `oldTitle` into `newTitle` within one page's body
+ *  and infobox. Matches titles case-insensitively. Returns only the changed fields,
+ *  or null if this page referenced nothing (so untouched pages aren't re-written). */
+function rewriteLinksInPage(
+  page: LorePage,
+  oldTitle: string,
+  newTitle: string,
+): Partial<LorePage> | null {
+  const oldLc = oldTitle.trim().toLowerCase()
+  const out: Partial<LorePage> = {}
+  let changed = false
+
+  // Body: <a data-wikilink data-title="Old">Old</a> — rewrite attribute + text.
+  if (page.content && page.content.includes('data-wikilink')) {
+    const doc = new DOMParser().parseFromString(page.content, 'text/html')
+    let bodyChanged = false
+    doc.querySelectorAll('a[data-wikilink]').forEach((a) => {
+      if (a.getAttribute('data-title')?.trim().toLowerCase() === oldLc) {
+        a.setAttribute('data-title', newTitle)
+        a.textContent = newTitle
+        bodyChanged = true
+      }
+    })
+    if (bodyChanged) {
+      out.content = doc.body.innerHTML
+      changed = true
+    }
+  }
+
+  // Infobox: field values keep raw [[Name]] tokens (covers plain AND ref fields).
+  if (page.infobox) {
+    let boxChanged = false
+    const fields = page.infobox.fields.map((f) => {
+      const v = f.value.replace(/\[\[([^\]]+)\]\]/g, (m, inner) =>
+        inner.trim().toLowerCase() === oldLc ? `[[${newTitle}]]` : m,
+      )
+      if (v !== f.value) boxChanged = true
+      return v === f.value ? f : { ...f, value: v }
+    })
+    if (boxChanged) {
+      out.infobox = { ...page.infobox, fields }
+      changed = true
+    }
+  }
+
+  return changed ? out : null
+}
+
+/** Rename a page and rewrite every reference to it across all other pages, so no
+ *  [[links]] break. Throws if another page already holds the new title (which would
+ *  make links ambiguous). No-ops on an empty or unchanged title. */
+export async function renamePage(id: string, newTitle: string): Promise<void> {
+  const trimmed = newTitle.trim()
+  const page = await db.pages.get(id)
+  if (!page) return
+  const oldTitle = page.title
+  if (!trimmed || trimmed === oldTitle) return
+
+  const all = await db.pages.toArray()
+  const clash = all.find(
+    (p) => p.id !== id && p.title.trim().toLowerCase() === trimmed.toLowerCase(),
+  )
+  if (clash) throw new Error(`A page titled "${clash.title}" already exists.`)
+
+  await db.transaction('rw', db.pages, async () => {
+    await db.pages.update(id, { title: trimmed, updatedAt: now() })
+    for (const p of all) {
+      if (p.id === id) continue
+      const rewritten = rewriteLinksInPage(p, oldTitle, trimmed)
+      if (rewritten) await db.pages.update(p.id, { ...rewritten, updatedAt: now() })
+    }
+  })
 }
 
 // ---------------------------------------------------------------------------
