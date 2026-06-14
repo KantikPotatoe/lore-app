@@ -29,8 +29,8 @@ The single source of truth: TypeScript interfaces, the Dexie schema, all CRUD he
 
 Key types:
 - `LorePage` — a wiki article with rich-text `content` (HTML), `summary`, `tags`, a `status`, and an optional `Infobox`
-- `Infobox` / `InfoboxField` — the wiki-style sidebar card; fields are seeded from a template but fully customisable per page. A field with `kind: 'separator'` is a full-width section heading (its `label` is the heading; `value` is unused)
-- `InfoboxTemplate` / `TemplateItem` — a **page type**: a named, coloured category (`color`) plus an ordered list of starter infobox rows (fields or separators). Stored in the `templates` table and editable from the Templates screen. A page's `category` is the name of a template; choosing a type also seeds its infobox
+- `Infobox` / `InfoboxField` — the wiki-style sidebar card; fields are seeded from a template but fully customisable per page. A field with `kind: 'separator'` is a full-width section heading (its `label` is the heading; `value` is unused). A field can also be **typed** via `fieldType: 'text' | 'ref' | 'number'` (absent ⇒ `'text'`): a `'ref'` field links to pages of the type named in `refType` and stores them as `[[Title]]` tokens in `value` (so backlinks/graph need no special handling) — the edit UI uses `RefField.tsx` to search/create pages of that type; a `'number'` field stores a numeric string
+- `InfoboxTemplate` / `TemplateItem` — a **page type**: a named, coloured category (`color`) plus an ordered list of starter infobox rows (fields or separators). A `TemplateItem` carries the same optional `fieldType`/`refType`, so a type declares each field's kind (set per row on the Templates screen). Stored in the `templates` table and editable from the Templates screen. A page's `category` is the name of a template; choosing a type also seeds its infobox
 - `WorldMap` — an uploaded image stored as a data URL
 - `MapPin` — a lat/lng point on a map, optionally linked to a `LorePage`
 - `MetaEntry` — key/value app settings (e.g. last-backup time); Dexie schema is at **v3**
@@ -66,7 +66,7 @@ Uses Leaflet with a custom CRS so the uploaded image fills the map bounds. Pins 
 The `.page-aside` is a sticky scrollable column (`position: sticky; max-height: calc(100vh - 32px); overflow-y: auto`) containing three stacked elements:
 
 1. **TableOfContents** — scans `h2`/`h3` tags in `.page-main` after render (`setTimeout(0)`), injects slugified `id` attributes, and renders a Contents nav. Only shown when there are more than 3 headings. Active section tracked via `IntersectionObserver`; clicking entries smooth-scrolls. Re-scans whenever `pageId` changes.
-2. **Infobox** — wiki-style sidebar card: image (data URL), caption, and label/value fields seeded from a template but fully customisable. `applyTemplate()` in `db.ts` swaps rows while preserving entered values. Separators with no filled field beneath are hidden in view mode (`dropEmptySeparators`). Field values support `[[links]]` via `WikiText.tsx`.
+2. **Infobox** — wiki-style sidebar card: image (data URL), caption, and label/value fields seeded from a template but fully customisable. `applyTemplate()` in `db.ts` swaps rows while preserving entered values. Separators with no filled field beneath are hidden in view mode (`dropEmptySeparators`). Field values support `[[links]]` via `WikiText.tsx`. Typed fields branch only in edit mode: a `ref` field uses the `RefField.tsx` picker (chips + type-filtered search + inline "create page of this type") and a `number` field uses a numeric input; view mode is unchanged since ref values are `[[Title]]` tokens already rendered by `WikiText`.
 3. **Backlinks** — lists every page that links here, computed by scanning `<a data-wikilink>` anchors and infobox `[[…]]` values.
 
 ### Home overview — `src/routes/HomeRoute.tsx`
