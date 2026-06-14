@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   db,
@@ -18,20 +18,17 @@ export default function TemplatesRoute() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [note, setNote] = useState('')
 
-  // Default the selection to the first template once they've loaded.
-  useEffect(() => {
-    if (templates && templates.length && !templates.some((t) => t.id === selectedId)) {
-      setSelectedId(templates[0].id)
-    }
-  }, [templates, selectedId])
-
-  // Clear the "applied" note whenever you switch templates.
-  useEffect(() => setNote(''), [selectedId])
-
   if (!templates) return <div className="content-pad">Loading…</div>
 
-  const selected = templates.find((t) => t.id === selectedId) ?? null
+  // The selected template defaults to the first one until you pick another.
+  const selected = templates.find((t) => t.id === selectedId) ?? templates[0] ?? null
   const usedByCount = selected ? pages.filter((p) => p.infobox?.template === selected.name).length : 0
+
+  // Selecting a template also clears any "applied" note from the previous one.
+  function selectTemplate(id: string | null) {
+    setSelectedId(id)
+    setNote('')
+  }
 
   async function applyToPages() {
     if (!selected) return
@@ -41,13 +38,13 @@ export default function TemplatesRoute() {
 
   async function handleNew() {
     const id = await createTemplate('New template')
-    setSelectedId(id)
+    selectTemplate(id)
   }
 
   async function handleDelete(tpl: InfoboxTemplate) {
     if (!confirm(`Delete the "${tpl.name}" template? Pages already using it keep their fields.`)) return
     await deleteTemplate(tpl.id)
-    setSelectedId(null)
+    selectTemplate(null)
   }
 
   // -- item editing (operates on the selected template) ---------------------
@@ -78,7 +75,7 @@ export default function TemplatesRoute() {
       <header className="templates-header">
         <h1>Page types &amp; templates</h1>
         <p className="templates-intro">
-          Each type (Character, Country, Place…) is a coloured category plus the starter rows for
+          Each type (Character, Country, Deity…) is a coloured category plus the starter rows for
           its infobox. Edit them here or add your own — new types appear in the type picker on every
           page, and choosing a type fills in its infobox rows.
         </p>
@@ -90,8 +87,8 @@ export default function TemplatesRoute() {
           {templates.map((t) => (
             <button
               key={t.id}
-              className={t.id === selectedId ? 'template-pick active' : 'template-pick'}
-              onClick={() => setSelectedId(t.id)}
+              className={t.id === selected?.id ? 'template-pick active' : 'template-pick'}
+              onClick={() => selectTemplate(t.id)}
             >
               <span className="template-pick-dot" style={{ background: t.color }} />
               <span className="template-pick-name">{t.name}</span>

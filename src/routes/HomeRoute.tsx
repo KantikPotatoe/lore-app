@@ -11,6 +11,7 @@ import {
   statusColor,
   pageStatus,
   STATUSES,
+  type LorePage,
 } from '../db'
 import {
   LAST_BACKUP_KEY,
@@ -31,6 +32,10 @@ interface HomeConfig {
   showOverview: boolean
   showRecent: boolean
 }
+
+/** Stable empty array so the live query doesn't feed `useMemo` a fresh `[]`
+ *  (forcing a recompute) on every render while pages are still loading. */
+const NO_PAGES: LorePage[] = []
 
 const HOME_CONFIG_KEY = 'home-config'
 const DEFAULT_HOME: HomeConfig = {
@@ -60,7 +65,7 @@ export default function HomeRoute() {
   }, [savedConfig, draft])
   const cfg: HomeConfig = draft ?? { ...DEFAULT_HOME, ...(savedConfig ?? {}) }
 
-  const pages = useLiveQuery(() => db.pages.toArray(), []) ?? []
+  const pages = useLiveQuery(() => db.pages.toArray(), []) ?? NO_PAGES
   const recent = useLiveQuery(
     () => db.pages.orderBy('updatedAt').reverse().limit(8).toArray(),
     [],

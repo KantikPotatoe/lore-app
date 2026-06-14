@@ -18,9 +18,11 @@ export default function MapView({ map, pins, addMode, selectedPinId, onMapClick,
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const markersRef = useRef<Map<string, L.Marker>>(new Map())
-  // Keep latest callbacks in refs so we can attach the click handler once.
+  // Keep latest callbacks in a ref so we can attach the click handler once.
   const cbRef = useRef({ onMapClick, onPinClick })
-  cbRef.current = { onMapClick, onPinClick }
+  useEffect(() => {
+    cbRef.current = { onMapClick, onPinClick }
+  })
 
   // Create the Leaflet map once per world-map image.
   useEffect(() => {
@@ -37,10 +39,11 @@ export default function MapView({ map, pins, addMode, selectedPinId, onMapClick,
     lmap.fitBounds(bounds)
     lmap.on('click', (e) => cbRef.current.onMapClick(e.latlng.lat, e.latlng.lng))
     mapRef.current = lmap
+    const markers = markersRef.current
     return () => {
       lmap.remove()
       mapRef.current = null
-      markersRef.current.clear()
+      markers.clear()
     }
   }, [map.id, map.image, map.width, map.height])
 
