@@ -67,6 +67,11 @@ export default function GraphView({
   // (navigate) from a single click (focus) with a short timer.
   const clickTimer = useRef<number | null>(null)
 
+  // Cancel a pending single-click focus if the component unmounts mid-window.
+  useEffect(() => () => {
+    if (clickTimer.current != null) window.clearTimeout(clickTimer.current)
+  }, [])
+
   // Hover takes precedence over the sticky selection for what gets highlighted.
   const focusId = hoverId ?? selectedId
   const neighbourIds = useMemo(
