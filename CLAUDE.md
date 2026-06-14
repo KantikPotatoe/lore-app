@@ -76,7 +76,3 @@ The landing page is a customisable wiki overview. A `HomeConfig` (title, tagline
 ### Backup & data safety — `src/backup.ts`
 
 `exportAll()` / `importAll()` in `db.ts` serialise the whole DB (pages, maps, pins, and templates) to/from JSON (import **replaces** all data — no merge; older backups without templates re-seed the built-ins). `backup.ts` wraps this with: a timestamped `downloadBackup()` that records the time in the `meta` table, `requestPersistentStorage()` (called on app start) to avoid eviction, and `hasUnbackedUpChanges()` powering the banner and Home status. Data is browser-local, so off-device backups matter.
-
-## Git Usage
-
-Follow Gitflow structures for workflow with git.
