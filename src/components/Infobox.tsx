@@ -8,6 +8,7 @@ import {
   applyTemplate,
 } from '../db'
 import WikiText from './WikiText'
+import RefField from './RefField'
 import { compressImage } from '../imageUtils'
 
 interface Props {
@@ -135,12 +136,28 @@ export default function Infobox({ box, editable, onChange, onRemove, title, acce
                     value={fld.label}
                     onChange={(e) => setField(fld.id, { label: e.target.value })}
                   />
-                  <input
-                    className="infobox-value-input"
-                    placeholder="value…"
-                    value={fld.value}
-                    onChange={(e) => setField(fld.id, { value: e.target.value })}
-                  />
+                  {fld.fieldType === 'ref' && fld.refType ? (
+                    <RefField
+                      value={fld.value}
+                      refType={fld.refType}
+                      onChange={(value) => setField(fld.id, { value })}
+                    />
+                  ) : fld.fieldType === 'number' ? (
+                    <input
+                      className="infobox-value-input"
+                      type="number"
+                      placeholder="number…"
+                      value={fld.value}
+                      onChange={(e) => setField(fld.id, { value: e.target.value })}
+                    />
+                  ) : (
+                    <input
+                      className="infobox-value-input"
+                      placeholder="value…"
+                      value={fld.value}
+                      onChange={(e) => setField(fld.id, { value: e.target.value })}
+                    />
+                  )}
                   <button className="tag-x" title="Remove field" onClick={() => removeField(fld.id)}>×</button>
                 </div>
               ),
