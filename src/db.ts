@@ -655,6 +655,52 @@ export async function addPin(mapId: string, lat: number, lng: number): Promise<s
 // Backup / restore — your safety net
 // ---------------------------------------------------------------------------
 
+/** The shape produced by exportAll() and accepted by importAll(). */
+export interface BackupData {
+  version?: number
+  exportedAt?: number
+  pages: LorePage[]
+  maps?: WorldMap[]
+  pins?: MapPin[]
+  templates?: InfoboxTemplate[]
+}
+
+/** Counts of each record kind in a backup, for the import confirmation. */
+export interface BackupCounts {
+  pages: number
+  maps: number
+  pins: number
+  templates: number
+}
+
+/**
+ * Parse and validate a backup file. Throws a friendly Error if the text isn't a
+ * Lore Codex backup — this is what prevents a wrong file from wiping the DB, since
+ * importAll() calls it before any clear(). Only `pages` (an array) is required, so
+ * older backups without maps/pins/templates still load.
+ */
+export function parseBackup(json: string): { data: BackupData; counts: BackupCounts } {
+  let data: unknown
+  try {
+    data = JSON.parse(json)
+  } catch {
+    throw new Error("This file isn't valid JSON — it may be corrupted.")
+  }
+  if (!data || typeof data !== 'object' || !Array.isArray((data as BackupData).pages)) {
+    throw new Error("This doesn't look like a Lore Codex backup file. Nothing was changed.")
+  }
+  const d = data as BackupData
+  return {
+    data: d,
+    counts: {
+      pages: d.pages.length,
+      maps: Array.isArray(d.maps) ? d.maps.length : 0,
+      pins: Array.isArray(d.pins) ? d.pins.length : 0,
+      templates: Array.isArray(d.templates) ? d.templates.length : 0,
+    },
+  }
+}
+
 export async function exportAll(): Promise<string> {
   const [pages, maps, pins, templates] = await Promise.all([
     db.pages.toArray(),
@@ -666,10 +712,10 @@ export async function exportAll(): Promise<string> {
 }
 
 export async function importAll(json: string): Promise<void> {
-  const data = JSON.parse(json)
+  const { data } = parseBackup(json) // throws before any clear() on an invalid file
   await db.transaction('rw', db.pages, db.maps, db.pins, db.templates, async () => {
     await Promise.all([db.pages.clear(), db.maps.clear(), db.pins.clear(), db.templates.clear()])
-    if (data.pages) await db.pages.bulkAdd(data.pages)
+    await db.pages.bulkAdd(data.pages)
     if (data.maps) await db.maps.bulkAdd(data.maps)
     if (data.pins) await db.pins.bulkAdd(data.pins)
     if (data.templates) await db.templates.bulkAdd(data.templates)
