@@ -1,6 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import ForceGraph2D, { type NodeObject, type LinkObject } from 'react-force-graph-2d'
+import ForceGraph2D, {
+  type ForceGraphMethods,
+  type NodeObject,
+  type LinkObject,
+} from 'react-force-graph-2d'
 import { categoryColor, type GraphData, type GraphNode, type GraphLink } from '../db'
 
 // The force simulation augments our plain nodes/links in place (adds x/y and
@@ -50,6 +54,7 @@ export default function GraphView({
 }) {
   const navigate = useNavigate()
   const [hoverId, setHoverId] = useState<string | null>(null)
+  const fgRef = useRef<ForceGraphMethods<GNode, GLink> | undefined>(undefined)
 
   // react-force-graph only emits single clicks; disambiguate a double-click
   // (navigate) from a single click (focus) with a short timer.
@@ -90,6 +95,16 @@ export default function GraphView({
     [neighbourIds],
   )
 
+  // Ease the camera to the selected node. Coordinates are populated on the
+  // node objects by the running simulation.
+  useEffect(() => {
+    if (!selectedId || !fgRef.current) return
+    const node = (data.nodes as GNode[]).find((n) => String(n.id) === selectedId)
+    if (node?.x == null || node?.y == null) return
+    fgRef.current.centerAt(node.x, node.y, 450)
+    fgRef.current.zoom(2.5, 450)
+  }, [selectedId, data.nodes])
+
   const linkColor = useCallback(
     (link: GLink) => {
       if (neighbourIds == null) return 'rgba(160,160,160,0.35)'
@@ -101,6 +116,7 @@ export default function GraphView({
 
   return (
     <ForceGraph2D<GraphNode, GraphLink>
+      ref={fgRef}
       graphData={data}
       nodeId="id"
       nodeCanvasObject={paintNode}
