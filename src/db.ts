@@ -1,5 +1,6 @@
 import Dexie, { liveQuery, type Table } from 'dexie'
 import { dbNameFor, currentLoreId } from './loreId'
+import { dateToAbsolute } from './calendar'
 
 // ---------------------------------------------------------------------------
 // Data model
@@ -806,6 +807,86 @@ export async function addPin(mapId: string, lat: number, lng: number): Promise<s
   const id = uid()
   await db.pins.add({ id, mapId, lat, lng, label: 'New pin', pageId: null })
   return id
+}
+
+// ---------------------------------------------------------------------------
+// Timeline calendars — CRUD
+// ---------------------------------------------------------------------------
+
+const DEFAULT_CALENDAR_MONTHS: CalendarMonth[] = [
+  { name: 'January', days: 31 }, { name: 'February', days: 28 },
+  { name: 'March', days: 31 },   { name: 'April', days: 30 },
+  { name: 'May', days: 31 },     { name: 'June', days: 30 },
+  { name: 'July', days: 31 },    { name: 'August', days: 31 },
+  { name: 'September', days: 30 },{ name: 'October', days: 31 },
+  { name: 'November', days: 30 }, { name: 'December', days: 31 },
+]
+
+/**
+ * Seed a single "Standard Calendar" on first app start if no calendars exist yet.
+ * Safe to call repeatedly (checks count first). Modeled on seedTemplates().
+ */
+export async function seedDefaultCalendar(): Promise<void> {
+  const count = await db.calendars.count()
+  if (count > 0) return
+  await db.calendars.add({
+    id: uid(),
+    name: 'Standard Calendar',
+    anchor: 0,
+    months: DEFAULT_CALENDAR_MONTHS,
+    weekdays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    eras: [{ id: uid(), name: 'Common Era', startYear: 0 }],
+    createdAt: now(),
+  })
+}
+
+/** Create a new calendar with default months and weekdays. Returns its id. */
+export async function createCalendar(name: string): Promise<string> {
+  const id = uid()
+  await db.calendars.add({
+    id,
+    name: name.trim() || 'New Calendar',
+    anchor: 0,
+    months: DEFAULT_CALENDAR_MONTHS.map((m) => ({ ...m })),
+    weekdays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    eras: [],
+    createdAt: now(),
+  })
+  return id
+}
+
+/**
+ * Update a calendar. If months or anchor change, recomputes startAbsolute / endAbsolute
+ * for all events belonging to that calendar so sort order stays correct.
+ */
+export async function updateCalendar(id: string, changes: Partial<Calendar>): Promise<void> {
+  await db.calendars.update(id, changes)
+  if ('months' in changes || 'anchor' in changes) {
+    const cal = await db.calendars.get(id)
+    if (!cal) return
+    const events = await db.events.where('calendarId').equals(id).toArray()
+    await Promise.all(
+      events.map((e) => {
+        const startAbsolute = dateToAbsolute(cal, e.startYear, e.startMonth, e.startDay)
+        const endAbsolute =
+          e.endYear != null
+            ? dateToAbsolute(cal, e.endYear, e.endMonth ?? 0, e.endDay ?? 1)
+            : undefined
+        return db.events.update(e.id, { startAbsolute, endAbsolute })
+      }),
+    )
+  }
+}
+
+/**
+ * Delete a calendar and cascade-delete all its events.
+ * Mirrors the deleteMap pattern (transaction).
+ */
+export async function deleteCalendar(calendarId: string): Promise<void> {
+  await db.transaction('rw', db.calendars, db.events, async () => {
+    await db.calendars.delete(calendarId)
+    await db.events.where('calendarId').equals(calendarId).delete()
+  })
 }
 
 // ---------------------------------------------------------------------------
