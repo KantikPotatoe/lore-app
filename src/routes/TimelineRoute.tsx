@@ -4,11 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Calendar, type TimelineEvent, type LorePage } from '../db'
 import CalendarEditor from '../components/CalendarEditor'
 import EventEditor from '../components/EventEditor'
-function TimelineVertical(_p: {
-  events: TimelineEvent[]; calendars: Calendar[]
-  displayCalendar: Calendar | null; allPages: LorePage[]
-  onEdit: (e: TimelineEvent) => void
-}) { return null }
+import TimelineVertical from '../components/TimelineVertical'
 function TimelineHorizontal(_p: {
   events: TimelineEvent[]; calendars: Calendar[]
   displayCalendar: Calendar | null; allPages: LorePage[]
