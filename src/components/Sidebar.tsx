@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, createPage, categoryColor, statusColor, pageStatus, type LorePage } from '../db'
@@ -7,36 +7,23 @@ import { db, createPage, categoryColor, statusColor, pageStatus, type LorePage }
 // (and force a recompute) on every render while data is still loading.
 const NO_PAGES: LorePage[] = []
 
-export default function Sidebar() {
+export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const [search, setSearch] = useState('')
 
   const pages = useLiveQuery(() => db.pages.orderBy('title').toArray(), []) ?? NO_PAGES
   const templates = useLiveQuery(() => db.templates.toArray(), []) ?? []
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return pages
-    return pages.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) ||
-        p.summary.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q) ||
-        p.tags.some((t) => t.toLowerCase().includes(q)),
-    )
-  }, [pages, search])
-
-  // Group filtered pages by category.
+  // Group all pages by category.
   const grouped = useMemo(() => {
-    const map = new Map<string, typeof filtered>()
-    for (const p of filtered) {
+    const map = new Map<string, typeof pages>()
+    for (const p of pages) {
       const list = map.get(p.category) ?? []
       list.push(p)
       map.set(p.category, list)
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-  }, [filtered])
+  }, [pages])
 
   async function handleNew() {
     const id = await createPage()
@@ -71,8 +58,9 @@ export default function Sidebar() {
       <input
         className="search-box"
         placeholder="Search lore…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        readOnly
+        onFocus={onOpenSearch}
+        onClick={onOpenSearch}
       />
 
       <div className="page-list">

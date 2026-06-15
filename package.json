@@ -17,6 +17,8 @@
     "@tiptap/starter-kit": "^3.26.1",
     "dexie": "^4.4.3",
     "dexie-react-hooks": "^4.4.0",
+    "flexsearch": "^0.8.212",
+    "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
@@ -25,6 +27,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/flexsearch": "^0.7.6",
+    "@types/jszip": "^3.4.0",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",

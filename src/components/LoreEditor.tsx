@@ -5,6 +5,7 @@ import Image from '@tiptap/extension-image'
 import { TableKit } from '@tiptap/extension-table'
 import { WikiLink } from '../extensions/WikiLink'
 import { compressImage } from '../imageUtils'
+import { showWikiHover, scheduleWikiHoverClose } from '../wikiLinkHover'
 
 interface Props {
   content: string
@@ -192,7 +193,23 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
           )}
         </div>
       )}
-      <EditorContent editor={editor} onClick={handleClick} />
+      <div
+        onClick={handleClick}
+        onMouseOver={(e) => {
+          if (editable) return
+          const anchor = (e.target as Element).closest('a[data-wikilink]')
+          if (!anchor) return
+          const title = anchor.getAttribute('data-title')
+          if (title) showWikiHover(title, anchor.getBoundingClientRect())
+        }}
+        onMouseOut={(e) => {
+          if (editable) return
+          const anchor = (e.target as Element).closest('a[data-wikilink]')
+          if (anchor) scheduleWikiHoverClose()
+        }}
+      >
+        <EditorContent editor={editor} />
+      </div>
     </div>
   )
 }

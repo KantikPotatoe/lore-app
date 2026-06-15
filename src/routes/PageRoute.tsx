@@ -6,6 +6,7 @@ import LoreEditor from '../components/LoreEditor'
 import Infobox from '../components/Infobox'
 import Backlinks from '../components/Backlinks'
 import TableOfContents from '../components/TableOfContents'
+import { maybeTakeSnapshot } from '../snapshots'
 
 export default function PageRoute() {
   const { id = '' } = useParams()
@@ -112,7 +113,10 @@ export default function PageRoute() {
             <button
               className="ghost-btn"
               onClick={() => {
-                if (editing) commitTitle()
+                if (editing) {
+                  commitTitle()
+                  maybeTakeSnapshot()
+                }
                 setEditing((v) => !v)
               }}
             >

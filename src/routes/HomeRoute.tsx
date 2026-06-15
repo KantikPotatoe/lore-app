@@ -12,6 +12,7 @@ import {
   statusColor,
   pageStatus,
   STATUSES,
+  getSnapshots,
   type LorePage,
   type BackupCounts,
 } from '../db'
@@ -27,6 +28,7 @@ import {
   timeAgo,
 } from '../backup'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { exportAsHtml } from '../htmlExport'
 
 /** Personalisable bits of the home page, stored as one row in the meta table. */
 interface HomeConfig {
@@ -57,6 +59,7 @@ export default function HomeRoute() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [persisted, setPersisted] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [pendingImport, setPendingImport] = useState<{
     json: string
     current: BackupCounts
@@ -85,6 +88,7 @@ export default function HomeRoute() {
   ) ?? []
   const mapCount = useLiveQuery(() => db.maps.count(), []) ?? 0
   const lastBackup = useLiveQuery(async () => (await db.meta.get(LAST_BACKUP_KEY))?.value as number | undefined, [])
+  const snapshots = useLiveQuery(() => getSnapshots(), []) ?? []
   const latestChange = useLiveQuery(() => latestChangeTime(), []) ?? 0
 
   const needsBackup = hasUnbackedUpChanges(lastBackup ?? null, latestChange)
@@ -119,6 +123,15 @@ export default function HomeRoute() {
   async function handleNew() {
     const id = await createPage()
     navigate(`/page/${id}`)
+  }
+
+  async function handleExportHtml() {
+    setExporting(true)
+    try {
+      await exportAsHtml()
+    } finally {
+      setExporting(false)
+    }
   }
 
   async function handleBackup() {
@@ -319,6 +332,38 @@ export default function HomeRoute() {
         </section>
       )}
 
+      {/* Snapshots */}
+      <section className="home-section">
+        <h2>Auto-snapshots</h2>
+        {snapshots.length === 0 ? (
+          <p className="empty-hint">No snapshots yet. Snapshots are taken automatically after 50 page edits or 24 hours of activity.</p>
+        ) : (
+          <div className="snapshot-list">
+            {snapshots.map((snap) => (
+              <div key={snap.id} className="snapshot-row">
+                <div className="snapshot-meta">
+                  <span className="snapshot-time">{new Date(snap.timestamp).toLocaleString()}</span>
+                  <span className="snapshot-count">{snap.editCount} pages changed</span>
+                </div>
+                <button
+                  className="ghost-btn"
+                  disabled={busy}
+                  onClick={async () => {
+                    const { counts: incoming } = parseBackup(snap.data)
+                    const [pages, maps, pins, templates] = await Promise.all([
+                      db.pages.count(), db.maps.count(), db.pins.count(), db.templates.count(),
+                    ])
+                    setPendingImport({ json: snap.data, current: { pages, maps, pins, templates }, incoming })
+                  }}
+                >
+                  Restore
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       <section className="home-section backup">
         <h2>Backup &amp; safety</h2>
 
@@ -347,6 +392,9 @@ export default function HomeRoute() {
           </button>
           <button className="ghost-btn" onClick={() => fileRef.current?.click()}>⭱ Restore from backup</button>
           <input ref={fileRef} type="file" accept="application/json" hidden onChange={handleImport} />
+          <button className="ghost-btn" disabled={exporting} onClick={handleExportHtml}>
+            {exporting ? 'Exporting…' : 'Export as HTML'}
+          </button>
         </div>
 
         <ConfirmDialog

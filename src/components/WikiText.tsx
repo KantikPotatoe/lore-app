@@ -1,4 +1,5 @@
 import { Fragment } from 'react'
+import { showWikiHover, scheduleWikiHoverClose } from '../wikiLinkHover'
 
 // Renders a plain string, turning any [[Page Name]] tokens into clickable wiki
 // links — the same behavior as links inside the rich-text editor. Used for
@@ -32,6 +33,8 @@ export default function WikiText({ value, onWikiClick, knownTitles }: Props) {
           e.preventDefault()
           if (title) onWikiClick(title)
         }}
+        onMouseEnter={(e) => showWikiHover(title, (e.currentTarget as HTMLElement).getBoundingClientRect())}
+        onMouseLeave={scheduleWikiHoverClose}
       >
         {title}
       </a>,
