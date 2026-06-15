@@ -3,12 +3,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Calendar, type TimelineEvent, type LorePage } from '../db'
 import CalendarEditor from '../components/CalendarEditor'
-
-// Placeholder stubs — replaced in Tasks 8-10
-function EventEditor(_p: {
-  event?: TimelineEvent; calendars: Calendar[]; allPages: LorePage[]
-  onClose: () => void
-}) { return null }
+import EventEditor from '../components/EventEditor'
 function TimelineVertical(_p: {
   events: TimelineEvent[]; calendars: Calendar[]
   displayCalendar: Calendar | null; allPages: LorePage[]
