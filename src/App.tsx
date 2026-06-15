@@ -10,6 +10,7 @@ import CategoryRoute from './routes/CategoryRoute'
 import GraphRoute from './routes/GraphRoute'
 import { requestPersistentStorage } from './backup'
 import { seedTemplates } from './db'
+import { maybeTakeSnapshot } from './snapshots'
 
 export default function App() {
   // Ask the browser to keep our data persistently so it isn't auto-evicted, and
@@ -17,6 +18,7 @@ export default function App() {
   useEffect(() => {
     requestPersistentStorage()
     seedTemplates()
+    maybeTakeSnapshot()
   }, [])
 
   return (
