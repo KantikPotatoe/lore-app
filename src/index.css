@@ -249,6 +249,7 @@ a { color: inherit; text-decoration: none; }
 .tag-input { background: var(--panel); border: 1px dashed var(--border); border-radius: 20px; padding: 3px 11px; color: var(--ink); width: 110px; }
 
 /* --- Editor --------------------------------------------------------------- */
+.lore-editor { position: relative; }
 .editor-toolbar {
   display: flex; align-items: center; gap: 3px; flex-wrap: wrap;
   background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
@@ -299,6 +300,18 @@ a { color: inherit; text-decoration: none; }
 .wiki-link.is-broken:hover {
   color: var(--danger);
   background: rgba(200, 100, 90, 0.12);
+}
+.ext-link { color: var(--accent-soft); text-decoration: underline; cursor: pointer; }
+.ext-link:hover { color: var(--accent); }
+.link-popover {
+  position: absolute; top: 52px; left: 5px; z-index: 10;
+  display: flex; gap: 6px; align-items: center;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px;
+}
+.link-popover input {
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 9px; color: var(--ink); width: 260px;
 }
 
 /* --- Page body: content + infobox columns --------------------------------- */
