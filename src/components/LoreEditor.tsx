@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -37,13 +37,26 @@ function Btn({ active, onClick, title, children }: {
 
 export default function LoreEditor({ content, editable, onChange, onWikiClick, knownTitles }: Props) {
   const editor = useEditor({
-    extensions: [StarterKit, WikiLink, Image.configure({ inline: false, allowBase64: true })],
+    extensions: [
+      StarterKit.configure({
+        link: {
+          openOnClick: false, // we handle clicks ourselves so wiki vs external stay separate
+          autolink: true,
+          defaultProtocol: 'https',
+          HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer', class: 'ext-link' },
+        },
+      }),
+      WikiLink,
+      Image.configure({ inline: false, allowBase64: true }),
+    ],
     content,
     editable,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
   })
 
   const fileInput = useRef<HTMLInputElement>(null)
+  const [showLinkBox, setShowLinkBox] = useState(false)
+  const [linkUrl, setLinkUrl] = useState('')
 
   // Insert an image into the body: downscale to a body-friendly 1600px and embed
   // as a data URL (local-first — no upload). Mirrors Infobox.pickImage.
@@ -53,6 +66,30 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
     if (!file || !editor) return
     const dataUrl = await compressImage(file, 1600)
     editor.chain().focus().setImage({ src: dataUrl }).run()
+  }
+
+  function openLinkBox() {
+    setLinkUrl(editor?.getAttributes('link').href ?? '')
+    setShowLinkBox(true)
+  }
+
+  function applyLink() {
+    const url = linkUrl.trim()
+    if (!url) {
+      editor?.chain().focus().extendMarkRange('link').unsetLink().run()
+    } else {
+      // Prefix https:// when the author types a bare domain (e.g. "example.com").
+      const href = /^(https?:\/\/|mailto:)/i.test(url) ? url : `https://${url}`
+      editor?.chain().focus().extendMarkRange('link').setLink({ href }).run()
+    }
+    setShowLinkBox(false)
+    setLinkUrl('')
+  }
+
+  function removeLink() {
+    editor?.chain().focus().extendMarkRange('link').unsetLink().run()
+    setShowLinkBox(false)
+    setLinkUrl('')
   }
 
   // Toggle edit/view without losing the editor instance.
@@ -73,15 +110,27 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
 
   if (!editor) return null
 
-  // Intercept clicks on wiki links and route them. In edit mode we leave them
-  // alone so you can place the cursor; in view mode a click navigates.
+  // Route clicks: wiki links navigate in-app; external href links open a new
+  // tab. In edit mode both require Ctrl/Cmd-click so plain clicks place the cursor.
   const handleClick = (e: React.MouseEvent) => {
-    const target = (e.target as HTMLElement).closest('a.wiki-link')
-    if (!target) return
-    if (editable && !(e.metaKey || e.ctrlKey)) return // edit mode: Ctrl/Cmd-click to follow
-    e.preventDefault()
-    const title = target.getAttribute('data-title')
-    if (title) onWikiClick(title)
+    const el = e.target as HTMLElement
+
+    const wiki = el.closest('a.wiki-link')
+    if (wiki) {
+      if (editable && !(e.metaKey || e.ctrlKey)) return
+      e.preventDefault()
+      const title = wiki.getAttribute('data-title')
+      if (title) onWikiClick(title)
+      return
+    }
+
+    const ext = el.closest('a[href]:not(.wiki-link)') as HTMLAnchorElement | null
+    if (ext) {
+      if (editable && !(e.metaKey || e.ctrlKey)) return
+      e.preventDefault()
+      const href = ext.getAttribute('href')
+      if (href) window.open(href, '_blank', 'noopener,noreferrer')
+    }
   }
 
   return (
@@ -108,8 +157,28 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
             style={{ display: 'none' }}
             onChange={pickImage}
           />
+          <Btn title="Link (external URL)" active={editor.isActive('link')} onClick={openLinkBox}>🔗</Btn>
           <span className="tb-spacer" />
           <span className="tb-hint">Type [[Name]] to link a page</span>
+        </div>
+      )}
+      {editable && showLinkBox && (
+        <div className="link-popover">
+          <input
+            autoFocus
+            type="text"
+            placeholder="https://example.com"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); applyLink() }
+              if (e.key === 'Escape') { setShowLinkBox(false); setLinkUrl('') }
+            }}
+          />
+          <Btn title="Apply link" onClick={applyLink}>Apply</Btn>
+          {editor.isActive('link') && (
+            <Btn title="Remove link" onClick={removeLink}>Remove</Btn>
+          )}
         </div>
       )}
       <EditorContent editor={editor} onClick={handleClick} />
