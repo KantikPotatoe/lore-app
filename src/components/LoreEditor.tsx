@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
+import { TableKit } from '@tiptap/extension-table'
 import { WikiLink } from '../extensions/WikiLink'
 import { compressImage } from '../imageUtils'
 
@@ -48,6 +49,7 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
       }),
       WikiLink,
       Image.configure({ inline: false, allowBase64: true }),
+      TableKit.configure({ table: { resizable: true } }),
     ],
     content,
     editable,
@@ -158,6 +160,15 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
             onChange={pickImage}
           />
           <Btn title="Link (external URL)" active={editor.isActive('link')} onClick={openLinkBox}>🔗</Btn>
+          <span className="tb-sep" />
+          <Btn title="Insert table" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>⊞</Btn>
+          {editor.isActive('table') && (<>
+            <Btn title="Add row below" onClick={() => editor.chain().focus().addRowAfter().run()}>+Row</Btn>
+            <Btn title="Delete row" onClick={() => editor.chain().focus().deleteRow().run()}>−Row</Btn>
+            <Btn title="Add column after" onClick={() => editor.chain().focus().addColumnAfter().run()}>+Col</Btn>
+            <Btn title="Delete column" onClick={() => editor.chain().focus().deleteColumn().run()}>−Col</Btn>
+            <Btn title="Delete table" onClick={() => editor.chain().focus().deleteTable().run()}>⌫ Tbl</Btn>
+          </>)}
           <span className="tb-spacer" />
           <span className="tb-hint">Type [[Name]] to link a page</span>
         </div>

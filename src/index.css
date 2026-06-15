@@ -303,6 +303,13 @@ a { color: inherit; text-decoration: none; }
 }
 .ext-link { color: var(--accent-soft); border-bottom: 1px solid var(--accent-soft); cursor: pointer; padding: 0 1px; }
 .ext-link:hover { color: var(--accent); background: rgba(201, 162, 75, 0.12); }
+/* ── Table styles (ProseMirror edit + view mode) ─────────────────────────── */
+.ProseMirror table { border-collapse: collapse; width: 100%; margin: 1em 0; table-layout: fixed; overflow: hidden; }
+.ProseMirror th, .ProseMirror td { border: 1px solid var(--border); padding: 6px 10px; vertical-align: top; position: relative; min-width: 1em; }
+.ProseMirror th { background: var(--panel-2); font-weight: 600; text-align: left; }
+.ProseMirror .selectedCell::after { content: ''; position: absolute; inset: 0; background: rgba(201, 162, 75, 0.15); pointer-events: none; }
+.ProseMirror .column-resize-handle { position: absolute; right: -2px; top: 0; bottom: 0; width: 4px; background: var(--accent); pointer-events: none; }
+.ProseMirror.resize-cursor { cursor: col-resize; }
 .link-popover {
   position: absolute; top: 58px; left: 5px; z-index: 10;
   display: flex; gap: 6px; align-items: center;
