@@ -56,10 +56,14 @@ export async function setLoreBanner(id: string, banner: string | null): Promise<
 }
 
 export async function deleteLore(id: string): Promise<void> {
+  const isActive = id === currentLoreId()
   await Dexie.delete(dbNameFor(id))
   await registry.lores.delete(id)
-  if (id === currentLoreId()) {
+  if (isActive) {
     localStorage.removeItem(CURRENT_LORE_KEY)
+    // Reload to re-initialize the db singleton; land on the lore selector.
+    window.location.hash = '#/'
+    window.location.reload()
   }
 }
 
@@ -67,12 +71,15 @@ export async function bootstrapDefaultLore(): Promise<void> {
   const count = await registry.lores.count()
   if (count > 0) return // Already bootstrapped — idempotent guard
 
-  // Try to read the existing home-config title from the legacy 'lore-app' DB.
-  // If currentLoreId() is 'default', db.ts is already pointing at 'lore-app',
-  // so we can import getMeta directly.
-  const { getMeta } = await import('./db')
-  const savedConfig = await getMeta<{ title?: string }>('home-config')
-  const name = savedConfig?.title?.trim() || 'My World'
+  // Only read the legacy home-config title when db.ts is pointing at 'lore-app'.
+  // If the active lore is already set to something else, skip the title migration.
+  let name = 'My World'
+  if (currentLoreId() === 'default') {
+    const { getMeta } = await import('./db')
+    const savedConfig = await getMeta<{ title?: string }>('home-config')
+    const legacyTitle = savedConfig?.title?.trim()
+    if (legacyTitle) name = legacyTitle
+  }
 
   const now = Date.now()
   await registry.lores.add({ id: 'default', name, banner: null, createdAt: now, updatedAt: now })
