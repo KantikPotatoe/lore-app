@@ -108,8 +108,8 @@ export interface TimelineEvent {
   color?: string
   /** Linked lore page stored id, like MapPin.pageId. Null if unlinked. */
   pageId: string | null
-  /** 0-based month index into the calendar's months array. */
   startYear: number
+  /** 0-based month index into the calendar's months array. */
   startMonth: number
   /** 1-based day within the month. */
   startDay: number
