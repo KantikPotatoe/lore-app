@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, createPage, categoryColor, statusColor, pageStatus, type LorePage } from '../db'
+import { getLore, currentLoreId } from '../lores'
 
 // Stable empty array so the live queries don't hand `useMemo` a fresh `[]`
 // (and force a recompute) on every render while data is still loading.
@@ -13,6 +14,8 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) 
 
   const pages = useLiveQuery(() => db.pages.orderBy('title').toArray(), []) ?? NO_PAGES
   const templates = useLiveQuery(() => db.templates.toArray(), []) ?? []
+  const activeLore = useLiveQuery(() => getLore(currentLoreId()), [])
+  const loreName = activeLore?.name ?? 'Lore Codex'
 
   // Group all pages by category.
   const grouped = useMemo(() => {
@@ -41,11 +44,13 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) 
   return (
     <aside className="sidebar">
       <div className="brand">
-        <Link to="/" className="brand-link">📖 Lore Codex</Link>
+        <Link to="/" className="brand-link" title="Switch world">
+          {loreName} ⇄
+        </Link>
       </div>
 
       <nav className="top-nav">
-        <Link to="/" className={location.pathname === '/' ? 'nav-item active' : 'nav-item'}>Home</Link>
+        <Link to="/home" className={location.pathname === '/home' ? 'nav-item active' : 'nav-item'}>Home</Link>
         <Link to="/map" className={location.pathname.startsWith('/map') ? 'nav-item active' : 'nav-item'}>Maps</Link>
         <Link to="/graph" className={location.pathname.startsWith('/graph') ? 'nav-item active' : 'nav-item'}>Graph</Link>
         <Link to="/templates" className={location.pathname.startsWith('/templates') ? 'nav-item active' : 'nav-item'}>Templates</Link>

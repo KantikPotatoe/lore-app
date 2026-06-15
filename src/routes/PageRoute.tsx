@@ -88,7 +88,7 @@ export default function PageRoute() {
   async function handleDelete() {
     if (!confirm(`Delete "${page!.title}"? This cannot be undone.`)) return
     await deletePage(id)
-    navigate('/')
+    navigate('/home')
   }
 
   return (
