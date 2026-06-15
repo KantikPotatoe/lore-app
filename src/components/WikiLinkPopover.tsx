@@ -15,12 +15,15 @@ export default function WikiLinkPopover() {
 
   useEffect(() => {
     if (!target) { setPageState({ status: 'idle' }); return }
+    let cancelled = false
     setPageState({ status: 'loading' })
     findPageIdByTitle(target.title).then(async (id) => {
+      if (cancelled) return
       if (!id) { setPageState({ status: 'missing' }); return }
       const page = await db.pages.get(id)
-      setPageState(page ? { status: 'found', page } : { status: 'missing' })
+      if (!cancelled) setPageState(page ? { status: 'found', page } : { status: 'missing' })
     })
+    return () => { cancelled = true }
   }, [target])
 
   if (!target) return null
@@ -28,7 +31,7 @@ export default function WikiLinkPopover() {
   const above = target.rect.bottom + 180 > window.innerHeight
   const style: React.CSSProperties = {
     position: 'fixed',
-    left: Math.min(target.rect.left, window.innerWidth - 320),
+    left: Math.max(0, Math.min(target.rect.left, window.innerWidth - 320)),
     ...(above
       ? { bottom: window.innerHeight - target.rect.top + 8 }
       : { top: target.rect.bottom + 8 }),
