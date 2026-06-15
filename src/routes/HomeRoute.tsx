@@ -28,6 +28,7 @@ import {
   timeAgo,
 } from '../backup'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { exportAsHtml } from '../htmlExport'
 
 /** Personalisable bits of the home page, stored as one row in the meta table. */
 interface HomeConfig {
@@ -58,6 +59,7 @@ export default function HomeRoute() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [persisted, setPersisted] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [pendingImport, setPendingImport] = useState<{
     json: string
     current: BackupCounts
@@ -121,6 +123,15 @@ export default function HomeRoute() {
   async function handleNew() {
     const id = await createPage()
     navigate(`/page/${id}`)
+  }
+
+  async function handleExportHtml() {
+    setExporting(true)
+    try {
+      await exportAsHtml()
+    } finally {
+      setExporting(false)
+    }
   }
 
   async function handleBackup() {
@@ -381,6 +392,9 @@ export default function HomeRoute() {
           </button>
           <button className="ghost-btn" onClick={() => fileRef.current?.click()}>⭱ Restore from backup</button>
           <input ref={fileRef} type="file" accept="application/json" hidden onChange={handleImport} />
+          <button className="ghost-btn" disabled={exporting} onClick={handleExportHtml}>
+            {exporting ? 'Exporting…' : 'Export as HTML'}
+          </button>
         </div>
 
         <ConfirmDialog
