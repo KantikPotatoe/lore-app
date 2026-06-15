@@ -180,13 +180,15 @@ export default function HomeRoute() {
       e.target.value = ''
       return
     }
-    const [pages, maps, pins, templates] = await Promise.all([
+    const [pages, maps, pins, templates, calendars, events] = await Promise.all([
       db.pages.count(),
       db.maps.count(),
       db.pins.count(),
       db.templates.count(),
+      db.calendars.count(),
+      db.events.count(),
     ])
-    setPendingImport({ json: text, current: { pages, maps, pins, templates }, incoming })
+    setPendingImport({ json: text, current: { pages, maps, pins, templates, calendars, events }, incoming })
     e.target.value = ''
   }
 
@@ -408,10 +410,11 @@ export default function HomeRoute() {
                   disabled={busy}
                   onClick={async () => {
                     const { counts: incoming } = parseBackup(snap.data)
-                    const [pages, maps, pins, templates] = await Promise.all([
+                    const [pages, maps, pins, templates, calendars, events] = await Promise.all([
                       db.pages.count(), db.maps.count(), db.pins.count(), db.templates.count(),
+                      db.calendars.count(), db.events.count(),
                     ])
-                    setPendingImport({ json: snap.data, current: { pages, maps, pins, templates }, incoming })
+                    setPendingImport({ json: snap.data, current: { pages, maps, pins, templates, calendars, events }, incoming })
                   }}
                 >
                   Restore

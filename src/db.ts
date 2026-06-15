@@ -951,6 +951,8 @@ export interface BackupData {
   maps?: WorldMap[]
   pins?: MapPin[]
   templates?: InfoboxTemplate[]
+  calendars?: Calendar[]
+  events?: TimelineEvent[]
 }
 
 /** Counts of each record kind in a backup, for the import confirmation. */
@@ -959,6 +961,8 @@ export interface BackupCounts {
   maps: number
   pins: number
   templates: number
+  calendars: number
+  events: number
 }
 
 /**
@@ -985,31 +989,41 @@ export function parseBackup(json: string): { data: BackupData; counts: BackupCou
       maps: Array.isArray(d.maps) ? d.maps.length : 0,
       pins: Array.isArray(d.pins) ? d.pins.length : 0,
       templates: Array.isArray(d.templates) ? d.templates.length : 0,
+      calendars: Array.isArray(d.calendars) ? d.calendars.length : 0,
+      events: Array.isArray(d.events) ? d.events.length : 0,
     },
   }
 }
 
 export async function exportAll(): Promise<string> {
-  const [pages, maps, pins, templates] = await Promise.all([
+  const [pages, maps, pins, templates, calendars, events] = await Promise.all([
     db.pages.toArray(),
     db.maps.toArray(),
     db.pins.toArray(),
     db.templates.toArray(),
+    db.calendars.toArray(),
+    db.events.toArray(),
   ])
-  return JSON.stringify({ version: 2, exportedAt: now(), pages, maps, pins, templates })
+  return JSON.stringify({ version: 3, exportedAt: now(), pages, maps, pins, templates, calendars, events })
 }
 
 export async function importAll(json: string): Promise<void> {
   const { data } = parseBackup(json) // throws before any clear() on an invalid file
-  await db.transaction('rw', db.pages, db.maps, db.pins, db.templates, async () => {
-    await Promise.all([db.pages.clear(), db.maps.clear(), db.pins.clear(), db.templates.clear()])
+  await db.transaction('rw', [db.pages, db.maps, db.pins, db.templates, db.calendars, db.events], async () => {
+    await Promise.all([
+      db.pages.clear(), db.maps.clear(), db.pins.clear(),
+      db.templates.clear(), db.calendars.clear(), db.events.clear(),
+    ])
     await db.pages.bulkAdd(data.pages)
     if (data.maps) await db.maps.bulkAdd(data.maps)
     if (data.pins) await db.pins.bulkAdd(data.pins)
     if (data.templates) await db.templates.bulkAdd(data.templates)
+    if (data.calendars) await db.calendars.bulkAdd(data.calendars)
+    if (data.events) await db.events.bulkAdd(data.events)
   })
   // Older backups have no templates — make sure the built-ins exist.
   await seedTemplates()
+  await seedDefaultCalendar()
 }
 
 // ---------------------------------------------------------------------------
