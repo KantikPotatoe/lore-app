@@ -70,23 +70,23 @@ export default function LoreSelectorRoute() {
         {lores.map((lore) => (
           <div
             key={lore.id}
-            className={`lore-card${lore.id === activeId ? ' lore-card--active' : ''}`}
+            className={`world-card${lore.id === activeId ? ' world-card--active' : ''}`}
           >
             {/* Banner / placeholder */}
             <div
-              className="lore-card-banner"
+              className="world-card-banner"
               onClick={() => switchLore(lore.id)}
               style={lore.banner ? { backgroundImage: `url(${lore.banner})` } : undefined}
             >
               {!lore.banner && (
-                <span className="lore-card-initial">
+                <span className="world-card-initial">
                   {lore.name.charAt(0).toUpperCase()}
                 </span>
               )}
             </div>
 
             {/* Card body */}
-            <div className="lore-card-body">
+            <div className="world-card-body">
               {renamingId === lore.id ? (
                 <input
                   className="lore-rename-input"
@@ -101,7 +101,7 @@ export default function LoreSelectorRoute() {
                 />
               ) : (
                 <button
-                  className="lore-card-name"
+                  className="world-card-name"
                   onClick={() => switchLore(lore.id)}
                   title="Open this world"
                 >
@@ -109,11 +109,11 @@ export default function LoreSelectorRoute() {
                 </button>
               )}
 
-              <span className="lore-card-date">
+              <span className="world-card-date">
                 Created {new Date(lore.createdAt).toLocaleDateString()}
               </span>
 
-              <div className="lore-card-actions">
+              <div className="world-card-actions">
                 <button className="ghost-btn" onClick={() => startRename(lore)}>✎ Rename</button>
                 <button className="ghost-btn" onClick={() => openBannerPicker(lore.id)}>🖼 Banner</button>
                 <button className="ghost-btn danger" onClick={() => setPendingDelete(lore)}>✕ Delete</button>
