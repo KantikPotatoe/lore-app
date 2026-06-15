@@ -12,6 +12,7 @@ import {
   statusColor,
   pageStatus,
   STATUSES,
+  getSnapshots,
   type LorePage,
   type BackupCounts,
 } from '../db'
@@ -85,6 +86,7 @@ export default function HomeRoute() {
   ) ?? []
   const mapCount = useLiveQuery(() => db.maps.count(), []) ?? 0
   const lastBackup = useLiveQuery(async () => (await db.meta.get(LAST_BACKUP_KEY))?.value as number | undefined, [])
+  const snapshots = useLiveQuery(() => getSnapshots(), []) ?? []
   const latestChange = useLiveQuery(() => latestChangeTime(), []) ?? 0
 
   const needsBackup = hasUnbackedUpChanges(lastBackup ?? null, latestChange)
@@ -318,6 +320,38 @@ export default function HomeRoute() {
           )}
         </section>
       )}
+
+      {/* Snapshots */}
+      <section className="home-section">
+        <h2>Auto-snapshots</h2>
+        {snapshots.length === 0 ? (
+          <p className="empty-hint">No snapshots yet. Snapshots are taken automatically after 50 page edits or 24 hours of activity.</p>
+        ) : (
+          <div className="snapshot-list">
+            {snapshots.map((snap) => (
+              <div key={snap.id} className="snapshot-row">
+                <div className="snapshot-meta">
+                  <span className="snapshot-time">{new Date(snap.timestamp).toLocaleString()}</span>
+                  <span className="snapshot-count">{snap.editCount} pages changed</span>
+                </div>
+                <button
+                  className="ghost-btn"
+                  disabled={busy}
+                  onClick={async () => {
+                    const { counts: incoming } = parseBackup(snap.data)
+                    const [pages, maps, pins, templates] = await Promise.all([
+                      db.pages.count(), db.maps.count(), db.pins.count(), db.templates.count(),
+                    ])
+                    setPendingImport({ json: snap.data, current: { pages, maps, pins, templates }, incoming })
+                  }}
+                >
+                  Restore
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="home-section backup">
         <h2>Backup &amp; safety</h2>
