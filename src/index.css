@@ -1168,3 +1168,25 @@ a { color: inherit; text-decoration: none; }
   padding: 10px 26px;
   margin-top: 0.5rem;
 }
+
+/* --- Timeline ------------------------------------------------------------- */
+.timeline-page { display: flex; flex-direction: column; height: 100%; }
+.timeline-toolbar {
+  display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+  border-bottom: 1px solid var(--border); background: var(--bg-2);
+  flex-shrink: 0; flex-wrap: wrap;
+}
+.timeline-toolbar-label { color: var(--ink-faint); font-size: 13px; }
+.tl-select {
+  background: var(--panel); border: 1px solid var(--border); color: var(--ink);
+  border-radius: 7px; padding: 6px 10px; font-size: 14px;
+}
+.tl-view-toggle { display: flex; gap: 4px; }
+.timeline-body { flex: 1; overflow-y: auto; }
+
+.timeline-empty, .timeline-empty-inner {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; gap: 12px; color: var(--ink-dim); text-align: center; padding: 40px;
+}
+.timeline-empty h1 { font-family: var(--display); font-size: 36px; color: var(--ink); margin: 0; }
+.timeline-empty .primary-btn { width: auto; }

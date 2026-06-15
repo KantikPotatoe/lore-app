@@ -1,0 +1,145 @@
+// src/routes/TimelineRoute.tsx
+import { useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db, type Calendar, type TimelineEvent, type LorePage } from '../db'
+
+// Placeholder stubs — replaced in Tasks 7-10
+function CalendarEditor(_p: { onClose: () => void }) { return null }
+function EventEditor(_p: {
+  event?: TimelineEvent; calendars: Calendar[]; allPages: LorePage[]
+  onClose: () => void
+}) { return null }
+function TimelineVertical(_p: {
+  events: TimelineEvent[]; calendars: Calendar[]
+  displayCalendar: Calendar | null; allPages: LorePage[]
+  onEdit: (e: TimelineEvent) => void
+}) { return null }
+function TimelineHorizontal(_p: {
+  events: TimelineEvent[]; calendars: Calendar[]
+  displayCalendar: Calendar | null; allPages: LorePage[]
+  onEdit: (e: TimelineEvent) => void
+}) { return null }
+
+export default function TimelineRoute() {
+  const calendars = useLiveQuery(() => db.calendars.orderBy('createdAt').toArray(), []) ?? []
+  const events    = useLiveQuery(() => db.events.orderBy('startAbsolute').toArray(), []) ?? []
+  const allPages  = useLiveQuery(() => db.pages.orderBy('title').toArray(), []) ?? []
+
+  const [displayCalId, setDisplayCalId]     = useState<string | null>(null)
+  const [view, setView]                     = useState<'vertical' | 'horizontal'>('vertical')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [editingEvent, setEditingEvent]     = useState<TimelineEvent | undefined>(undefined)
+  const [addingEvent, setAddingEvent]       = useState(false)
+  const [managingCals, setManagingCals]     = useState(false)
+
+  const displayCal =
+    calendars.find((c) => c.id === displayCalId) ?? calendars[0] ?? null
+
+  const visibleEvents = categoryFilter
+    ? events.filter((e) => e.category.toLowerCase().includes(categoryFilter.toLowerCase()))
+    : events
+
+  const categories = [...new Set(events.map((e) => e.category).filter(Boolean))].sort()
+
+  if (!calendars.length) {
+    return (
+      <div className="timeline-empty">
+        <h1>Timeline</h1>
+        <p className="muted">
+          No calendars yet. Create a calendar first, then start adding events.
+        </p>
+        <button className="primary-btn" onClick={() => setManagingCals(true)}>
+          + Create calendar
+        </button>
+        {managingCals && <CalendarEditor onClose={() => setManagingCals(false)} />}
+      </div>
+    )
+  }
+
+  return (
+    <div className="timeline-page">
+      <div className="timeline-toolbar">
+        <span className="timeline-toolbar-label">Reckoning:</span>
+        <select
+          value={displayCal?.id ?? ''}
+          onChange={(e) => setDisplayCalId(e.target.value)}
+          className="tl-select"
+        >
+          {calendars.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+
+        <div className="tl-view-toggle">
+          <button
+            className={view === 'vertical' ? 'ghost-btn active' : 'ghost-btn'}
+            onClick={() => setView('vertical')}
+          >≡ List</button>
+          <button
+            className={view === 'horizontal' ? 'ghost-btn active' : 'ghost-btn'}
+            onClick={() => setView('horizontal')}
+          >⟷ Axis</button>
+        </div>
+
+        {categories.length > 0 && (
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="tl-select"
+          >
+            <option value="">All categories</option>
+            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
+
+        <span className="map-hint">{visibleEvents.length} events</span>
+
+        <button
+          className="ghost-btn"
+          onClick={() => setManagingCals(true)}
+        >⚙ Calendars</button>
+
+        <button
+          className="primary-btn"
+          style={{ width: 'auto' }}
+          onClick={() => setAddingEvent(true)}
+        >+ Add event</button>
+      </div>
+
+      <div className="timeline-body">
+        {visibleEvents.length === 0 ? (
+          <div className="timeline-empty-inner">
+            <p className="muted">No events yet. Click "Add event" to get started.</p>
+          </div>
+        ) : view === 'vertical' ? (
+          <TimelineVertical
+            events={visibleEvents}
+            calendars={calendars}
+            displayCalendar={displayCal}
+            allPages={allPages}
+            onEdit={(e) => setEditingEvent(e)}
+          />
+        ) : (
+          <TimelineHorizontal
+            events={visibleEvents}
+            calendars={calendars}
+            displayCalendar={displayCal}
+            allPages={allPages}
+            onEdit={(e) => setEditingEvent(e)}
+          />
+        )}
+      </div>
+
+      {managingCals && <CalendarEditor onClose={() => setManagingCals(false)} />}
+
+      {(addingEvent || editingEvent) && (
+        <EventEditor
+          event={editingEvent}
+          calendars={calendars}
+          allPages={allPages}
+          onClose={() => { setAddingEvent(false); setEditingEvent(undefined) }}
+        />
+      )}
+    </div>
+  )
+}
