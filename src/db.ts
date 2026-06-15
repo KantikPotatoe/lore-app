@@ -424,12 +424,20 @@ export interface MetaEntry {
   value: unknown
 }
 
+export interface Snapshot {
+  id?: number
+  timestamp: number
+  editCount: number   // distinct pages changed since the previous snapshot
+  data: string        // raw exportAll() JSON
+}
+
 export class LoreDB extends Dexie {
   pages!: Table<LorePage, string>
   maps!: Table<WorldMap, string>
   pins!: Table<MapPin, string>
   meta!: Table<MetaEntry, string>
   templates!: Table<InfoboxTemplate, string>
+  snapshots!: Table<Snapshot, number>
 
   constructor() {
     super('lore-app')
@@ -453,6 +461,15 @@ export class LoreDB extends Dexie {
       pins: 'id, mapId, pageId',
       meta: '&key',
       templates: 'id, name',
+    })
+    // v4 adds auto-snapshots stored locally; existing data is preserved.
+    this.version(4).stores({
+      pages: 'id, title, category, updatedAt',
+      maps: 'id, name, createdAt',
+      pins: 'id, mapId, pageId',
+      meta: '&key',
+      templates: 'id, name',
+      snapshots: '++id, timestamp',
     })
   }
 }
@@ -794,4 +811,25 @@ export async function importAll(json: string): Promise<void> {
   })
   // Older backups have no templates — make sure the built-ins exist.
   await seedTemplates()
+}
+
+// ---------------------------------------------------------------------------
+// Snapshots — automatic local version history
+// ---------------------------------------------------------------------------
+
+export async function saveSnapshot(data: string, editCount: number): Promise<void> {
+  await db.snapshots.add({ timestamp: Date.now(), editCount, data })
+  const count = await db.snapshots.count()
+  if (count > 10) {
+    const oldest = await db.snapshots.orderBy('timestamp').first()
+    if (oldest?.id != null) await db.snapshots.delete(oldest.id)
+  }
+}
+
+export async function getSnapshots(): Promise<Snapshot[]> {
+  return db.snapshots.orderBy('timestamp').reverse().toArray()
+}
+
+export async function deleteSnapshot(id: number): Promise<void> {
+  await db.snapshots.delete(id)
 }
