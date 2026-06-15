@@ -1,4 +1,5 @@
 import Dexie, { liveQuery, type Table } from 'dexie'
+import { dbNameFor, currentLoreId } from './loreId'
 
 // ---------------------------------------------------------------------------
 // Data model
@@ -439,8 +440,8 @@ export class LoreDB extends Dexie {
   templates!: Table<InfoboxTemplate, string>
   snapshots!: Table<Snapshot, number>
 
-  constructor() {
-    super('lore-app')
+  constructor(name: string = 'lore-app') {
+    super(name)
     this.version(1).stores({
       // Indexes: only fields we search/sort by need listing here.
       pages: 'id, title, category, updatedAt',
@@ -474,7 +475,7 @@ export class LoreDB extends Dexie {
   }
 }
 
-export const db = new LoreDB()
+export const db = new LoreDB(dbNameFor(currentLoreId()))
 
 // Keep the synchronous colour cache in sync with the templates table, so every
 // page type (built-in or one you add) shows its colour everywhere instantly.
