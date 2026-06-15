@@ -69,6 +69,60 @@ export interface MapPin {
   pageId: string | null // linked lore page, or null
 }
 
+/** One month in a custom calendar. */
+export interface CalendarMonth {
+  name: string
+  days: number
+}
+
+/** A named era within a calendar (e.g. "First Age", "Imperial Era"). */
+export interface CalendarEra {
+  id: string
+  name: string
+  startYear: number   // the continuous calendar year at which this era begins
+  color?: string      // optional accent for era background bands
+}
+
+/** A custom in-world calendar: months, weekdays, eras, and a shared-axis anchor. */
+export interface Calendar {
+  id: string
+  name: string
+  /** Absolute day on which this calendar's year 0, month 0, day 1 sits. Defaults to 0. */
+  anchor: number
+  months: CalendarMonth[]
+  weekdays: string[]
+  eras: CalendarEra[]
+  createdAt: number
+}
+
+/** One event on a timeline: a dated occurrence optionally spanning a range. */
+export interface TimelineEvent {
+  id: string
+  calendarId: string
+  title: string
+  /** Rich-text HTML from LoreEditor. */
+  description: string
+  /** Free-form category label (e.g. "Battle", "Birth", "Founding"). */
+  category: string
+  /** Optional hex color for the event accent. Falls back to --accent. */
+  color?: string
+  /** Linked lore page stored id, like MapPin.pageId. Null if unlinked. */
+  pageId: string | null
+  /** 0-based month index into the calendar's months array. */
+  startYear: number
+  startMonth: number
+  /** 1-based day within the month. */
+  startDay: number
+  endYear?: number
+  endMonth?: number
+  endDay?: number
+  /** Cached absolute-day for sorting and horizontal positioning. Computed on every write. */
+  startAbsolute: number
+  endAbsolute?: number
+  createdAt: number
+  updatedAt: number
+}
+
 // A page's "type" (Character, Country, Deity…) is just a template — see
 // BUILTIN_TEMPLATES below. Each template carries a colour, used for badges,
 // dots and accents across the UI. These built-in colours double as fallbacks.
@@ -439,6 +493,8 @@ export class LoreDB extends Dexie {
   meta!: Table<MetaEntry, string>
   templates!: Table<InfoboxTemplate, string>
   snapshots!: Table<Snapshot, number>
+  calendars!: Table<Calendar, string>
+  events!: Table<TimelineEvent, string>
 
   constructor(name: string = 'lore-app') {
     super(name)
@@ -471,6 +527,17 @@ export class LoreDB extends Dexie {
       meta: '&key',
       templates: 'id, name',
       snapshots: '++id, timestamp',
+    })
+    // v5 adds in-world timeline calendars and events; existing data is preserved.
+    this.version(5).stores({
+      pages: 'id, title, category, updatedAt',
+      maps: 'id, name, createdAt',
+      pins: 'id, mapId, pageId',
+      meta: '&key',
+      templates: 'id, name',
+      snapshots: '++id, timestamp',
+      calendars: 'id, name, createdAt',
+      events: 'id, calendarId, startAbsolute, pageId',
     })
   }
 }
