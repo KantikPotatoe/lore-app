@@ -53,6 +53,7 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) 
         <Link to="/home" className={location.pathname === '/home' ? 'nav-item active' : 'nav-item'}>Home</Link>
         <Link to="/map" className={location.pathname.startsWith('/map') ? 'nav-item active' : 'nav-item'}>Maps</Link>
         <Link to="/graph" className={location.pathname.startsWith('/graph') ? 'nav-item active' : 'nav-item'}>Graph</Link>
+        <Link to="/timeline" className={location.pathname.startsWith('/timeline') ? 'nav-item active' : 'nav-item'}>Timeline</Link>
         <Link to="/templates" className={location.pathname.startsWith('/templates') ? 'nav-item active' : 'nav-item'}>Templates</Link>
       </nav>
 

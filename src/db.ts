@@ -1,5 +1,6 @@
 import Dexie, { liveQuery, type Table } from 'dexie'
 import { dbNameFor, currentLoreId } from './loreId'
+import { dateToAbsolute } from './calendar'
 
 // ---------------------------------------------------------------------------
 // Data model
@@ -67,6 +68,60 @@ export interface MapPin {
   lng: number
   label: string
   pageId: string | null // linked lore page, or null
+}
+
+/** One month in a custom calendar. */
+export interface CalendarMonth {
+  name: string
+  days: number
+}
+
+/** A named era within a calendar (e.g. "First Age", "Imperial Era"). */
+export interface CalendarEra {
+  id: string
+  name: string
+  startYear: number   // the continuous calendar year at which this era begins
+  color?: string      // optional accent for era background bands
+}
+
+/** A custom in-world calendar: months, weekdays, eras, and a shared-axis anchor. */
+export interface Calendar {
+  id: string
+  name: string
+  /** Absolute day on which this calendar's year 0, month 0, day 1 sits. Defaults to 0. */
+  anchor: number
+  months: CalendarMonth[]
+  weekdays: string[]
+  eras: CalendarEra[]
+  createdAt: number
+}
+
+/** One event on a timeline: a dated occurrence optionally spanning a range. */
+export interface TimelineEvent {
+  id: string
+  calendarId: string
+  title: string
+  /** Rich-text HTML from LoreEditor. */
+  description: string
+  /** Free-form category label (e.g. "Battle", "Birth", "Founding"). */
+  category: string
+  /** Optional hex color for the event accent. Falls back to --accent. */
+  color?: string
+  /** Linked lore page stored id, like MapPin.pageId. Null if unlinked. */
+  pageId: string | null
+  startYear: number
+  /** 0-based month index into the calendar's months array. */
+  startMonth: number
+  /** 1-based day within the month. */
+  startDay: number
+  endYear?: number
+  endMonth?: number
+  endDay?: number
+  /** Cached absolute-day for sorting and horizontal positioning. Computed on every write. */
+  startAbsolute: number
+  endAbsolute?: number
+  createdAt: number
+  updatedAt: number
 }
 
 // A page's "type" (Character, Country, Deity…) is just a template — see
@@ -439,6 +494,8 @@ export class LoreDB extends Dexie {
   meta!: Table<MetaEntry, string>
   templates!: Table<InfoboxTemplate, string>
   snapshots!: Table<Snapshot, number>
+  calendars!: Table<Calendar, string>
+  events!: Table<TimelineEvent, string>
 
   constructor(name: string = 'lore-app') {
     super(name)
@@ -471,6 +528,17 @@ export class LoreDB extends Dexie {
       meta: '&key',
       templates: 'id, name',
       snapshots: '++id, timestamp',
+    })
+    // v5 adds in-world timeline calendars and events; existing data is preserved.
+    this.version(5).stores({
+      pages: 'id, title, category, updatedAt',
+      maps: 'id, name, createdAt',
+      pins: 'id, mapId, pageId',
+      meta: '&key',
+      templates: 'id, name',
+      snapshots: '++id, timestamp',
+      calendars: 'id, name, createdAt',
+      events: 'id, calendarId, startAbsolute, pageId',
     })
   }
 }
@@ -742,6 +810,140 @@ export async function addPin(mapId: string, lat: number, lng: number): Promise<s
 }
 
 // ---------------------------------------------------------------------------
+// Timeline calendars — CRUD
+// ---------------------------------------------------------------------------
+
+const DEFAULT_CALENDAR_MONTHS: CalendarMonth[] = [
+  { name: 'January', days: 31 }, { name: 'February', days: 28 },
+  { name: 'March', days: 31 },   { name: 'April', days: 30 },
+  { name: 'May', days: 31 },     { name: 'June', days: 30 },
+  { name: 'July', days: 31 },    { name: 'August', days: 31 },
+  { name: 'September', days: 30 },{ name: 'October', days: 31 },
+  { name: 'November', days: 30 }, { name: 'December', days: 31 },
+]
+
+/**
+ * Seed a single "Standard Calendar" on first app start if no calendars exist yet.
+ * Safe to call repeatedly (checks count first). Modeled on seedTemplates().
+ */
+export async function seedDefaultCalendar(): Promise<void> {
+  const count = await db.calendars.count()
+  if (count > 0) return
+  await db.calendars.add({
+    id: uid(),
+    name: 'Standard Calendar',
+    anchor: 0,
+    months: DEFAULT_CALENDAR_MONTHS,
+    weekdays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    eras: [{ id: uid(), name: 'Common Era', startYear: 0 }],
+    createdAt: now(),
+  })
+}
+
+/** Create a new calendar with default months and weekdays. Returns its id. */
+export async function createCalendar(name: string): Promise<string> {
+  const id = uid()
+  await db.calendars.add({
+    id,
+    name: name.trim() || 'New Calendar',
+    anchor: 0,
+    months: DEFAULT_CALENDAR_MONTHS.map((m) => ({ ...m })),
+    weekdays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    eras: [],
+    createdAt: now(),
+  })
+  return id
+}
+
+/**
+ * Update a calendar. If months or anchor change, recomputes startAbsolute / endAbsolute
+ * for all events belonging to that calendar so sort order stays correct.
+ */
+export async function updateCalendar(id: string, changes: Partial<Calendar>): Promise<void> {
+  if (!('months' in changes || 'anchor' in changes)) {
+    await db.calendars.update(id, changes)
+    return
+  }
+  await db.transaction('rw', db.calendars, db.events, async () => {
+    await db.calendars.update(id, changes)
+    const cal = await db.calendars.get(id)
+    if (!cal) return
+    const events = await db.events.where('calendarId').equals(id).toArray()
+    await Promise.all(
+      events.map((e) => {
+        const startAbsolute = dateToAbsolute(cal, e.startYear, e.startMonth, e.startDay)
+        const endAbsolute =
+          e.endYear != null
+            ? dateToAbsolute(cal, e.endYear, e.endMonth ?? 0, e.endDay ?? 1)
+            : undefined
+        return db.events.update(e.id, { startAbsolute, endAbsolute })
+      }),
+    )
+  })
+}
+
+/**
+ * Delete a calendar and cascade-delete all its events.
+ * Mirrors the deleteMap pattern (transaction).
+ */
+export async function deleteCalendar(calendarId: string): Promise<void> {
+  await db.transaction('rw', db.calendars, db.events, async () => {
+    await db.calendars.delete(calendarId)
+    await db.events.where('calendarId').equals(calendarId).delete()
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Timeline events — CRUD
+// ---------------------------------------------------------------------------
+
+type NewEventData = Omit<TimelineEvent, 'id' | 'startAbsolute' | 'endAbsolute' | 'createdAt' | 'updatedAt'>
+
+/** Add a timeline event. Computes startAbsolute / endAbsolute automatically. */
+export async function addEvent(data: NewEventData): Promise<string> {
+  const cal = await db.calendars.get(data.calendarId)
+  if (!cal) throw new Error('Calendar not found')
+  const startAbsolute = dateToAbsolute(cal, data.startYear, data.startMonth, data.startDay)
+  const endAbsolute =
+    data.endYear != null
+      ? dateToAbsolute(cal, data.endYear, data.endMonth ?? 0, data.endDay ?? 1)
+      : undefined
+  const id = uid()
+  await db.events.add({
+    ...data,
+    id,
+    startAbsolute,
+    endAbsolute,
+    createdAt: now(),
+    updatedAt: now(),
+  })
+  return id
+}
+
+/** Update a timeline event. Always recomputes startAbsolute / endAbsolute. */
+export async function updateEvent(
+  id: string,
+  changes: Partial<Omit<TimelineEvent, 'id' | 'createdAt'>>,
+): Promise<void> {
+  const existing = await db.events.get(id)
+  if (!existing) return
+  const merged = { ...existing, ...changes }
+  const cal = await db.calendars.get(merged.calendarId)
+  if (!cal) throw new Error('Calendar not found')
+  const startAbsolute = dateToAbsolute(cal, merged.startYear, merged.startMonth, merged.startDay)
+  const endAbsolute =
+    merged.endYear != null
+      ? dateToAbsolute(cal, merged.endYear, merged.endMonth ?? 0, merged.endDay ?? 1)
+      : undefined
+  await db.events.update(id, { ...changes, startAbsolute, endAbsolute, updatedAt: now() })
+}
+
+/** Delete a timeline event. */
+export async function deleteEvent(id: string): Promise<void> {
+  await db.events.delete(id)
+}
+
+// ---------------------------------------------------------------------------
 // Backup / restore — your safety net
 // ---------------------------------------------------------------------------
 
@@ -753,6 +955,8 @@ export interface BackupData {
   maps?: WorldMap[]
   pins?: MapPin[]
   templates?: InfoboxTemplate[]
+  calendars?: Calendar[]
+  events?: TimelineEvent[]
 }
 
 /** Counts of each record kind in a backup, for the import confirmation. */
@@ -761,6 +965,8 @@ export interface BackupCounts {
   maps: number
   pins: number
   templates: number
+  calendars: number
+  events: number
 }
 
 /**
@@ -787,31 +993,41 @@ export function parseBackup(json: string): { data: BackupData; counts: BackupCou
       maps: Array.isArray(d.maps) ? d.maps.length : 0,
       pins: Array.isArray(d.pins) ? d.pins.length : 0,
       templates: Array.isArray(d.templates) ? d.templates.length : 0,
+      calendars: Array.isArray(d.calendars) ? d.calendars.length : 0,
+      events: Array.isArray(d.events) ? d.events.length : 0,
     },
   }
 }
 
 export async function exportAll(): Promise<string> {
-  const [pages, maps, pins, templates] = await Promise.all([
+  const [pages, maps, pins, templates, calendars, events] = await Promise.all([
     db.pages.toArray(),
     db.maps.toArray(),
     db.pins.toArray(),
     db.templates.toArray(),
+    db.calendars.toArray(),
+    db.events.toArray(),
   ])
-  return JSON.stringify({ version: 2, exportedAt: now(), pages, maps, pins, templates })
+  return JSON.stringify({ version: 3, exportedAt: now(), pages, maps, pins, templates, calendars, events })
 }
 
 export async function importAll(json: string): Promise<void> {
   const { data } = parseBackup(json) // throws before any clear() on an invalid file
-  await db.transaction('rw', db.pages, db.maps, db.pins, db.templates, async () => {
-    await Promise.all([db.pages.clear(), db.maps.clear(), db.pins.clear(), db.templates.clear()])
+  await db.transaction('rw', [db.pages, db.maps, db.pins, db.templates, db.calendars, db.events], async () => {
+    await Promise.all([
+      db.pages.clear(), db.maps.clear(), db.pins.clear(),
+      db.templates.clear(), db.calendars.clear(), db.events.clear(),
+    ])
     await db.pages.bulkAdd(data.pages)
     if (data.maps) await db.maps.bulkAdd(data.maps)
     if (data.pins) await db.pins.bulkAdd(data.pins)
     if (data.templates) await db.templates.bulkAdd(data.templates)
+    if (data.calendars) await db.calendars.bulkAdd(data.calendars)
+    if (data.events) await db.events.bulkAdd(data.events)
   })
   // Older backups have no templates — make sure the built-ins exist.
   await seedTemplates()
+  await seedDefaultCalendar()
 }
 
 // ---------------------------------------------------------------------------
