@@ -8,13 +8,24 @@ in your browser** (no account, no server, works offline).
 
 - **Lore pages** — rich-text articles for characters, countries, places, factions,
   items, events, and more, organized by category.
-- **Wiki links** — type `[[Page Name]]` while editing to create a clickable link
-  to another page. Clicking it jumps there (and creates the page if it doesn't
-  exist yet).
+- **Wiki links** — type `[[Page Name]]` while editing to create a clickable link to
+  another page. Clicking it navigates there (or asks before creating the page if it
+  doesn't exist yet). Renaming a page automatically rewrites every reference to it so
+  no links break; dead links are visually flagged.
+- **External links** — select text and use the link toolbar button to attach an
+  external URL; opens in a new tab.
+- **Inline images** — insert images directly into article bodies via the toolbar;
+  stored as data URLs (no upload).
+- **Tables** — insert and edit tables in article bodies for stat blocks, timelines,
+  and comparisons.
 - **Interactive maps** — upload a map image of your world and drop pins. Each pin
   can be linked to a lore page.
 - **Search** — find any page by title, summary, category, or tag from the sidebar.
-- **Backup** — export everything to a JSON file and re-import it anytime (Home screen).
+- **Backup & safety** — export everything to a JSON file and re-import it anytime
+  (Home screen). Home and the top banner track how many edits have happened since
+  your last backup and highlight when one is overdue. Import validates the file,
+  shows a count of what will be replaced, requires confirmation, and automatically
+  writes a pre-import recovery backup before applying any changes.
 
 ## Running it
 
@@ -72,3 +83,8 @@ Because your lore is stored in this browser under `localhost:5174`, clearing sit
 data, switching browsers, or opening a different address shows an empty database.
 Always launch with `start-lore-codex.cmd`, and **use Export backup regularly** —
 keep the JSON files somewhere safe (or commit them to a private repo).
+
+The app tracks how many edits have occurred since your last backup and turns the
+banner red when a backup is overdue. Import is safe: it validates the file, shows
+you exactly how many pages/maps/pins you're replacing with what, downloads a
+recovery backup of the current state first, and only then applies the import.
