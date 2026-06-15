@@ -1,7 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Routes, Route } from 'react-router-dom'
+import { liveQuery } from 'dexie'
 import Sidebar from './components/Sidebar'
 import BackupBanner from './components/BackupBanner'
+import SearchModal from './components/SearchModal'
+import WikiLinkPopover from './components/WikiLinkPopover'
 import HomeRoute from './routes/HomeRoute'
 import PageRoute from './routes/PageRoute'
 import MapRoute from './routes/MapRoute'
@@ -9,21 +12,30 @@ import TemplatesRoute from './routes/TemplatesRoute'
 import CategoryRoute from './routes/CategoryRoute'
 import GraphRoute from './routes/GraphRoute'
 import { requestPersistentStorage } from './backup'
-import { seedTemplates } from './db'
+import { seedTemplates, db } from './db'
 import { maybeTakeSnapshot } from './snapshots'
+import { buildIndex } from './search'
 
 export default function App() {
-  // Ask the browser to keep our data persistently so it isn't auto-evicted, and
-  // make sure the built-in infobox templates exist.
+  const [searchOpen, setSearchOpen] = useState(false)
+
   useEffect(() => {
     requestPersistentStorage()
     seedTemplates()
     maybeTakeSnapshot()
   }, [])
 
+  // Rebuild the FlexSearch index whenever pages change.
+  useEffect(() => {
+    const sub = liveQuery(() => db.pages.toArray()).subscribe((pages) => {
+      buildIndex(pages)
+    })
+    return () => sub.unsubscribe()
+  }, [])
+
   return (
     <div className="app-shell">
-      <Sidebar />
+      <Sidebar onOpenSearch={() => setSearchOpen(true)} />
       <main className="content">
         <BackupBanner />
         <Routes>
@@ -35,6 +47,8 @@ export default function App() {
           <Route path="/browse/:category" element={<CategoryRoute />} />
         </Routes>
       </main>
+      {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
+      <WikiLinkPopover />
     </div>
   )
 }
