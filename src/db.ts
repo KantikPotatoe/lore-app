@@ -818,12 +818,14 @@ export async function importAll(json: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export async function saveSnapshot(data: string, editCount: number): Promise<void> {
-  await db.snapshots.add({ timestamp: Date.now(), editCount, data })
-  const count = await db.snapshots.count()
-  if (count > 10) {
-    const oldest = await db.snapshots.orderBy('timestamp').first()
-    if (oldest?.id != null) await db.snapshots.delete(oldest.id)
-  }
+  await db.transaction('rw', db.snapshots, async () => {
+    await db.snapshots.add({ timestamp: Date.now(), editCount, data })
+    const count = await db.snapshots.count()
+    if (count > 10) {
+      const oldest = await db.snapshots.orderBy('timestamp').first()
+      if (oldest?.id != null) await db.snapshots.delete(oldest.id)
+    }
+  })
 }
 
 export async function getSnapshots(): Promise<Snapshot[]> {
