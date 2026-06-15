@@ -196,12 +196,14 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
       <div
         onClick={handleClick}
         onMouseOver={(e) => {
+          if (editable) return
           const anchor = (e.target as Element).closest('a[data-wikilink]')
           if (!anchor) return
           const title = anchor.getAttribute('data-title')
           if (title) showWikiHover(title, anchor.getBoundingClientRect())
         }}
         onMouseOut={(e) => {
+          if (editable) return
           const anchor = (e.target as Element).closest('a[data-wikilink]')
           if (anchor) scheduleWikiHoverClose()
         }}
