@@ -20,7 +20,10 @@ in your browser** (no account, no server, works offline).
   and comparisons.
 - **Interactive maps** — upload a map image of your world and drop pins. Each pin
   can be linked to a lore page.
-- **Search** — find any page by title, summary, category, or tag from the sidebar.
+- **Full-text search** — click the sidebar search box to open a search modal that searches across page titles, summaries, tags, and body content. Results appear with highlighted snippets; navigate with keyboard (↑↓ Enter) or click. Close with Escape.
+- **Wiki link hover previews** — hover a `[[wiki link]]` in view mode to see a floating card showing the linked page's category, title, and summary (or "Page not found" for broken links).
+- **Auto-snapshots** — the app automatically saves up to 10 local snapshots (triggered after 50 page edits or 24 hours of activity). Restore any snapshot from the Home screen using the same safe confirm-before-import flow as a manual backup restore.
+- **Export as HTML** — download a self-contained ZIP of your entire wiki as a browsable static site: an index grouped by category, one page per article with infobox and resolved wiki links, and a stylesheet.
 - **Backup & safety** — export everything to a JSON file and re-import it anytime
   (Home screen). Home and the top banner track how many edits have happened since
   your last backup and highlight when one is overdue. Import validates the file,
@@ -58,16 +61,23 @@ npm run preview  # preview the production build locally (port 5174)
 ```
 src/
   db.ts                  Data model + local database (Dexie/IndexedDB) + backup
+  backup.ts              Download/import helpers + backup-overdue tracking
+  snapshots.ts           Auto-snapshot trigger logic
+  search.ts              FlexSearch full-text index + query helpers
+  htmlExport.ts          HTML static-site export (JSZip)
+  wikiLinkHover.ts       Event bus for wiki link hover state
   main.tsx               App entry + routing
-  App.tsx                Layout shell
+  App.tsx                Layout shell + search/snapshot wiring
   components/
-    Sidebar.tsx          Navigation, search, page list
+    Sidebar.tsx          Navigation, page list, search trigger
     LoreEditor.tsx       Rich-text editor (TipTap) with toolbar
+    SearchModal.tsx      Full-text search overlay with keyboard navigation
+    WikiLinkPopover.tsx  Hover preview card for wiki links
     MapView.tsx          Leaflet map rendering + pins
   extensions/
     WikiLink.ts          The [[wiki link]] editor feature
   routes/
-    HomeRoute.tsx        Dashboard + backup
+    HomeRoute.tsx        Dashboard + snapshots + backup
     PageRoute.tsx        View / edit a lore page
     MapRoute.tsx         Upload maps, place pins
   index.css              The full theme (colors are CSS variables at the top)
@@ -75,7 +85,7 @@ src/
 
 ## Tech
 
-React + TypeScript + Vite · TipTap (editor) · Leaflet (maps) · Dexie (storage).
+React + TypeScript + Vite · TipTap (editor) · Leaflet (maps) · Dexie (storage) · FlexSearch (full-text search) · JSZip (HTML export).
 
 ## A note on backups
 
