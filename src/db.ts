@@ -860,8 +860,12 @@ export async function createCalendar(name: string): Promise<string> {
  * for all events belonging to that calendar so sort order stays correct.
  */
 export async function updateCalendar(id: string, changes: Partial<Calendar>): Promise<void> {
-  await db.calendars.update(id, changes)
-  if ('months' in changes || 'anchor' in changes) {
+  if (!('months' in changes || 'anchor' in changes)) {
+    await db.calendars.update(id, changes)
+    return
+  }
+  await db.transaction('rw', db.calendars, db.events, async () => {
+    await db.calendars.update(id, changes)
     const cal = await db.calendars.get(id)
     if (!cal) return
     const events = await db.events.where('calendarId').equals(id).toArray()
@@ -875,7 +879,7 @@ export async function updateCalendar(id: string, changes: Partial<Calendar>): Pr
         return db.events.update(e.id, { startAbsolute, endAbsolute })
       }),
     )
-  }
+  })
 }
 
 /**

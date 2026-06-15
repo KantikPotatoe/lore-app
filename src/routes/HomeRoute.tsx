@@ -207,7 +207,7 @@ export default function HomeRoute() {
   }
 
   const fmtCounts = (c: BackupCounts) =>
-    `${c.pages} pages · ${c.maps} maps · ${c.pins} pins · ${c.templates} page-types`
+    `${c.pages} pages · ${c.maps} maps · ${c.pins} pins · ${c.templates} page-types · ${c.calendars} calendars · ${c.events} events`
 
   return (
     <div className="home">
