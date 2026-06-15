@@ -271,6 +271,18 @@ a { color: inherit; text-decoration: none; }
 .ProseMirror blockquote { border-left: 3px solid var(--accent); margin: 1em 0; padding-left: 16px; color: var(--ink-dim); font-style: italic; }
 .ProseMirror hr { border: none; border-top: 1px solid var(--border); margin: 1.6em 0; }
 .ProseMirror ul, .ProseMirror ol { padding-left: 1.4em; }
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1em 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .ProseMirror p.is-editor-empty:first-child::before {
   content: 'Begin your tale…'; color: var(--ink-faint); float: left; height: 0; pointer-events: none;
 }
