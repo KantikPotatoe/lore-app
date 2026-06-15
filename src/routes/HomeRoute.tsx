@@ -68,6 +68,7 @@ export default function HomeRoute() {
     incoming: BackupCounts
   } | null>(null)
   const [customizing, setCustomizing] = useState(false)
+  const [loreNameDraft, setLoreNameDraft] = useState<string | null>(null)
 
   const activeLoreId = currentLoreId()
   const activeLore = useLiveQuery(() => getLore(activeLoreId), [])
@@ -123,6 +124,13 @@ export default function HomeRoute() {
   }, [draft])
   function saveConfig(patch: Partial<HomeConfig>) {
     setDraft((prev) => ({ ...(prev ?? { ...DEFAULT_HOME, ...(savedConfig ?? {}) }), ...patch }))
+  }
+
+  async function commitLoreName() {
+    if (loreNameDraft !== null) {
+      await renameLore(activeLoreId, loreNameDraft)
+      setLoreNameDraft(null)
+    }
   }
 
   async function handleBannerChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -213,8 +221,10 @@ export default function HomeRoute() {
           <>
             <input
               className="home-title-input"
-              value={activeLore?.name ?? ''}
-              onChange={(e) => renameLore(activeLoreId, e.target.value)}
+              value={loreNameDraft ?? activeLore?.name ?? ''}
+              onChange={(e) => setLoreNameDraft(e.target.value)}
+              onBlur={commitLoreName}
+              onKeyDown={(e) => { if (e.key === 'Enter') commitLoreName() }}
               placeholder="World name"
             />
             <input
@@ -234,7 +244,10 @@ export default function HomeRoute() {
         <div className="home-cta">
           <button className="primary-btn" onClick={handleNew}>+ New page</button>
           <Link to="/map" className="ghost-btn">Open maps</Link>
-          <button className={customizing ? 'ghost-btn active' : 'ghost-btn'} onClick={() => setCustomizing((v) => !v)}>
+          <button className={customizing ? 'ghost-btn active' : 'ghost-btn'} onClick={() => {
+            if (customizing) commitLoreName()
+            setCustomizing((v) => !v)
+          }}>
             {customizing ? '✓ Done' : '✎ Customize'}
           </button>
         </div>
