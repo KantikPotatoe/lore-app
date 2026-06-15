@@ -106,8 +106,12 @@ export default function EventEditor({ event, calendars, allPages, onClose }: Pro
   async function handleDelete() {
     if (!event) return
     if (!confirm(`Delete "${event.title}"? This cannot be undone.`)) return
-    await deleteEvent(event.id)
-    onClose()
+    try {
+      await deleteEvent(event.id)
+      onClose()
+    } catch (e) {
+      setError(String(e))
+    }
   }
 
   return (
