@@ -856,3 +856,20 @@ a { color: inherit; text-decoration: none; }
 }
 .search-empty { padding: 20px 16px; color: var(--ink-faint); font-style: italic; }
 .template-item-reftype { max-width: 130px; }
+
+/* --- Wiki link hover popover ---------------------------------------------- */
+.wiki-hover-popover {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px 13px;
+  min-width: 180px; max-width: 300px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4); pointer-events: auto;
+}
+.popover-header { margin-bottom: 6px; }
+.popover-chip {
+  font-size: 0.7rem; color: #fff; padding: 2px 7px;
+  border-radius: 10px; display: inline-block;
+}
+.popover-title { font-weight: 600; font-size: 0.88rem; color: var(--ink); }
+.popover-summary { font-size: 0.78rem; color: var(--ink-dim); margin-top: 4px; line-height: 1.4; }
+.popover-broken { font-size: 0.75rem; color: var(--ink-faint); font-style: italic; display: block; margin-bottom: 3px; }
+.popover-loading { color: var(--ink-faint); font-size: 0.85rem; }
