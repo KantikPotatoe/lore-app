@@ -89,6 +89,7 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
   function removeLink() {
     editor?.chain().focus().extendMarkRange('link').unsetLink().run()
     setShowLinkBox(false)
+    setLinkUrl('')
   }
 
   // Toggle edit/view without losing the editor instance.
@@ -165,18 +166,18 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
         <div className="link-popover">
           <input
             autoFocus
-            type="url"
+            type="text"
             placeholder="https://example.com"
             value={linkUrl}
             onChange={(e) => setLinkUrl(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') { e.preventDefault(); applyLink() }
-              if (e.key === 'Escape') { setShowLinkBox(false) }
+              if (e.key === 'Escape') { setShowLinkBox(false); setLinkUrl('') }
             }}
           />
-          <button type="button" className="tb-btn" onMouseDown={(e) => e.preventDefault()} onClick={applyLink}>Apply</button>
+          <Btn title="Apply link" onClick={applyLink}>Apply</Btn>
           {editor.isActive('link') && (
-            <button type="button" className="tb-btn" onMouseDown={(e) => e.preventDefault()} onClick={removeLink}>Remove</button>
+            <Btn title="Remove link" onClick={removeLink}>Remove</Btn>
           )}
         </div>
       )}
