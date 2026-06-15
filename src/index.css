@@ -152,7 +152,15 @@ a { color: inherit; text-decoration: none; }
 .home-hero { position: relative; }
 .home-hero h1 { font-family: var(--display); font-size: 40px; margin: 0 0 6px; color: var(--ink); }
 .home-hero p { color: var(--ink-dim); font-size: 17px; margin: 0 0 20px; font-family: var(--serif); }
-.home-hero[style*="background-image"] { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.6); }
+.home-hero[style*="background-image"] {
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  min-height: 220px;
+  padding: 3rem 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
 .home-banner-controls { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
 .home-cta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .home-cta .primary-btn { width: auto; }

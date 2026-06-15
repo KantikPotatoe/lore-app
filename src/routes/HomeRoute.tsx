@@ -247,7 +247,13 @@ export default function HomeRoute() {
                 🖼 {activeLore?.banner ? 'Change banner' : 'Add banner image'}
               </button>
               {activeLore?.banner && (
-                <button className="ghost-btn" onClick={() => setLoreBanner(activeLoreId, null)}>
+                <button className="ghost-btn" onClick={async () => {
+                  try {
+                    await setLoreBanner(activeLoreId, null)
+                  } catch {
+                    alert('Failed to remove banner.')
+                  }
+                }}>
                   ✕ Remove banner
                 </button>
               )}
