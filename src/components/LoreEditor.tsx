@@ -1,7 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import Image from '@tiptap/extension-image'
 import { WikiLink } from '../extensions/WikiLink'
+import { compressImage } from '../imageUtils'
 
 interface Props {
   content: string
@@ -35,11 +37,23 @@ function Btn({ active, onClick, title, children }: {
 
 export default function LoreEditor({ content, editable, onChange, onWikiClick, knownTitles }: Props) {
   const editor = useEditor({
-    extensions: [StarterKit, WikiLink],
+    extensions: [StarterKit, WikiLink, Image.configure({ inline: false, allowBase64: true })],
     content,
     editable,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
   })
+
+  const fileInput = useRef<HTMLInputElement>(null)
+
+  // Insert an image into the body: downscale to a body-friendly 1600px and embed
+  // as a data URL (local-first — no upload). Mirrors Infobox.pickImage.
+  async function pickImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-picking the same file
+    if (!file || !editor) return
+    const dataUrl = await compressImage(file, 1600)
+    editor.chain().focus().setImage({ src: dataUrl }).run()
+  }
 
   // Toggle edit/view without losing the editor instance.
   useEffect(() => {
@@ -86,6 +100,14 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
           <Btn title="Numbered list" active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}>1. List</Btn>
           <Btn title="Quote" active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}>❝</Btn>
           <Btn title="Divider" onClick={() => editor.chain().focus().setHorizontalRule().run()}>―</Btn>
+          <Btn title="Insert image" onClick={() => fileInput.current?.click()}>🖼</Btn>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={pickImage}
+          />
           <span className="tb-spacer" />
           <span className="tb-hint">Type [[Name]] to link a page</span>
         </div>
