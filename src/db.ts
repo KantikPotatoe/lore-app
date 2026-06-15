@@ -890,6 +890,56 @@ export async function deleteCalendar(calendarId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Timeline events — CRUD
+// ---------------------------------------------------------------------------
+
+type NewEventData = Omit<TimelineEvent, 'id' | 'startAbsolute' | 'endAbsolute' | 'createdAt' | 'updatedAt'>
+
+/** Add a timeline event. Computes startAbsolute / endAbsolute automatically. */
+export async function addEvent(data: NewEventData): Promise<string> {
+  const cal = await db.calendars.get(data.calendarId)
+  if (!cal) throw new Error('Calendar not found')
+  const startAbsolute = dateToAbsolute(cal, data.startYear, data.startMonth, data.startDay)
+  const endAbsolute =
+    data.endYear != null
+      ? dateToAbsolute(cal, data.endYear, data.endMonth ?? 0, data.endDay ?? 1)
+      : undefined
+  const id = uid()
+  await db.events.add({
+    ...data,
+    id,
+    startAbsolute,
+    endAbsolute,
+    createdAt: now(),
+    updatedAt: now(),
+  })
+  return id
+}
+
+/** Update a timeline event. Always recomputes startAbsolute / endAbsolute. */
+export async function updateEvent(
+  id: string,
+  changes: Partial<Omit<TimelineEvent, 'id' | 'createdAt'>>,
+): Promise<void> {
+  const existing = await db.events.get(id)
+  if (!existing) return
+  const merged = { ...existing, ...changes }
+  const cal = await db.calendars.get(merged.calendarId)
+  if (!cal) throw new Error('Calendar not found')
+  const startAbsolute = dateToAbsolute(cal, merged.startYear, merged.startMonth, merged.startDay)
+  const endAbsolute =
+    merged.endYear != null
+      ? dateToAbsolute(cal, merged.endYear, merged.endMonth ?? 0, merged.endDay ?? 1)
+      : undefined
+  await db.events.update(id, { ...changes, startAbsolute, endAbsolute, updatedAt: now() })
+}
+
+/** Delete a timeline event. */
+export async function deleteEvent(id: string): Promise<void> {
+  await db.events.delete(id)
+}
+
+// ---------------------------------------------------------------------------
 // Backup / restore — your safety net
 // ---------------------------------------------------------------------------
 
