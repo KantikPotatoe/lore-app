@@ -55,77 +55,107 @@ export default function LoreSelectorRoute() {
 
   return (
     <div className="lore-selector">
-      <div className="lore-selector-header">
-        <h1>Your Worlds</h1>
-        <button
-          className="primary-btn"
-          onClick={handleCreate}
-          disabled={creating}
-        >
-          {creating ? 'Creating…' : '＋ New World'}
-        </button>
-      </div>
+      {/* Branded hero */}
+      <header className="lore-hero">
+        <h1 className="lore-hero-title">Lore Codex</h1>
+        <p className="lore-hero-tagline">Choose a world to enter, or forge a new one.</p>
+        <hr className="lore-hero-rule" />
+        <div className="lore-hero-actions">
+          <button className="primary-btn" onClick={handleCreate} disabled={creating}>
+            {creating ? 'Creating…' : '＋ New World'}
+          </button>
+        </div>
+      </header>
 
+      {/* Worlds grid */}
       <div className="lore-grid">
-        {lores.map((lore) => (
-          <div
-            key={lore.id}
-            className={`world-card${lore.id === activeId ? ' world-card--active' : ''}`}
-          >
-            {/* Banner / placeholder */}
+        {lores.map((lore) => {
+          const isActive = lore.id === activeId
+          return (
             <div
-              className="world-card-banner"
-              onClick={() => switchLore(lore.id)}
-              style={lore.banner ? { backgroundImage: `url(${lore.banner})` } : undefined}
+              key={lore.id}
+              className={`world-card${isActive ? ' world-card--active' : ''}`}
             >
-              {!lore.banner && (
-                <span className="world-card-initial">
-                  {lore.name.charAt(0).toUpperCase()}
+              {/* Banner / placeholder */}
+              <div
+                className="world-card-banner"
+                onClick={() => switchLore(lore.id)}
+                style={lore.banner ? { backgroundImage: `url(${lore.banner})` } : undefined}
+              >
+                {!lore.banner && (
+                  <span className="world-card-initial">
+                    {lore.name.charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <span className="world-card-enter">Enter →</span>
+              </div>
+
+              {/* Card body */}
+              <div className="world-card-body">
+                <div className="world-card-title-row">
+                  {renamingId === lore.id ? (
+                    <input
+                      className="lore-rename-input"
+                      value={renameValue}
+                      autoFocus
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onBlur={() => commitRename(lore.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') commitRename(lore.id)
+                        if (e.key === 'Escape') setRenamingId(null)
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <button
+                        className="world-card-name"
+                        onClick={() => switchLore(lore.id)}
+                        title="Open this world"
+                      >
+                        {lore.name}
+                      </button>
+                      {isActive && <span className="world-card-badge">Current</span>}
+                    </>
+                  )}
+                </div>
+
+                <span className="world-card-date">
+                  Created {new Date(lore.createdAt).toLocaleDateString()}
                 </span>
-              )}
-            </div>
 
-            {/* Card body */}
-            <div className="world-card-body">
-              {renamingId === lore.id ? (
-                <input
-                  className="lore-rename-input"
-                  value={renameValue}
-                  autoFocus
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onBlur={() => commitRename(lore.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') commitRename(lore.id)
-                    if (e.key === 'Escape') setRenamingId(null)
-                  }}
-                />
-              ) : (
-                <button
-                  className="world-card-name"
-                  onClick={() => switchLore(lore.id)}
-                  title="Open this world"
-                >
-                  {lore.name}
-                </button>
-              )}
-
-              <span className="world-card-date">
-                Created {new Date(lore.createdAt).toLocaleDateString()}
-              </span>
-
-              <div className="world-card-actions">
-                <button className="ghost-btn" onClick={() => startRename(lore)}>✎ Rename</button>
-                <button className="ghost-btn" onClick={() => openBannerPicker(lore.id)}>🖼 Banner</button>
-                <button className="ghost-btn danger" onClick={() => setPendingDelete(lore)}>✕ Delete</button>
+                <div className="world-card-actions">
+                  <button className="ghost-btn" onClick={() => startRename(lore)}>✎ Rename</button>
+                  <button className="ghost-btn" onClick={() => openBannerPicker(lore.id)}>🖼 Banner</button>
+                  <button className="ghost-btn danger" onClick={() => setPendingDelete(lore)}>✕ Delete</button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
 
-        {lores.length === 0 && (
-          <p className="empty-hint">No worlds yet. Create your first one!</p>
+        {/* Add-world tile — shown alongside existing worlds */}
+        {lores.length > 0 && (
+          <button
+            className="world-card-add"
+            onClick={handleCreate}
+            disabled={creating}
+          >
+            <span className="world-card-add-icon">＋</span>
+            <span>{creating ? 'Creating…' : 'New World'}</span>
+          </button>
         )}
       </div>
+
+      {/* Empty state — shown when no worlds exist */}
+      {lores.length === 0 && (
+        <div className="lore-empty">
+          <span className="lore-empty-glyph">❧</span>
+          <p>No worlds yet — your stories await.</p>
+          <button className="primary-btn" onClick={handleCreate} disabled={creating}>
+            {creating ? 'Creating…' : 'Create your first world'}
+          </button>
+        </div>
+      )}
 
       {/* Hidden banner file input */}
       <input
