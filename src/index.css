@@ -1266,3 +1266,44 @@ a { color: inherit; text-decoration: none; }
 }
 .tl-event-desc p { margin: 0; }
 .tl-page-link { font-size: 13px; align-self: flex-start; padding: 4px 10px; margin-top: 2px; }
+
+/* --- TimelineHorizontal ---------------------------------------------------- */
+.tl-horiz {
+  position: relative; overflow: hidden; cursor: grab; user-select: none;
+  background: var(--bg); width: 100%;
+}
+.tl-horiz:active { cursor: grabbing; }
+
+.horiz-era-band { position: absolute; top: 0; }
+.horiz-era-label {
+  position: sticky; left: 8px; top: 4px; display: inline-block;
+  font-family: var(--display); font-size: 12px; color: var(--ink-faint);
+  pointer-events: none;
+}
+
+.horiz-header {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--bg-2); border-bottom: 1px solid var(--border);
+  pointer-events: none;
+}
+.horiz-tick {
+  position: absolute; top: 0; bottom: 0;
+  border-left: 1px solid var(--border); padding-left: 4px;
+}
+.horiz-tick-label {
+  font-size: 11px; color: var(--ink-faint); white-space: nowrap;
+  position: absolute; top: 50%; transform: translateY(-50%);
+}
+
+.horiz-event {
+  border-radius: 4px; cursor: pointer; overflow: hidden;
+  display: flex; align-items: center; padding: 0 6px;
+  transition: filter 0.1s; font-size: 12px; font-weight: 600; color: #1c160a;
+}
+.horiz-event:hover { filter: brightness(1.15); }
+.horiz-event-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.horiz-hint {
+  position: absolute; bottom: 8px; right: 12px;
+  font-size: 11px; color: var(--ink-faint); pointer-events: none;
+}
