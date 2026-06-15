@@ -29,10 +29,12 @@ import {
 } from '../backup'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { exportAsHtml } from '../htmlExport'
+import { getLore, renameLore, setLoreBanner, currentLoreId } from '../lores'
+import { compressImage } from '../imageUtils'
 
 /** Personalisable bits of the home page, stored as one row in the meta table. */
 interface HomeConfig {
-  title: string
+  // title removed — now stored in the lore registry
   tagline: string
   about: string
   showAbout: boolean
@@ -46,7 +48,6 @@ const NO_PAGES: LorePage[] = []
 
 const HOME_CONFIG_KEY = 'home-config'
 const DEFAULT_HOME: HomeConfig = {
-  title: 'Your Worlds Await',
   tagline: 'Write, link, and map the lore of everything you create.',
   about: '',
   showAbout: true,
@@ -57,6 +58,7 @@ const DEFAULT_HOME: HomeConfig = {
 export default function HomeRoute() {
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
+  const bannerFileRef = useRef<HTMLInputElement>(null)
   const [persisted, setPersisted] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -66,6 +68,9 @@ export default function HomeRoute() {
     incoming: BackupCounts
   } | null>(null)
   const [customizing, setCustomizing] = useState(false)
+
+  const activeLoreId = currentLoreId()
+  const activeLore = useLiveQuery(() => getLore(activeLoreId), [])
 
   // Home config lives in the meta table. We load it once into local state and
   // treat that as the source of truth while editing — merging each change onto
@@ -118,6 +123,14 @@ export default function HomeRoute() {
   }, [draft])
   function saveConfig(patch: Partial<HomeConfig>) {
     setDraft((prev) => ({ ...(prev ?? { ...DEFAULT_HOME, ...(savedConfig ?? {}) }), ...patch }))
+  }
+
+  async function handleBannerChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const dataUrl = await compressImage(file, 1600)
+    await setLoreBanner(activeLoreId, dataUrl)
+    e.target.value = ''
   }
 
   async function handleNew() {
@@ -188,13 +201,20 @@ export default function HomeRoute() {
 
   return (
     <div className="home">
-      <div className="home-hero">
+      <div
+        className="home-hero"
+        style={activeLore?.banner ? {
+          backgroundImage: `url(${activeLore.banner})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        } : undefined}
+      >
         {customizing ? (
           <>
             <input
               className="home-title-input"
-              value={cfg.title}
-              onChange={(e) => saveConfig({ title: e.target.value })}
+              value={activeLore?.name ?? ''}
+              onChange={(e) => renameLore(activeLoreId, e.target.value)}
               placeholder="World name"
             />
             <input
@@ -206,7 +226,7 @@ export default function HomeRoute() {
           </>
         ) : (
           <>
-            <h1>{cfg.title || DEFAULT_HOME.title}</h1>
+            <h1>{activeLore?.name || 'My World'}</h1>
             {cfg.tagline && <p>{cfg.tagline}</p>}
           </>
         )}
@@ -221,6 +241,25 @@ export default function HomeRoute() {
 
         {customizing && (
           <div className="home-customize">
+            {/* Banner upload controls */}
+            <div className="home-banner-controls">
+              <button className="ghost-btn" onClick={() => bannerFileRef.current?.click()}>
+                🖼 {activeLore?.banner ? 'Change banner' : 'Add banner image'}
+              </button>
+              {activeLore?.banner && (
+                <button className="ghost-btn" onClick={() => setLoreBanner(activeLoreId, null)}>
+                  ✕ Remove banner
+                </button>
+              )}
+              <input
+                ref={bannerFileRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={handleBannerChange}
+              />
+            </div>
+
             <label className="home-toggle">
               <input type="checkbox" checked={cfg.showAbout} onChange={(e) => saveConfig({ showAbout: e.target.checked })} />
               About this world
