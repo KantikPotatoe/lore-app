@@ -11,12 +11,14 @@ import {
   type InfoboxTemplate,
   type TemplateItem,
 } from '../db'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 export default function TemplatesRoute() {
   const templates = useLiveQuery(() => db.templates.orderBy('name').toArray(), [])
   const pages = useLiveQuery(() => db.pages.toArray(), []) ?? []
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [note, setNote] = useState('')
+  const [pendingDelete, setPendingDelete] = useState<InfoboxTemplate | null>(null)
 
   if (!templates) return <div className="content-pad">Loading…</div>
 
@@ -41,9 +43,10 @@ export default function TemplatesRoute() {
     selectTemplate(id)
   }
 
-  async function handleDelete(tpl: InfoboxTemplate) {
-    if (!confirm(`Delete the "${tpl.name}" template? Pages already using it keep their fields.`)) return
-    await deleteTemplate(tpl.id)
+  async function confirmDelete() {
+    if (!pendingDelete) return
+    await deleteTemplate(pendingDelete.id)
+    setPendingDelete(null)
     selectTemplate(null)
   }
 
@@ -113,7 +116,7 @@ export default function TemplatesRoute() {
                   ↺ Reset
                 </button>
               ) : (
-                <button className="mini-btn danger" onClick={() => handleDelete(selected)}>Delete</button>
+                <button className="mini-btn danger" onClick={() => setPendingDelete(selected)}>Delete</button>
               )}
             </div>
 
@@ -214,6 +217,17 @@ export default function TemplatesRoute() {
           </section>
         )}
       </div>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete template?"
+        confirmLabel="Delete"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      >
+        Delete the “{pendingDelete?.name}” template? Pages already using it keep their fields.
+      </ConfirmDialog>
     </div>
   )
 }

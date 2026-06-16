@@ -6,6 +6,7 @@ import LoreEditor from '../components/LoreEditor'
 import Infobox from '../components/Infobox'
 import Backlinks from '../components/Backlinks'
 import TableOfContents from '../components/TableOfContents'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { maybeTakeSnapshot } from '../snapshots'
 
 export default function PageRoute() {
@@ -17,6 +18,9 @@ export default function PageRoute() {
   const [editing, setEditing] = useState(false)
   const [tagInput, setTagInput] = useState('')
   const [titleDraft, setTitleDraft] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [pendingLink, setPendingLink] = useState<string | null>(null)
+  const [renameError, setRenameError] = useState<string | null>(null)
   const mainRef = useRef<HTMLDivElement>(null)
 
   // Lowercased titles of all existing pages — drives broken-link styling.
@@ -48,8 +52,14 @@ export default function PageRoute() {
       navigate(`/page/${existing}`)
       return
     }
-    if (!confirm(`"${title.trim()}" doesn't exist yet. Create it?`)) return
-    const newId = await createPage({ title: title.trim(), status: 'Stub' })
+    setPendingLink(title.trim())
+  }
+
+  async function createPendingLink() {
+    const title = pendingLink
+    setPendingLink(null)
+    if (!title) return
+    const newId = await createPage({ title, status: 'Stub' })
     navigate(`/page/${newId}`)
   }
 
@@ -61,7 +71,7 @@ export default function PageRoute() {
     try {
       await renamePage(id, next)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Could not rename the page.')
+      setRenameError(err instanceof Error ? err.message : 'Could not rename the page.')
     }
   }
 
@@ -86,7 +96,7 @@ export default function PageRoute() {
   }
 
   async function handleDelete() {
-    if (!confirm(`Delete "${page!.title}"? This cannot be undone.`)) return
+    setConfirmDelete(false)
     await deletePage(id)
     navigate('/home')
   }
@@ -122,7 +132,7 @@ export default function PageRoute() {
             >
               {editing ? '✓ Done' : '✎ Edit'}
             </button>
-            <button className="ghost-btn danger" onClick={handleDelete}>🗑</button>
+            <button className="ghost-btn danger" onClick={() => setConfirmDelete(true)}>🗑</button>
           </div>
         </div>
 
@@ -234,6 +244,38 @@ export default function PageRoute() {
           <Backlinks pageId={id} />
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete page?"
+        confirmLabel="Delete"
+        danger
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(false)}
+      >
+        Delete “{page.title}”? This cannot be undone.
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={pendingLink !== null}
+        title="Create page?"
+        confirmLabel="Create"
+        onConfirm={createPendingLink}
+        onCancel={() => setPendingLink(null)}
+      >
+        “{pendingLink}” doesn’t exist yet. Create it?
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={renameError !== null}
+        title="Couldn’t rename page"
+        confirmLabel="OK"
+        hideCancel
+        onConfirm={() => setRenameError(null)}
+        onCancel={() => setRenameError(null)}
+      >
+        {renameError}
+      </ConfirmDialog>
     </div>
   )
 }

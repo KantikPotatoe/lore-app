@@ -6,6 +6,7 @@ import {
   createCalendar, updateCalendar, deleteCalendar,
   type Calendar, type CalendarMonth, type CalendarEra,
 } from '../db'
+import ConfirmDialog from './ConfirmDialog'
 
 interface Props {
   onClose: () => void
@@ -15,6 +16,7 @@ export default function CalendarEditor({ onClose }: Props) {
   const calendars = useLiveQuery(() => db.calendars.orderBy('createdAt').toArray(), []) ?? []
   const [editId, setEditId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Calendar | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<Calendar | null>(null)
 
   function startEdit(cal: Calendar) {
     setDraft(JSON.parse(JSON.stringify(cal)))
@@ -38,8 +40,10 @@ export default function CalendarEditor({ onClose }: Props) {
     cancelEdit()
   }
 
-  async function handleDelete(cal: Calendar) {
-    if (!confirm(`Delete "${cal.name}" and all its events? This cannot be undone.`)) return
+  async function confirmDelete() {
+    const cal = pendingDelete
+    if (!cal) return
+    setPendingDelete(null)
     await deleteCalendar(cal.id)
     if (editId === cal.id) cancelEdit()
   }
@@ -114,7 +118,7 @@ export default function CalendarEditor({ onClose }: Props) {
                 className={`cal-list-item${editId === cal.id ? ' active' : ''}`}
               >
                 <span className="cal-list-name" onClick={() => startEdit(cal)}>{cal.name}</span>
-                <button className="mini-btn danger" onClick={() => handleDelete(cal)}>✕</button>
+                <button className="mini-btn danger" onClick={() => setPendingDelete(cal)}>✕</button>
               </div>
             ))}
             <button className="ghost-btn" style={{ marginTop: 8 }} onClick={handleNew}>
@@ -223,6 +227,17 @@ export default function CalendarEditor({ onClose }: Props) {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete calendar?"
+        confirmLabel="Delete"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      >
+        Delete “{pendingDelete?.name}” and all its events? This cannot be undone.
+      </ConfirmDialog>
     </div>
   )
 }

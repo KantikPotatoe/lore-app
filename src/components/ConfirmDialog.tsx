@@ -7,6 +7,9 @@ interface ConfirmDialogProps {
   cancelLabel?: string
   /** Red confirm button for destructive actions. */
   danger?: boolean
+  /** Hide the cancel button — use when the dialog is a plain acknowledgement
+   *  (an alert) rather than a yes/no choice. */
+  hideCancel?: boolean
   onConfirm: () => void
   onCancel: () => void
   children: React.ReactNode
@@ -21,6 +24,7 @@ export default function ConfirmDialog({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   danger = false,
+  hideCancel = false,
   onConfirm,
   onCancel,
   children,
@@ -50,9 +54,11 @@ export default function ConfirmDialog({
         <h2 className="modal-title">{title}</h2>
         <div className="modal-body">{children}</div>
         <div className="modal-actions">
-          <button className="ghost-btn" onClick={onCancel}>
-            {cancelLabel}
-          </button>
+          {!hideCancel && (
+            <button className="ghost-btn" onClick={onCancel}>
+              {cancelLabel}
+            </button>
+          )}
           <button
             ref={confirmRef}
             className={`primary-btn${danger ? ' danger' : ''}`}

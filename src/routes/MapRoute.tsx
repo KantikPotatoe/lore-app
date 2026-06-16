@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, addMap, addPin, deleteMap, type MapPin } from '../db'
 import MapView from '../components/MapView'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { compressImage } from '../imageUtils'
 
 export default function MapRoute() {
@@ -13,6 +14,7 @@ export default function MapRoute() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [addMode, setAddMode] = useState(false)
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null)
+  const [confirmDeleteMap, setConfirmDeleteMap] = useState(false)
 
   // Default to the first map if none chosen yet.
   const currentMap = maps.find((m) => m.id === activeId) ?? maps[0] ?? null
@@ -71,13 +73,7 @@ export default function MapRoute() {
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleUpload} />
         <button
           className="ghost-btn danger"
-          onClick={async () => {
-            if (!currentMap) return
-            if (!confirm(`Delete "${currentMap.name}" and all its pins? This cannot be undone.`)) return
-            setSelectedPinId(null)
-            setActiveId(null)
-            await deleteMap(currentMap.id)
-          }}
+          onClick={() => currentMap && setConfirmDeleteMap(true)}
         >
           Delete map
         </button>
@@ -130,6 +126,23 @@ export default function MapRoute() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmDeleteMap}
+        title="Delete map?"
+        confirmLabel="Delete"
+        danger
+        onConfirm={async () => {
+          setConfirmDeleteMap(false)
+          if (!currentMap) return
+          setSelectedPinId(null)
+          setActiveId(null)
+          await deleteMap(currentMap.id)
+        }}
+        onCancel={() => setConfirmDeleteMap(false)}
+      >
+        Delete “{currentMap?.name}” and all its pins? This cannot be undone.
+      </ConfirmDialog>
     </div>
   )
 }

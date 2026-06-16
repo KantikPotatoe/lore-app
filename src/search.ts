@@ -1,5 +1,6 @@
 import { Index } from 'flexsearch'
 import type { LorePage } from './db'
+import { stripHtml } from './html'
 
 export interface SearchResult {
   id: string
@@ -11,12 +12,6 @@ export interface SearchResult {
 // FlexSearch Index has no .clear(); we swap the reference on each rebuild.
 let activeIdx: Index | null = null
 const store = new Map<string, { title: string; category: string; body: string; summary: string }>()
-
-function stripHtml(html: string): string {
-  const div = document.createElement('div')
-  div.innerHTML = html
-  return div.textContent ?? ''
-}
 
 function extractSnippet(text: string, query: string, maxLen = 160): string {
   if (!text) return ''

@@ -1,6 +1,7 @@
 import Dexie, { liveQuery, type Table } from 'dexie'
 import { dbNameFor, currentLoreId } from './loreId'
 import { dateToAbsolute } from './calendar'
+import { parseHtml, wikiLinkTitles } from './html'
 
 // ---------------------------------------------------------------------------
 // Data model
@@ -397,10 +398,23 @@ export async function defaultInfobox(category: string): Promise<Infobox> {
   }
 }
 
+/** Keep a previously-entered value only if it still fits the field's new type.
+ *  When a row switches to a 'ref' field, free text that holds no `[[links]]` is
+ *  dropped (it would never render as a link); a 'number' field keeps the value
+ *  only if it parses as a number. Text fields keep whatever was there. This
+ *  stops a type change from stranding junk in a typed field. */
+function carryValue(value: string | undefined, fieldType: FieldType): string {
+  const v = value ?? ''
+  if (!v.trim()) return ''
+  if (fieldType === 'ref') return parseRefTitles(v).length ? v : ''
+  if (fieldType === 'number') return /^-?\d+(\.\d+)?$/.test(v.trim()) ? v.trim() : ''
+  return v
+}
+
 /** Switch an infobox to a template: its rows become exactly the template's
  *  rows (replacing whatever was there before), but any value the user already
- *  filled in for a field with a matching label is carried over. The image and
- *  caption are kept. */
+ *  filled in for a field with a matching label is carried over (when it still
+ *  fits the field's type — see carryValue). The image and caption are kept. */
 export function applyTemplate(box: Infobox, tpl: InfoboxTemplate): Infobox {
   const byLabel = new Map(
     box.fields.filter((fld) => fld.kind !== 'separator').map((fld) => [fld.label.toLowerCase(), fld]),
@@ -408,11 +422,12 @@ export function applyTemplate(box: Infobox, tpl: InfoboxTemplate): Infobox {
   const fields: InfoboxField[] = tpl.items.map((it) => {
     if (it.separator) return { id: crypto.randomUUID(), label: it.label, value: '', kind: 'separator' as const }
     const existing = byLabel.get(it.label.toLowerCase())
+    const fieldType = it.fieldType ?? 'text'
     return {
       id: existing?.id ?? crypto.randomUUID(),
       label: it.label,
-      value: existing?.value ?? '',
-      fieldType: it.fieldType ?? 'text',
+      value: carryValue(existing?.value, fieldType),
+      fieldType,
       refType: it.refType,
     }
   })
@@ -624,7 +639,7 @@ function rewriteLinksInPage(
 
   // Body: <a data-wikilink data-title="Old">Old</a> — rewrite attribute + text.
   if (page.content && page.content.includes('data-wikilink')) {
-    const doc = new DOMParser().parseFromString(page.content, 'text/html')
+    const doc = parseHtml(page.content)
     let bodyChanged = false
     doc.querySelectorAll('a[data-wikilink]').forEach((a) => {
       if (a.getAttribute('data-title')?.trim().toLowerCase() === oldLc) {
@@ -695,13 +710,7 @@ const WIKILINK_RE = /\[\[([^\]]+)\]\]/g
 export function linkedTitles(page: LorePage): Set<string> {
   const titles = new Set<string>()
   // Body: editor wiki links render as <a data-wikilink data-title="...">.
-  if (page.content) {
-    const doc = new DOMParser().parseFromString(page.content, 'text/html')
-    doc.querySelectorAll('a[data-wikilink]').forEach((a) => {
-      const t = a.getAttribute('data-title')?.trim().toLowerCase()
-      if (t) titles.add(t)
-    })
-  }
+  for (const t of wikiLinkTitles(page.content)) titles.add(t.toLowerCase())
   // Infobox field values keep the raw [[Name]] syntax.
   if (page.infobox) {
     for (const field of page.infobox.fields) {
@@ -951,7 +960,6 @@ export async function deleteEvent(id: string): Promise<void> {
 
 /** The shape produced by exportAll() and accepted by importAll(). */
 export interface BackupData {
-  version?: number
   exportedAt?: number
   pages: LorePage[]
   maps?: WorldMap[]
@@ -1010,7 +1018,7 @@ export async function exportAll(): Promise<string> {
     db.calendars.toArray(),
     db.events.toArray(),
   ])
-  return JSON.stringify({ version: 3, exportedAt: now(), pages, maps, pins, templates, calendars, events })
+  return JSON.stringify({ exportedAt: now(), pages, maps, pins, templates, calendars, events })
 }
 
 export async function importAll(json: string): Promise<void> {

@@ -1,6 +1,7 @@
 // src/components/EventEditor.tsx
 import { useState } from 'react'
 import LoreEditor from './LoreEditor'
+import ConfirmDialog from './ConfirmDialog'
 import { addEvent, updateEvent, deleteEvent, type Calendar, type TimelineEvent, type LorePage } from '../db'
 import { eraForYear } from '../calendar'
 
@@ -52,6 +53,7 @@ export default function EventEditor({ event, calendars, allPages, onClose }: Pro
   const [draft, setDraft] = useState<Draft>(() => initDraft(event, calendars))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const cal = calendars.find((c) => c.id === draft.calendarId) ?? calendars[0]
   const maxDay = cal?.months[draft.startMonth]?.days ?? 28
@@ -108,7 +110,7 @@ export default function EventEditor({ event, calendars, allPages, onClose }: Pro
 
   async function handleDelete() {
     if (!event) return
-    if (!confirm(`Delete "${event.title}"? This cannot be undone.`)) return
+    setConfirmDelete(false)
     try {
       await deleteEvent(event.id)
       onClose()
@@ -286,7 +288,7 @@ export default function EventEditor({ event, calendars, allPages, onClose }: Pro
 
         <div className="modal-actions">
           {event && (
-            <button className="ghost-btn danger" onClick={handleDelete} style={{ marginRight: 'auto' }}>
+            <button className="ghost-btn danger" onClick={() => setConfirmDelete(true)} style={{ marginRight: 'auto' }}>
               Delete event
             </button>
           )}
@@ -296,6 +298,17 @@ export default function EventEditor({ event, calendars, allPages, onClose }: Pro
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete event?"
+        confirmLabel="Delete"
+        danger
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(false)}
+      >
+        Delete “{event?.title}”? This cannot be undone.
+      </ConfirmDialog>
     </div>
   )
 }

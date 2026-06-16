@@ -49,22 +49,33 @@ export async function downloadBackup(): Promise<void> {
  * replaced). Skips entirely when the DB is empty — nothing to recover.
  */
 export async function downloadPreImportBackup(): Promise<void> {
-  const [pages, maps, pins, templates] = await Promise.all([
+  const [pages, maps, pins, templates, calendars, events] = await Promise.all([
     db.pages.count(),
     db.maps.count(),
     db.pins.count(),
     db.templates.count(),
+    db.calendars.count(),
+    db.events.count(),
   ])
-  if (pages + maps + pins + templates === 0) return
+  if (pages + maps + pins + templates + calendars + events === 0) return
   const json = await exportAll()
   triggerDownload(json, `lore-pre-import-${backupStamp()}.json`)
 }
 
-/** The most recent time any page or map changed — i.e. the data we'd lose. */
+/** The most recent time any tracked data changed — i.e. the data we'd lose.
+ *  Covers pages, maps, and timeline events/calendars (events carry the bulk of
+ *  timeline edits). Events have no updatedAt index, so they're scanned in memory;
+ *  the table is small enough that this stays cheap. */
 export async function latestChangeTime(): Promise<number> {
-  const newestPage = await db.pages.orderBy('updatedAt').last()
-  const newestMap = await db.maps.orderBy('createdAt').last()
-  return Math.max(newestPage?.updatedAt ?? 0, newestMap?.createdAt ?? 0)
+  const [newestPage, newestMap, events, calendars] = await Promise.all([
+    db.pages.orderBy('updatedAt').last(),
+    db.maps.orderBy('createdAt').last(),
+    db.events.toArray(),
+    db.calendars.toArray(),
+  ])
+  const newestEvent = events.reduce((max, e) => Math.max(max, e.updatedAt), 0)
+  const newestCalendar = calendars.reduce((max, c) => Math.max(max, c.createdAt), 0)
+  return Math.max(newestPage?.updatedAt ?? 0, newestMap?.createdAt ?? 0, newestEvent, newestCalendar)
 }
 
 /** True if there is data that has changed since the last backup. */
@@ -75,15 +86,20 @@ export function hasUnbackedUpChanges(lastBackup: number | null, latestChange: nu
 }
 
 /**
- * How many pages/maps have changed since the last backup. Used to turn the
- * vague "you have changes" reminder into a concrete count. When there is no
- * prior backup, `since` is 0 so every existing page/map counts.
+ * How many pages/maps/timeline events have changed since the last backup. Used
+ * to turn the vague "you have changes" reminder into a concrete count. When
+ * there is no prior backup, `since` is 0 so every existing record counts.
+ * Events lack an updatedAt index, so they're filtered in memory.
  */
 export async function unbackedChangeCount(lastBackup: number | null): Promise<number> {
   const since = lastBackup ?? 0
-  const pages = await db.pages.where('updatedAt').above(since).count()
-  const maps = await db.maps.where('createdAt').above(since).count()
-  return pages + maps
+  const [pages, maps, events] = await Promise.all([
+    db.pages.where('updatedAt').above(since).count(),
+    db.maps.where('createdAt').above(since).count(),
+    db.events.toArray(),
+  ])
+  const eventChanges = events.filter((e) => e.updatedAt > since).length
+  return pages + maps + eventChanges
 }
 
 const BACKUP_OVERDUE_MS = 7 * 24 * 60 * 60 * 1000 // one week
