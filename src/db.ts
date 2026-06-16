@@ -107,6 +107,8 @@ export interface TimelineEvent {
   category: string
   /** Optional hex color for the event accent. Falls back to --accent. */
   color?: string
+  /** Optional single emoji shown in the card header and axis block. */
+  icon?: string
   /** Linked lore page stored id, like MapPin.pageId. Null if unlinked. */
   pageId: string | null
   startYear: number
