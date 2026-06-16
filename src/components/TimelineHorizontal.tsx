@@ -11,7 +11,7 @@ interface Props {
 }
 
 const LANE_H = 30
-const HEADER_H = 44
+const HEADER_H = 48
 const LANE_GAP = 4
 
 export default function TimelineHorizontal({
@@ -91,7 +91,9 @@ export default function TimelineHorizontal({
     })
   }
 
-  const tickYears: { abs: number; label: string }[] = []
+  const eraStartYears = new Set(displayCal?.eras.map((e) => e.startYear) ?? [])
+
+  const tickYears: { abs: number; label: string; major: boolean }[] = []
   if (displayCal && scale > 0) {
     const yl = yearLength(displayCal)
     if (yl > 0) {
@@ -108,6 +110,7 @@ export default function TimelineHorizontal({
           tickYears.push({
             abs,
             label: `Year ${yr}${eraName ? ` (${eraName})` : ''}`,
+            major: eraStartYears.has(yr),
           })
         }
       }
@@ -131,20 +134,35 @@ export default function TimelineHorizontal({
         <div
           key={era.id}
           className="horiz-era-band"
-          style={{ left: x, width: w, height: totalH, background: era.color ? era.color + '18' : 'transparent' }}
+          style={{
+            left: x, width: w, height: totalH,
+            background: era.color
+              ? `linear-gradient(to right, ${era.color}06, ${era.color}14, ${era.color}06)`
+              : 'transparent',
+          }}
         >
           <span className="horiz-era-label">{era.name}</span>
         </div>
       ))}
 
+      {Array.from({ length: numLanes }, (_, i) => (
+        <div
+          key={`lane-${i}`}
+          className={i % 2 === 1 ? 'horiz-lane-strip horiz-lane-strip-alt' : 'horiz-lane-strip'}
+          style={{ top: HEADER_H + i * (LANE_H + LANE_GAP), height: LANE_H + LANE_GAP }}
+        />
+      ))}
+
       <div className="horiz-header" style={{ height: HEADER_H }}>
-        {tickYears.map(({ abs, label }) => (
+        {tickYears.map(({ abs, label, major }) => (
           <div
             key={abs}
-            className="horiz-tick"
+            className={major ? 'horiz-tick horiz-tick-major' : 'horiz-tick'}
             style={{ left: (abs - offsetAbs) * scale }}
           >
-            <span className="horiz-tick-label">{label}</span>
+            <span className={major ? 'horiz-tick-label horiz-tick-label-major' : 'horiz-tick-label'}>
+              {label}
+            </span>
           </div>
         ))}
       </div>
