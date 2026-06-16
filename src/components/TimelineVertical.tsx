@@ -82,6 +82,7 @@ export default function TimelineVertical({
               const dateLabel = endLabel ? `${startLabel} — ${endLabel}` : startLabel
               const linkedPage = event.pageId ? pageById.get(event.pageId) : null
               const accent = event.color ?? 'var(--accent)'
+              const headerBg = event.color ? event.color + '22' : 'rgba(201,162,75,0.13)'
               const thumbImage = linkedPage?.infobox?.image
 
               return (
@@ -90,7 +91,7 @@ export default function TimelineVertical({
                   className="tl-event-card"
                   onClick={() => onEdit(event)}
                 >
-                  <div className="tl-card-header" style={{ background: accent + '22' }}>
+                  <div className="tl-card-header" style={{ background: headerBg }}>
                     <div className="tl-card-header-left">
                       {event.icon && <span className="tl-card-icon">{event.icon}</span>}
                       {event.category && (
