@@ -33,26 +33,40 @@ Key types:
 - `InfoboxTemplate` / `TemplateItem` — a **page type**: a named, coloured category (`color`) plus an ordered list of starter infobox rows (fields or separators). A `TemplateItem` carries the same optional `fieldType`/`refType`, so a type declares each field's kind (set per row on the Templates screen). Stored in the `templates` table and editable from the Templates screen. A page's `category` is the name of a template; choosing a type also seeds its infobox
 - `WorldMap` — an uploaded image stored as a data URL
 - `MapPin` — a lat/lng point on a map, optionally linked to a `LorePage`
-- `Snapshot` — a point-in-time export snapshot: `id`, `timestamp`, `editCount` (pages changed since last snapshot), `data` (raw `exportAll()` JSON). Up to 10 are kept; oldest is pruned on overflow. CRUD: `saveSnapshot()`, `getSnapshots()`, `deleteSnapshot()`
-- `MetaEntry` — key/value app settings (e.g. last-backup time, last-snapshot time); Dexie schema is at **v4**
+- `Calendar` / `CalendarMonth` / `CalendarEra` — a custom in-world calendar: ordered `months` (each with a name + day count), `weekdays`, `eras`, and an `anchor` (the absolute day on which the calendar's year 0 sits). See **Timeline & calendars** below
+- `TimelineEvent` — a dated occurrence on a calendar, optionally spanning a range. Stores the in-world date (`startYear`/`startMonth`/`startDay`, optional `end*`) plus a **cached `startAbsolute`/`endAbsolute`** (computed via `calendar.ts` on every write) for sorting and axis positioning, an optional `color`/`icon`, and an optional linked `pageId`
+- `Snapshot` — a point-in-time export snapshot: `id`, `timestamp`, `editCount` (pages + events changed since last snapshot), `data` (raw `exportAll()` JSON). Up to 10 are kept; oldest is pruned on overflow. CRUD: `saveSnapshot()`, `getSnapshots()`, `deleteSnapshot()`
+- `MetaEntry` — key/value app settings (e.g. last-backup time, last-snapshot time); Dexie schema is at **v5**
+- `Lore` (in `src/lores.ts`, a separate `lore-registry` DB) — a saved world: `id`, `name`, optional `banner`. Each lore is its own IndexedDB database; see **Multiple worlds (lores)** below
 
-Defined here (add new ones here): `BUILTIN_TEMPLATES` (the ~19 shipped page types — name, colour, and starter rows, several with separators already placed), `DEFAULT_CATEGORY` (the type a new page starts as), `TYPE_COLORS` (palette for the colour picker), `STATUSES` (Stub/Draft/WIP/Complete) with `pageStatus()`/`statusColor()`. `CATEGORIES` is now just the built-in colour fallback. Page types are DB-backed: `seedTemplates()` (called on app start) reconciles the table with the shipped built-ins — adds missing ones, **removes built-ins no longer shipped** (your custom types are left alone), and backfills colours without overwriting edits; `getTemplates()`/`createTemplate()`/`updateTemplate()`/`deleteTemplate()`/`resetTemplate()` are the CRUD helpers, and `applyTemplate()` swaps a page's infobox rows while preserving entered values. `categoryColor()` reads a synchronous cache kept in sync with the `templates` table via a `liveQuery` subscription, so a type's colour updates everywhere instantly. `getBacklinks()`/`linkedTitles()` compute reverse links by scanning each page's body `<a data-wikilink>` anchors and infobox `[[…]]` values. `renamePage(id, newTitle)` renames a page **and** atomically rewrites every reference to the old title across all other pages (body anchors + infobox `[[…]]` tokens), throwing if the new title clashes with an existing page. `findPageIdByTitle(title)` is resolve-only (no auto-creation); callers that want to create a missing page must confirm explicitly.
+Defined here (add new ones here): `BUILTIN_TEMPLATES` (the ~19 shipped page types — name, colour, and starter rows, several with separators already placed), `DEFAULT_CATEGORY` (the type a new page starts as), `TYPE_COLORS` (palette for the colour picker), `STATUSES` (Stub/Draft/WIP/Complete) with `pageStatus()`/`statusColor()`. `CATEGORIES` is now just the built-in colour fallback. Page types are DB-backed: `seedTemplates()` (called on app start) reconciles the table with the shipped built-ins — adds missing ones, **removes built-ins no longer shipped** (your custom types are left alone), and backfills colours without overwriting edits; `getTemplates()`/`createTemplate()`/`updateTemplate()`/`deleteTemplate()`/`resetTemplate()` are the CRUD helpers, and `applyTemplate()` swaps a page's infobox rows while preserving entered values. `categoryColor()` reads a synchronous cache kept in sync with the `templates` table via a `liveQuery` subscription, so a type's colour updates everywhere instantly. `getBacklinks()`/`linkedTitles()` compute reverse links by scanning each page's body `<a data-wikilink>` anchors and infobox `[[…]]` values (both via the shared helpers in `src/html.ts` — see **Shared HTML helpers**). `renamePage(id, newTitle)` renames a page **and** atomically rewrites every reference to the old title across all other pages (body anchors + infobox `[[…]]` tokens), throwing if the new title clashes with an existing page. `findPageIdByTitle(title)` is resolve-only (no auto-creation); callers that want to create a missing page must confirm explicitly. `buildGraphData()` (consumed by the Graph route) resolves wiki links into a node/edge graph — see **Relationship graph**. Timeline data has its own CRUD here (`seedDefaultCalendar()`, `createCalendar()`/`updateCalendar()`/`deleteCalendar()`, `addEvent()`/`updateEvent()`/`deleteEvent()`); calendar/event mutations recompute the cached absolute-day fields and cascade-delete events when a calendar is removed.
+
+> **Per-lore database.** `db` is constructed as `new LoreDB(dbNameFor(currentLoreId()))`, so the active world determines which IndexedDB the whole app reads/writes. Switching worlds reloads the page to rebind this singleton — see **Multiple worlds (lores)**.
 
 `useLiveQuery` from `dexie-react-hooks` is used throughout for reactive reads; IndexedDB changes auto-re-render components.
 
 ### Routing — `src/App.tsx`
 
-All routes live inside a persistent `<Sidebar>` + `<main>` shell with a `<BackupBanner>`. `App.tsx` also mounts two global overlays (`SearchModal`, `WikiLinkPopover`) and owns the reactive FlexSearch index rebuild (a `liveQuery` subscription on `db.pages` calls `buildIndex()` on every change). `maybeTakeSnapshot()` is called once on app start.
+The app uses **hash routing**. `/` is special-cased: it renders `LoreSelectorRoute` full-screen with **no** sidebar/overlay shell (you pick a world before entering it). Every other path renders inside a persistent `<Sidebar>` + `<main>` shell with a `<BackupBanner>`. `App.tsx` mounts two global overlays (`SearchModal`, `WikiLinkPopover`) and owns the reactive FlexSearch index rebuild (a `liveQuery` subscription on `db.pages` calls `buildIndex()` on every change). On app start it runs `bootstrapDefaultLore()`, `requestPersistentStorage()`, `seedTemplates()`, `seedDefaultCalendar()`, and `maybeTakeSnapshot()`.
 
 | Path | Component | Purpose |
 |---|---|---|
-| `/` | `HomeRoute` | Customisable overview: editable hero/about, wiki stats (by type & status), recent pages, auto-snapshots, backup & safety |
+| `/` | `LoreSelectorRoute` | Full-screen world picker (no shell): create / rename / banner / delete / switch worlds |
+| `/home` | `HomeRoute` | Customisable overview: editable hero/about, wiki stats (by type & status), recent pages, auto-snapshots, backup & safety |
 | `/page/:id` | `PageRoute` | Page view/edit: header (title/category/status), editor, infobox, backlinks |
 | `/browse/:category` | `CategoryRoute` | Image grid of all pages in a category; clicking the category header in the sidebar navigates here |
 | `/map` | `MapRoute` | Leaflet map with pins |
+| `/graph` | `GraphRoute` | Force-directed relationship graph of pages and their links |
+| `/timeline` | `TimelineRoute` | In-world timeline of events across custom calendars (list or axis view) |
 | `/templates` | `TemplatesRoute` | Manage infobox templates: add/rename/delete, edit & reorder field/separator rows |
 
 The sidebar lists pages grouped by category; category headers are `<Link>`s to `/browse/:category`. The sidebar search input is a read-only click target — focusing or clicking it opens `SearchModal`.
+
+### Multiple worlds (lores) — `src/loreId.ts` + `src/lores.ts`
+
+The app can hold many independent worlds, each in its **own IndexedDB database**. `loreId.ts` is the tiny shared core: `currentLoreId()` reads the active id from `localStorage` (defaulting to `'default'`), and `dbNameFor(id)` maps it to a database name (`'lore-app'` for the default, `'lore-app-<id>'` otherwise). `db.ts` constructs its singleton from these at module load, so **the active lore is fixed for the lifetime of the page** — switching worlds (`switchLore()`) and deleting the active world both `window.location.reload()` to rebind the `db` singleton against the new database.
+
+`lores.ts` owns a separate `lore-registry` Dexie DB (the `Lore` rows — name/banner/timestamps, listed on the selector) and the world CRUD: `createLore()`, `renameLore()`, `setLoreBanner()`, `deleteLore()` (also `Dexie.delete()`s the world's data DB), and `switchLore()`. `bootstrapDefaultLore()` (called on app start) idempotently registers the `'default'` world on first run, migrating the legacy home-config title into the world name when present.
 
 ### Rich text editor — `src/components/LoreEditor.tsx` + `src/extensions/WikiLink.ts`
 
@@ -66,6 +80,16 @@ Hover events on wiki links (in both `LoreEditor` and `WikiText`) feed into the s
 
 Uses Leaflet with a custom CRS so the uploaded image fills the map bounds. Pins are stored in `db.pins` and can be linked to a lore page.
 
+### Timeline & calendars — `src/calendar.ts` + `TimelineRoute` + components
+
+Worlds can have custom calendars and a timeline of dated events. `calendar.ts` is **pure date math, no React/Dexie**: it converts between an in-world date and a shared **absolute-day integer** (`dateToAbsolute()` / `absoluteToDate()`), so events from calendars with different month/era layouts can share one axis. There are no leap rules — a year is a constant `yearLength(cal)` (sum of month lengths). It also provides `eraForYear()` and `formatDate()`. Because the absolute-day value depends on calendar layout, `db.ts` **caches `startAbsolute`/`endAbsolute` on each event and recomputes them** whenever the event or its calendar's months/anchor change (`updateCalendar()` rewrites all of that calendar's events in one transaction).
+
+`TimelineRoute` reads calendars/events/pages via `useLiveQuery`, offers a "reckoning" (display-calendar) picker, a category filter, and two views: `TimelineVertical` (a chronological list) and `TimelineHorizontal` (a zoom/pan axis — scroll to zoom, drag to pan; era bands and year ticks are drawn from the display calendar). `CalendarEditor` (modal) edits months/weekdays/eras/anchor; `EventEditor` (modal) edits one event with a `LoreEditor` description and an optional linked page. Both use `ConfirmDialog` for deletes.
+
+### Relationship graph — `src/components/GraphView.tsx` + `GraphRoute` + `HubsOrphansPanel`
+
+`buildGraphData(pages)` in `db.ts` turns the pages into a `GraphData` (`nodes` + `links`): every page is a node (lone pages show as isolated dots — intentional, to surface them), each resolved wiki link becomes an edge, self-links are dropped, and A↔B collapses to one undirected edge; `degree` (distinct neighbours) drives node size. `GraphRoute` memoises the full graph, then filters by hidden categories / selected tag (cloning nodes+links because the force simulation **mutates** the objects it's given), and derives `hubs` (top by degree) and `orphans` (degree 0) for the `HubsOrphansPanel`. `GraphView` runs the force-directed layout and handles selection/zoom; arrows (link direction) are toggleable.
+
 ### Page right sidebar — `src/components/Infobox.tsx`, `TableOfContents.tsx`, `Backlinks.tsx`
 
 The `.page-aside` is a sticky scrollable column (`position: sticky; max-height: calc(100vh - 32px); overflow-y: auto`) containing three stacked elements:
@@ -78,7 +102,7 @@ The `.page-aside` is a sticky scrollable column (`position: sticky; max-height: 
 
 The landing page is a customisable wiki overview. A `HomeConfig` (title, tagline, about, and per-section visibility toggles) is stored as a single `meta` row (`home-config`); a "Customize" toggle edits it inline. To avoid rapid edits to different fields clobbering each other through the async live query, the config is loaded once into local `draft` state that acts as the source of truth and is persisted on change. The overview computes counts by type (coloured chips) and by status (segmented bar) from all pages, plus a recent-pages grid.
 
-An **Auto-snapshots** section (below "Recently edited") lists up to 10 stored snapshots via `getSnapshots()` (`useLiveQuery`). Each row shows timestamp + page count and a Restore button that reuses the existing `pendingImport` / `ConfirmDialog` flow — no separate restore logic needed. An **Export as HTML** button in the Data & Safety section calls `exportToHtml()` from `src/htmlExport.ts`.
+An **Auto-snapshots** section (below "Recently edited") lists up to 10 stored snapshots via `getSnapshots()` (`useLiveQuery`). Each row shows timestamp + page count and a Restore button that reuses the existing `pendingImport` / `ConfirmDialog` flow — no separate restore logic needed. An **Export as HTML** button in the Data & Safety section calls `exportAsHtml()` from `src/htmlExport.ts`.
 
 ### Full-text search — `src/search.ts` + `src/components/SearchModal.tsx`
 
@@ -92,16 +116,20 @@ An **Auto-snapshots** section (below "Recently edited") lists up to 10 stored sn
 
 `WikiLinkPopover` is mounted once at the app root. It fetches the hovered page via `findPageIdByTitle()` + `db.pages.get()` and renders a floating card (category chip, title, summary, or "Page not found" for broken links). Position is fixed, clamped to the viewport left edge, and flipped above the link when there's insufficient space below. Hover events are attached in `LoreEditor` (mouse-over/out delegation on `a[data-wikilink]`) and `WikiText` (`onMouseEnter`/`Leave` on each `<a>`); both are suppressed while the editor is in edit mode.
 
+### Shared HTML helpers — `src/html.ts`
+
+Page bodies (and event descriptions) are stored as HTML strings, so several modules need to read text or wiki-link targets back out. `html.ts` centralises that: `parseHtml()` (a detached `DOMParser` document), `stripHtml()` (plain text — used by the search index), and `wikiLinkTitles()` (the `data-title`s of `<a data-wikilink>` anchors — used by `linkedTitles()`/`renamePage()` in `db.ts`). Use these instead of re-deriving DOM parsing per call site.
+
 ### Auto-snapshots — `src/snapshots.ts`
 
-`maybeTakeSnapshot()` is cheap to call: it reads `updatedAt` to count pages changed since `snapshot-last-time` (stored in `meta`). A snapshot is taken when ≥50 pages have changed **or** ≥24 hours have passed with at least one change. On snapshot, `exportAll()` is serialised and stored via `saveSnapshot()`, which also prunes to the 10 most recent entries. Called on app start (in `App.tsx`) and after every edit session (in `PageRoute.tsx` when clicking Done).
+`maybeTakeSnapshot()` is cheap to call: it counts **pages + timeline events** changed since `snapshot-last-time` (stored in `meta`; events are filtered in memory since they have no `updatedAt` index). A snapshot is taken when ≥50 records have changed **or** ≥24 hours have passed with at least one change. On snapshot, `exportAll()` is serialised and stored via `saveSnapshot()`, which also prunes to the 10 most recent entries. Called on app start (in `App.tsx`) and after every edit session (in `PageRoute.tsx` when clicking Done).
 
 ### HTML export — `src/htmlExport.ts`
 
-`exportToHtml()` fetches all pages from Dexie, generates `index.html` (pages grouped and sorted by category), one `pages/<id>.html` per page (header + infobox + body), and `style.css`. Wiki links are rewritten to `<id>.html` paths via `DOMParser`; unresolvable links become `<span class="broken-link">`. The ZIP is assembled with JSZip and downloaded as `lore-export.zip`.
+`exportAsHtml()` fetches all pages from Dexie, generates `index.html` (pages grouped and sorted by category), one `pages/<id>.html` per page (header + infobox + body), and `style.css`. Wiki links are rewritten to `<id>.html` paths (regex over the `<a data-wikilink>` markup); unresolvable links become `<span class="broken-link">`. The ZIP is assembled with JSZip and downloaded as `lore-export-<date>.zip`.
 
 ### Backup & data safety — `src/backup.ts`
 
-`exportAll()` / `importAll()` in `db.ts` serialise the whole DB (pages, maps, pins, and templates) to/from JSON. Import **replaces** all data — no merge; older backups without templates re-seed the built-ins — but is guarded by `parseBackup()` (validates structure and returns `counts` before any `clear()` so an invalid file never corrupts the DB). The Home import flow shows a `ConfirmDialog` with exact current-vs-incoming counts, calls `downloadPreImportBackup()` to write a timestamped recovery file first, then calls `importAll()`.
+`exportAll()` / `importAll()` in `db.ts` serialise the whole DB (pages, maps, pins, templates, calendars, and events) to/from JSON. Import **replaces** all data — no merge; older backups without templates/calendars re-seed the built-ins (`seedTemplates()` + `seedDefaultCalendar()` run after import) — but is guarded by `parseBackup()` (validates structure and returns `counts` before any `clear()` so an invalid file never corrupts the DB). The Home import flow shows a `ConfirmDialog` with exact current-vs-incoming counts, calls `downloadPreImportBackup()` to write a timestamped recovery file first, then calls `importAll()`.
 
-`backup.ts` provides: `downloadBackup()` (timestamped export, records time in `meta`), `downloadPreImportBackup()` (recovery snapshot before import), `requestPersistentStorage()` (called on app start to avoid browser eviction), `unbackedChangeCount()` / `hasUnbackedUpChanges()` / `isBackupOverdue()` — these drive the edit count display and overdue (red) treatment in `BackupBanner` and Home. Backups remain **download-based** (Firefox lacks the File System Access API for auto-folder writes). Data is browser-local, so off-device backups matter.
+`backup.ts` provides: `downloadBackup()` (timestamped export, records time in `meta`), `downloadPreImportBackup()` (recovery snapshot before import), `requestPersistentStorage()` (called on app start to avoid browser eviction), `latestChangeTime()` / `unbackedChangeCount()` / `hasUnbackedUpChanges()` / `isBackupOverdue()` — these drive the edit count display and overdue (red) treatment in `BackupBanner` and Home. Change tracking covers pages, maps, **and timeline events**, so timeline edits also count toward the backup reminder. Backups remain **download-based** (Firefox lacks the File System Access API for auto-folder writes). Data is browser-local, so off-device backups matter.
