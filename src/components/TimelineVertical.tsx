@@ -60,11 +60,13 @@ export default function TimelineVertical({
     <div className="tl-vert">
       {groups.map((group, gi) => (
         <div key={group.era?.id ?? `pre-${gi}`} className="tl-era-group">
-          <div
-            className="tl-era-header"
-            style={{ borderColor: group.era?.color ?? 'var(--border)' }}
-          >
-            {group.era ? group.era.name : 'Before recorded history'}
+          <div className="tl-era-divider">
+            <span
+              className="tl-era-divider-text"
+              style={{ color: group.era?.color ?? 'var(--ink-faint)' }}
+            >
+              {group.era ? group.era.name : 'Before recorded history'}
+            </span>
           </div>
 
           <div className="tl-era-events">
@@ -80,35 +82,48 @@ export default function TimelineVertical({
               const dateLabel = endLabel ? `${startLabel} — ${endLabel}` : startLabel
               const linkedPage = event.pageId ? pageById.get(event.pageId) : null
               const accent = event.color ?? 'var(--accent)'
+              const thumbImage = linkedPage?.infobox?.image
 
               return (
                 <div
                   key={event.id}
                   className="tl-event-card"
-                  style={{ borderLeftColor: accent }}
                   onClick={() => onEdit(event)}
                 >
-                  <div className="tl-event-date">{dateLabel}</div>
-                  <div className="tl-event-title">{event.title}</div>
-                  {event.category && (
-                    <span className="tl-event-cat" style={{ background: accent + '33', color: accent }}>
-                      {event.category}
-                    </span>
-                  )}
-                  {event.description && (
-                    <div
-                      className="tl-event-desc"
-                      dangerouslySetInnerHTML={{ __html: event.description }}
-                    />
-                  )}
-                  {linkedPage && (
-                    <button
-                      className="ghost-btn tl-page-link"
-                      onClick={(e) => { e.stopPropagation(); navigate(`/page/${linkedPage.id}`) }}
-                    >
-                      → {linkedPage.title}
-                    </button>
-                  )}
+                  <div className="tl-card-header" style={{ background: accent + '22' }}>
+                    <div className="tl-card-header-left">
+                      {event.icon && <span className="tl-card-icon">{event.icon}</span>}
+                      {event.category && (
+                        <span className="tl-card-cat" style={{ color: accent }}>
+                          {event.category}
+                        </span>
+                      )}
+                    </div>
+                    <span className="tl-card-date">{dateLabel}</span>
+                  </div>
+
+                  <div className="tl-card-body">
+                    <div className="tl-card-body-text">
+                      <div className="tl-event-title">{event.title}</div>
+                      {event.description && (
+                        <div
+                          className="tl-event-desc"
+                          dangerouslySetInnerHTML={{ __html: event.description }}
+                        />
+                      )}
+                      {linkedPage && (
+                        <button
+                          className="ghost-btn tl-page-link"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/page/${linkedPage.id}`) }}
+                        >
+                          → {linkedPage.title}
+                        </button>
+                      )}
+                    </div>
+                    {thumbImage && (
+                      <img src={thumbImage} alt="" className="tl-card-thumb" />
+                    )}
+                  </div>
                 </div>
               )
             })}
