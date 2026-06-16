@@ -11,8 +11,19 @@ interface Props {
 }
 
 const LANE_H = 30
-const HEADER_H = 44
+const HEADER_H = 48
 const LANE_GAP = 4
+
+function luminance(hex: string): number {
+  return parseInt(hex.slice(1, 3), 16) * 0.299
+    + parseInt(hex.slice(3, 5), 16) * 0.587
+    + parseInt(hex.slice(5, 7), 16) * 0.114
+}
+
+function textColor(hex: string | undefined): string {
+  if (!hex) return 'rgba(0,0,0,0.75)'
+  return luminance(hex) < 128 ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.75)'
+}
 
 export default function TimelineHorizontal({
   events, calendars, displayCalendar, allPages, onEdit,
@@ -91,7 +102,9 @@ export default function TimelineHorizontal({
     })
   }
 
-  const tickYears: { abs: number; label: string }[] = []
+  const eraStartYears = new Set(displayCal?.eras.map((e) => e.startYear) ?? [])
+
+  const tickYears: { abs: number; label: string; major: boolean }[] = []
   if (displayCal && scale > 0) {
     const yl = yearLength(displayCal)
     if (yl > 0) {
@@ -108,6 +121,7 @@ export default function TimelineHorizontal({
           tickYears.push({
             abs,
             label: `Year ${yr}${eraName ? ` (${eraName})` : ''}`,
+            major: eraStartYears.has(yr),
           })
         }
       }
@@ -131,36 +145,63 @@ export default function TimelineHorizontal({
         <div
           key={era.id}
           className="horiz-era-band"
-          style={{ left: x, width: w, height: totalH, background: era.color ? era.color + '18' : 'transparent' }}
+          style={{
+            left: x, width: w, height: totalH,
+            background: era.color
+              ? `linear-gradient(to right, ${era.color}06, ${era.color}14, ${era.color}06)`
+              : 'transparent',
+          }}
         >
           <span className="horiz-era-label">{era.name}</span>
         </div>
       ))}
 
+      {Array.from({ length: numLanes }, (_, i) => (
+        <div
+          key={`lane-${i}`}
+          className={i % 2 === 1 ? 'horiz-lane-strip horiz-lane-strip-alt' : 'horiz-lane-strip'}
+          style={{ top: HEADER_H + i * (LANE_H + LANE_GAP), height: LANE_H + LANE_GAP }}
+        />
+      ))}
+
       <div className="horiz-header" style={{ height: HEADER_H }}>
-        {tickYears.map(({ abs, label }) => (
+        {tickYears.map(({ abs, label, major }) => (
           <div
             key={abs}
-            className="horiz-tick"
+            className={major ? 'horiz-tick horiz-tick-major' : 'horiz-tick'}
             style={{ left: (abs - offsetAbs) * scale }}
           >
-            <span className="horiz-tick-label">{label}</span>
+            <span className={major ? 'horiz-tick-label horiz-tick-label-major' : 'horiz-tick-label'}>
+              {label}
+            </span>
           </div>
         ))}
       </div>
 
       {laid.map(({ event, lane, x, w }) => {
-        const accent = event.color ?? 'var(--accent)'
+        const accent = event.color ?? '#c9a24b'
         const top = HEADER_H + lane * (LANE_H + LANE_GAP)
         const linkedPage = event.pageId ? pageById.get(event.pageId) : undefined
+        const lum = event.color ? luminance(event.color) : -1
+        const glow = event.color && lum >= 30
+          ? `0 0 14px ${event.color}${lum < 128 ? '55' : '33'}`
+          : 'none'
         return (
           <div
             key={event.id}
             className="horiz-event"
-            style={{ left: x, top, width: w, height: LANE_H, background: accent, position: 'absolute' }}
+            style={{
+              left: x, top, width: w, height: LANE_H,
+              background: accent, position: 'absolute',
+              color: textColor(event.color),
+              boxShadow: glow,
+            }}
             title={linkedPage ? `${event.title} → ${linkedPage.title}` : event.title}
             onClick={() => onEdit(event)}
           >
+            {w > 40 && event.icon && (
+              <span className="horiz-event-icon">{event.icon}</span>
+            )}
             {w > 50 && (
               <span className="horiz-event-label">{event.title}</span>
             )}

@@ -17,6 +17,7 @@ interface Draft {
   description: string
   category: string
   color: string
+  icon: string
   pageId: string | null
   startYear: number
   startMonth: number
@@ -35,6 +36,7 @@ function initDraft(event: TimelineEvent | undefined, calendars: Calendar[]): Dra
     description: event?.description ?? '',
     category:    event?.category ?? '',
     color:       event?.color ?? '',
+    icon:        event?.icon ?? '',
     pageId:      event?.pageId ?? null,
     startYear:   event?.startYear ?? 0,
     startMonth:  event?.startMonth ?? 0,
@@ -82,6 +84,7 @@ export default function EventEditor({ event, calendars, allPages, onClose }: Pro
         description: draft.description,
         category:    draft.category.trim(),
         color:       draft.color || undefined,
+        icon:        draft.icon || undefined,
         pageId:      draft.pageId,
         startYear:   draft.startYear,
         startMonth:  draft.startMonth,
@@ -241,6 +244,18 @@ export default function EventEditor({ event, calendars, allPages, onClose }: Pro
               {draft.color && (
                 <button className="mini-btn" onClick={() => set('color', '')}>clear</button>
               )}
+            </div>
+
+            <div className="field-row" style={{ marginTop: 4 }}>
+              <label className="field-label" style={{ minWidth: 60 }}>Icon</label>
+              <input
+                value={draft.icon}
+                onChange={(e) => set('icon', e.target.value)}
+                placeholder="emoji · optional"
+                maxLength={2}
+                style={{ width: 60, textAlign: 'center', fontSize: 18 }}
+                className="tpl-name-input"
+              />
             </div>
 
             <label className="field-label">Linked page</label>
