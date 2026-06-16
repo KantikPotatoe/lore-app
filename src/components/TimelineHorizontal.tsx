@@ -14,6 +14,16 @@ const LANE_H = 30
 const HEADER_H = 48
 const LANE_GAP = 4
 
+function textColor(hex: string | undefined): string {
+  if (!hex) return 'rgba(0,0,0,0.75)'
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return r * 0.299 + g * 0.587 + b * 0.114 < 128
+    ? 'rgba(255,255,255,0.85)'
+    : 'rgba(0,0,0,0.75)'
+}
+
 export default function TimelineHorizontal({
   events, calendars, displayCalendar, allPages, onEdit,
 }: Props) {
@@ -119,16 +129,6 @@ export default function TimelineHorizontal({
 
   const pageById = new Map(allPages.map((p) => [p.id, p]))
 
-  function textColor(hex: string | undefined): string {
-    if (!hex) return 'rgba(0,0,0,0.75)'
-    const r = parseInt(hex.slice(1, 3), 16)
-    const g = parseInt(hex.slice(3, 5), 16)
-    const b = parseInt(hex.slice(5, 7), 16)
-    return r * 0.299 + g * 0.587 + b * 0.114 < 128
-      ? 'rgba(255,255,255,0.85)'
-      : 'rgba(0,0,0,0.75)'
-  }
-
   return (
     <div
       ref={containerRef}
@@ -181,12 +181,9 @@ export default function TimelineHorizontal({
         const accent = event.color ?? '#c9a24b'
         const top = HEADER_H + lane * (LANE_H + LANE_GAP)
         const linkedPage = event.pageId ? pageById.get(event.pageId) : undefined
-        const glowAlpha = event.color
-          ? (parseInt(event.color.slice(1, 3), 16) * 0.299
-            + parseInt(event.color.slice(3, 5), 16) * 0.587
-            + parseInt(event.color.slice(5, 7), 16) * 0.114 < 128 ? '55' : '33')
-          : '33'
-        const glow = event.color ? `0 0 14px ${event.color}${glowAlpha}` : 'none'
+        const glow = event.color
+          ? `0 0 14px ${event.color}${parseInt(event.color.slice(1, 3), 16) * 0.299 + parseInt(event.color.slice(3, 5), 16) * 0.587 + parseInt(event.color.slice(5, 7), 16) * 0.114 < 128 ? '55' : '33'}`
+          : 'none'
         return (
           <div
             key={event.id}
