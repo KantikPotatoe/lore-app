@@ -9,24 +9,35 @@ type PageState =
   | { status: 'missing' }
   | { status: 'found'; page: LorePage }
 
+/** The resolved outcome of looking a title up — paired with the title it belongs
+ *  to, so a stale result for a previous hover is never shown for a new one. */
+type Resolved = Extract<PageState, { status: 'missing' } | { status: 'found' }>
+
 export default function WikiLinkPopover() {
   const target = useWikiHoverTarget()
-  const [pageState, setPageState] = useState<PageState>({ status: 'idle' })
+  const [resolved, setResolved] = useState<{ title: string; state: Resolved } | null>(null)
 
+  // Only ever set state from the async resolution — synchronous resets (idle /
+  // loading) are derived during render instead, so the effect never triggers a
+  // cascading re-render.
   useEffect(() => {
-    if (!target) { setPageState({ status: 'idle' }); return }
+    if (!target) return
     let cancelled = false
-    setPageState({ status: 'loading' })
     findPageIdByTitle(target.title).then(async (id) => {
       if (cancelled) return
-      if (!id) { setPageState({ status: 'missing' }); return }
-      const page = await db.pages.get(id)
-      if (!cancelled) setPageState(page ? { status: 'found', page } : { status: 'missing' })
+      const page = id ? await db.pages.get(id) : undefined
+      if (cancelled) return
+      setResolved({ title: target.title, state: page ? { status: 'found', page } : { status: 'missing' } })
     })
     return () => { cancelled = true }
   }, [target])
 
   if (!target) return null
+
+  // Show the resolved card only if it belongs to the title currently hovered;
+  // otherwise we're still loading this one.
+  const pageState: PageState =
+    resolved && resolved.title === target.title ? resolved.state : { status: 'loading' }
 
   const above = target.rect.bottom + 180 > window.innerHeight
   const style: React.CSSProperties = {

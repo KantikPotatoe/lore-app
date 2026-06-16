@@ -32,6 +32,7 @@ export default function TimelineHorizontal({
   const [scale, setScale] = useState(0.001)
   const [offsetAbs, setOffsetAbs] = useState(0)
   const [ready, setReady] = useState(false)
+  const [viewWidth, setViewWidth] = useState(800)
 
   const displayCal = displayCalendar ?? calendars[0]
 
@@ -44,7 +45,18 @@ export default function TimelineHorizontal({
     setScale(w / range)
     setOffsetAbs(minAbs - range * 0.05)
     setReady(true)
-  }, [events.length, ready, displayCal])
+  }, [events, ready, displayCal])
+
+  // Track the container's width in state so tick layout (below) never has to read
+  // the ref during render. ResizeObserver fires its first callback asynchronously
+  // after observe(), which also seeds the real width.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setViewWidth(el.clientWidth))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   function handleWheel(e: React.WheelEvent) {
     e.preventDefault()
@@ -110,7 +122,6 @@ export default function TimelineHorizontal({
     if (yl > 0) {
       const pxPerYear = yl * scale
       const step = pxPerYear < 10 ? Math.ceil(10 / pxPerYear) * 10 : 1
-      const viewWidth = containerRef.current?.clientWidth ?? 800
       const startYear = Math.floor((offsetAbs - displayCal.anchor) / yl) - 1
       const endYear = Math.ceil((offsetAbs + viewWidth / scale - displayCal.anchor) / yl) + 1
       for (let yr = Math.ceil(startYear / step) * step; yr <= endYear; yr += step) {

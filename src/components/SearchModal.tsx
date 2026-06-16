@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { searchPages, highlightSnippet, type SearchResult } from '../search'
+import { searchPages, highlightSnippet } from '../search'
 import { categoryColor } from '../db'
 
 interface Props {
@@ -10,17 +10,21 @@ interface Props {
 export default function SearchModal({ onClose }: Props) {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<SearchResult[]>([])
   const [selected, setSelected] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { inputRef.current?.focus() }, [])
+  const results = useMemo(() => searchPages(query), [query])
 
-  useEffect(() => {
-    const r = searchPages(query)
-    setResults(r)
+  // Reset the highlighted row whenever the query changes. Adjusting state during
+  // render (rather than in an effect) avoids a redundant re-render — see
+  // react.dev "You Might Not Need an Effect".
+  const [prevQuery, setPrevQuery] = useState(query)
+  if (query !== prevQuery) {
+    setPrevQuery(query)
     setSelected(0)
-  }, [query])
+  }
+
+  useEffect(() => { inputRef.current?.focus() }, [])
 
   function go(id: string) {
     navigate(`/page/${id}`)
