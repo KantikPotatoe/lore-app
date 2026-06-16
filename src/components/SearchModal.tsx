@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { searchPages, highlightSnippet } from '../search'
 import { categoryColor } from '../db'
+import { showPageHover, scheduleWikiHoverClose } from '../wikiLinkHover'
 
 interface Props {
   onClose: () => void
@@ -56,7 +57,8 @@ export default function SearchModal({ onClose }: Props) {
                 key={r.id}
                 className={`search-result${i === selected ? ' is-selected' : ''}`}
                 onClick={() => go(r.id)}
-                onMouseEnter={() => setSelected(i)}
+                onMouseEnter={(e) => { setSelected(i); showPageHover(r.id, r.title, e.currentTarget.getBoundingClientRect()) }}
+                onMouseLeave={scheduleWikiHoverClose}
               >
                 <div className="search-result-title">
                   <span

@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, createPage, categoryColor, statusColor, pageStatus, type LorePage } from '../db'
 import { getLore, currentLoreId } from '../lores'
+import { showPageHover, scheduleWikiHoverClose } from '../wikiLinkHover'
 
 // Stable empty array so the live queries don't hand `useMemo` a fresh `[]`
 // (and force a recompute) on every render while data is still loading.
@@ -85,6 +86,8 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) 
                 key={p.id}
                 to={`/page/${p.id}`}
                 className={p.id === currentId ? 'page-link active' : 'page-link'}
+                onMouseEnter={(e) => showPageHover(p.id, p.title, e.currentTarget.getBoundingClientRect())}
+                onMouseLeave={scheduleWikiHoverClose}
               >
                 <span className="dot" style={{ background: categoryColor(p.category) }} />
                 <span className="page-link-title">{p.title}</span>

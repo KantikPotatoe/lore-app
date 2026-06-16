@@ -23,7 +23,12 @@ export default function WikiLinkPopover() {
   useEffect(() => {
     if (!target) return
     let cancelled = false
-    findPageIdByTitle(target.title).then(async (id) => {
+    // Callers that already know the page id (backlinks, sidebar, search) skip
+    // the title lookup; wiki-link hovers resolve the title first.
+    const resolveId = target.pageId
+      ? Promise.resolve(target.pageId)
+      : findPageIdByTitle(target.title)
+    resolveId.then(async (id) => {
       if (cancelled) return
       const page = id ? await db.pages.get(id) : undefined
       if (cancelled) return
@@ -39,7 +44,11 @@ export default function WikiLinkPopover() {
   const pageState: PageState =
     resolved && resolved.title === target.title ? resolved.state : { status: 'loading' }
 
-  const above = target.rect.bottom + 180 > window.innerHeight
+  // Cards with an infobox image are taller, so reserve more room when deciding
+  // whether to flip above the link.
+  const hasImage = pageState.status === 'found' && !!pageState.page.infobox?.image
+  const estHeight = hasImage ? 320 : 160
+  const above = target.rect.bottom + estHeight > window.innerHeight
   const style: React.CSSProperties = {
     position: 'fixed',
     left: Math.max(0, Math.min(target.rect.left, window.innerWidth - 320)),
@@ -57,28 +66,37 @@ export default function WikiLinkPopover() {
       onMouseLeave={scheduleWikiHoverClose}
     >
       {pageState.status === 'loading' && (
-        <span className="popover-loading">…</span>
+        <div className="popover-body"><span className="popover-loading">…</span></div>
       )}
       {pageState.status === 'missing' && (
-        <>
+        <div className="popover-body">
           <span className="popover-broken">Page not found</span>
           <div className="popover-title">{target.title}</div>
-        </>
+        </div>
       )}
       {pageState.status === 'found' && (
         <>
-          <div className="popover-header">
-            <span
-              className="popover-chip"
-              style={{ background: categoryColor(pageState.page.category) }}
-            >
-              {pageState.page.category}
-            </span>
-          </div>
-          <div className="popover-title">{pageState.page.title}</div>
-          {pageState.page.summary && (
-            <div className="popover-summary">{pageState.page.summary}</div>
+          {pageState.page.infobox?.image && (
+            <img
+              className="popover-image"
+              src={pageState.page.infobox.image}
+              alt=""
+            />
           )}
+          <div className="popover-body">
+            <div className="popover-header">
+              <span
+                className="popover-chip"
+                style={{ background: categoryColor(pageState.page.category) }}
+              >
+                {pageState.page.category}
+              </span>
+            </div>
+            <div className="popover-title">{pageState.page.title}</div>
+            {pageState.page.summary && (
+              <div className="popover-summary">{pageState.page.summary}</div>
+            )}
+          </div>
         </>
       )}
     </div>

@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 
 export interface HoverTarget {
   title: string
+  /** Known page id, when the caller already has it (backlinks, sidebar, search).
+   *  Wiki-link hovers leave this undefined and the popover resolves by title. */
+  pageId?: string
   rect: DOMRect
 }
 
@@ -20,6 +23,14 @@ export function showWikiHover(title: string, rect: DOMRect): void {
   if (closeTimer) { clearTimeout(closeTimer); closeTimer = null }
   if (openTimer) clearTimeout(openTimer)
   openTimer = setTimeout(() => { openTimer = null; broadcast({ title, rect }) }, 300)
+}
+
+/** Like showWikiHover, but for places that already know the page id (backlinks,
+ *  sidebar, search) — lets the popover skip the title→id lookup. */
+export function showPageHover(pageId: string, title: string, rect: DOMRect): void {
+  if (closeTimer) { clearTimeout(closeTimer); closeTimer = null }
+  if (openTimer) clearTimeout(openTimer)
+  openTimer = setTimeout(() => { openTimer = null; broadcast({ title, pageId, rect }) }, 300)
 }
 
 /** Call on wiki-link mouseleave. Closes after 150ms (cancelable by the popover). */
