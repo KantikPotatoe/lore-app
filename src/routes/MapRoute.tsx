@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, addMap, addPin, deleteMap, type MapPin } from '../db'
-import MapView from '../components/MapView'
+import { db, addMap, addPin, deleteMap, pinType, type MapPin, type InfoboxTemplate } from '../db'
+import MapView, { type PinMarkerStyle } from '../components/MapView'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { compressImage } from '../imageUtils'
 
@@ -20,12 +20,71 @@ export default function MapRoute() {
   const currentMap = maps.find((m) => m.id === activeId) ?? maps[0] ?? null
   const mapId = currentMap?.id ?? ''
 
-  const pins = useLiveQuery(
+  const pinsData = useLiveQuery(
     () => (mapId ? db.pins.where('mapId').equals(mapId).toArray() : Promise.resolve([] as MapPin[])),
     [mapId],
-  ) ?? []
-  const allPages = useLiveQuery(() => db.pages.orderBy('title').toArray(), []) ?? []
-  const selectedPin = pins.find((p) => p.id === selectedPinId) ?? null
+  )
+  const allPagesData = useLiveQuery(() => db.pages.orderBy('title').toArray(), [])
+  const templatesData = useLiveQuery(() => db.templates.toArray(), [])
+  // Stable empty-array fallbacks so downstream useMemo deps don't change every render.
+  const pins = useMemo(() => pinsData ?? [], [pinsData])
+  const allPages = useMemo(() => allPagesData ?? [], [allPagesData])
+  const templates = useMemo(() => templatesData ?? [], [templatesData])
+  // Legend filter: set of type-keys hidden on this map. "" = the Untyped group.
+  const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set())
+
+  const pagesById = useMemo(() => new Map(allPages.map((p) => [p.id, p])), [allPages])
+  const templatesByName = useMemo(
+    () => new Map(templates.map((t) => [t.name.toLowerCase(), t] as [string, InfoboxTemplate])),
+    [templates],
+  )
+
+  // Resolve every pin's derived type once.
+  const pinTypes = useMemo(
+    () => new Map(pins.map((p) => [p.id, pinType(p, pagesById, templatesByName)])),
+    [pins, pagesById, templatesByName],
+  )
+
+  // Legend rows: one per distinct type present on this map (plus Untyped), with counts.
+  const legend = useMemo(() => {
+    const rows = new Map<string, { key: string; name: string; color: string; icon: string | null; count: number }>()
+    for (const p of pins) {
+      const t = pinTypes.get(p.id)!
+      const key = t.name ?? ''
+      const row = rows.get(key)
+      if (row) row.count++
+      else rows.set(key, { key, name: t.name ?? 'Untyped', color: t.color, icon: t.icon, count: 1 })
+    }
+    return [...rows.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }, [pins, pinTypes])
+
+  // Pins passed to the map, minus any whose type is hidden.
+  const visiblePins = useMemo(
+    () => pins.filter((p) => !hiddenTypes.has(pinTypes.get(p.id)?.name ?? '')),
+    [pins, pinTypes, hiddenTypes],
+  )
+
+  // Marker styles keyed by pin id (only what MapView needs).
+  const pinStyles = useMemo(() => {
+    const m = new Map<string, PinMarkerStyle>()
+    for (const [id, t] of pinTypes) m.set(id, { color: t.color, icon: t.icon })
+    return m
+  }, [pinTypes])
+
+  function toggleType(key: string) {
+    setHiddenTypes((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }
+
+  // Read from visiblePins so the pin panel closes when its type is filtered out.
+  const selectedPin = visiblePins.find((p) => p.id === selectedPinId) ?? null
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -60,7 +119,7 @@ export default function MapRoute() {
   return (
     <div className="map-page">
       <div className="map-toolbar">
-        <select value={currentMap?.id} onChange={(e) => { setActiveId(e.target.value); setSelectedPinId(null) }}>
+        <select value={currentMap?.id} onChange={(e) => { setActiveId(e.target.value); setSelectedPinId(null); setHiddenTypes(new Set()) }}>
           {maps.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
         <button
@@ -85,12 +144,34 @@ export default function MapRoute() {
           <MapView
             key={currentMap.id}
             map={currentMap}
-            pins={pins}
+            pins={visiblePins}
+            styles={pinStyles}
             addMode={addMode}
             selectedPinId={selectedPinId}
             onMapClick={handleMapClick}
             onPinClick={setSelectedPinId}
+            onPinMove={(id, lat, lng) => db.pins.update(id, { lat, lng })}
           />
+        )}
+
+        {legend.length > 0 && (
+          <div className="map-legend">
+            {legend.map((row) => {
+              const hidden = hiddenTypes.has(row.key)
+              return (
+                <button
+                  key={row.key}
+                  className={hidden ? 'legend-row hidden' : 'legend-row'}
+                  onClick={() => toggleType(row.key)}
+                  title={hidden ? 'Show these pins' : 'Hide these pins'}
+                >
+                  <span className="legend-swatch" style={{ background: row.color }}>{row.icon ?? ''}</span>
+                  <span className="legend-name">{row.name}</span>
+                  <span className="legend-count">{row.count}</span>
+                </button>
+              )
+            })}
+          </div>
         )}
 
         {selectedPin && (

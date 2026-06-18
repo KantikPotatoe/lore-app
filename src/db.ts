@@ -221,6 +221,7 @@ export interface InfoboxTemplate {
   id: string
   name: string
   color: string // accent colour for this type's badges/dots
+  icon?: string // optional emoji shown on map pins for this type
   items: TemplateItem[]
   builtin: boolean // true for the shipped starter templates
 }
@@ -230,6 +231,16 @@ const f = (label: string): TemplateItem => ({ label })
 const ref = (label: string, refType: string): TemplateItem => ({ label, fieldType: 'ref', refType })
 const num = (label: string): TemplateItem => ({ label, fieldType: 'number' })
 const hue = (name: string): string => CATEGORIES.find((c) => c.name === name)?.color ?? '#a0a0a0'
+
+// Default emojis for the shipped page types. Backfilled onto built-ins by
+// seedTemplates() without overwriting a user's choice (mirrors the colour backfill).
+export const BUILTIN_ICONS: Record<string, string> = {
+  Character: '🧑', Country: '🏳️', Deity: '✨', Geography: '⛰️', Item: '🎒',
+  Organization: '🏛️', Religion: '⛩️', Species: '🐾', Settlement: '🏰',
+  Condition: '🤒', Conflict: '⚔️', Document: '📜', Culture: '🎭',
+  Language: '🗣️', Material: '⛏️', Myth: '🐉', Technology: '⚙️',
+  Tradition: '🎎', Spell: '🔮',
+}
 
 // The starter types. Each has a colour and a set of infobox rows; several ship
 // with separators already in place to show how they group related fields.
@@ -375,6 +386,12 @@ export async function seedTemplates(): Promise<void> {
   await Promise.all(
     needColor.map((t) => db.templates.update(t.id, { color: builtinById.get(t.id) ?? '#a0a0a0' })),
   )
+
+  // Backfill default icons onto built-ins that don't have one yet (never
+  // overwrites a user's icon). Re-read so freshly-added built-ins are included.
+  const afterSeed = await db.templates.toArray()
+  const needIcon = afterSeed.filter((t) => t.builtin && !t.icon && BUILTIN_ICONS[t.name])
+  await Promise.all(needIcon.map((t) => db.templates.update(t.id, { icon: BUILTIN_ICONS[t.name] })))
 }
 
 /** All templates, alphabetical by name. Falls back to the built-ins if the
@@ -468,7 +485,7 @@ export async function deleteTemplate(id: string): Promise<void> {
 /** Restore a built-in template's rows to their shipped defaults. */
 export async function resetTemplate(id: string): Promise<void> {
   const original = BUILTIN_TEMPLATES.find((t) => t.id === id)
-  if (original) await db.templates.put({ ...original })
+  if (original) await db.templates.put({ ...original, icon: BUILTIN_ICONS[original.name] })
 }
 
 /** Pages whose infobox was built from the template of this name. */
@@ -818,6 +835,28 @@ export async function addPin(mapId: string, lat: number, lng: number): Promise<s
   const id = uid()
   await db.pins.add({ id, mapId, lat, lng, label: 'New pin', pageId: null })
   return id
+}
+
+/** A pin's derived visual identity. Pins store no type — it comes from the
+ *  linked page's category. Unlinked/unresolved pins are "Untyped". */
+export interface PinType {
+  name: string | null   // page-type name, or null when untyped
+  color: string         // type colour, or neutral grey when untyped
+  icon: string | null   // type emoji, or null
+}
+
+/** Resolve a pin's type from its linked page. `pagesById` and `templatesByName`
+ *  (keyed by lower-cased name) are passed in so callers build them once per render. */
+export function pinType(
+  pin: MapPin,
+  pagesById: Map<string, LorePage>,
+  templatesByName: Map<string, InfoboxTemplate>,
+): PinType {
+  const page = pin.pageId ? pagesById.get(pin.pageId) : undefined
+  const name = page?.category ?? null
+  if (!name) return { name: null, color: '#a0a0a0', icon: null }
+  const tpl = templatesByName.get(name.toLowerCase())
+  return { name, color: tpl?.color ?? categoryColor(name), icon: tpl?.icon ?? null }
 }
 
 // ---------------------------------------------------------------------------
