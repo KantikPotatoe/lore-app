@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, addMap, addPin, deleteMap, pinType, type MapPin, type InfoboxTemplate } from '../db'
 import MapView, { type PinMarkerStyle } from '../components/MapView'
@@ -15,6 +15,22 @@ export default function MapRoute() {
   const [addMode, setAddMode] = useState(false)
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null)
   const [confirmDeleteMap, setConfirmDeleteMap] = useState(false)
+
+  const [searchParams] = useSearchParams()
+  const focusPinId = searchParams.get('pin')
+
+  // A deep link (#/map?pin=<id>) switches to that pin's map and selects it.
+  // MapView then pans to it. A stale/deleted id is a harmless no-op.
+  useEffect(() => {
+    if (!focusPinId) return
+    let cancelled = false
+    db.pins.get(focusPinId).then((pin) => {
+      if (cancelled || !pin) return
+      setActiveId(pin.mapId)
+      setSelectedPinId(pin.id)
+    })
+    return () => { cancelled = true }
+  }, [focusPinId])
 
   // Default to the first map if none chosen yet.
   const currentMap = maps.find((m) => m.id === activeId) ?? maps[0] ?? null
@@ -151,6 +167,7 @@ export default function MapRoute() {
             onMapClick={handleMapClick}
             onPinClick={setSelectedPinId}
             onPinMove={(id, lat, lng) => db.pins.update(id, { lat, lng })}
+            focusPinId={focusPinId}
           />
         )}
 

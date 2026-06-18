@@ -29,6 +29,19 @@ export default function PageRoute() {
     [],
   )
 
+  // Pins that link to this page, with their map names — drives the "Location"
+  // block. pageId is indexed, so the where() is cheap.
+  const pinLocations = useLiveQuery(async () => {
+    const linking = await db.pins.where('pageId').equals(id).toArray()
+    if (linking.length === 0) return []
+    const mapName = new Map((await db.maps.toArray()).map((m) => [m.id, m.name]))
+    return linking.map((p) => ({
+      pinId: p.id,
+      label: p.label,
+      mapName: mapName.get(p.mapId) ?? 'Map',
+    }))
+  }, [id]) ?? []
+
   // Start in view mode whenever you open a different page. Resetting during
   // render (rather than in an effect) avoids a flash of the previous page's
   // edit state — see react.dev "You Might Not Need an Effect".
@@ -239,6 +252,22 @@ export default function PageRoute() {
                 ＋ Add infobox
               </button>
             )
+          )}
+
+          {!editing && pinLocations.length > 0 && (
+            <div className="page-locations">
+              <div className="page-locations-head">On the map</div>
+              {pinLocations.map((loc) => (
+                <button
+                  key={loc.pinId}
+                  className="ghost-btn location-row"
+                  onClick={() => navigate(`/map?pin=${loc.pinId}`)}
+                  title="Show this pin on the map"
+                >
+                  📍 {pinLocations.length > 1 ? `${loc.mapName} — ${loc.label || 'Pin'}` : 'Show on map'}
+                </button>
+              ))}
+            </div>
           )}
 
           <Backlinks pageId={id} />
