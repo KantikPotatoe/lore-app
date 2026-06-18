@@ -837,6 +837,28 @@ export async function addPin(mapId: string, lat: number, lng: number): Promise<s
   return id
 }
 
+/** A pin's derived visual identity. Pins store no type — it comes from the
+ *  linked page's category. Unlinked/unresolved pins are "Untyped". */
+export interface PinType {
+  name: string | null   // page-type name, or null when untyped
+  color: string         // type colour, or neutral grey when untyped
+  icon: string | null   // type emoji, or null
+}
+
+/** Resolve a pin's type from its linked page. `pagesById` and `templatesByName`
+ *  (keyed by lower-cased name) are passed in so callers build them once per render. */
+export function pinType(
+  pin: MapPin,
+  pagesById: Map<string, LorePage>,
+  templatesByName: Map<string, InfoboxTemplate>,
+): PinType {
+  const page = pin.pageId ? pagesById.get(pin.pageId) : undefined
+  const name = page?.category ?? null
+  if (!name) return { name: null, color: '#a0a0a0', icon: null }
+  const tpl = templatesByName.get(name.toLowerCase())
+  return { name, color: tpl?.color ?? categoryColor(name), icon: tpl?.icon ?? null }
+}
+
 // ---------------------------------------------------------------------------
 // Timeline calendars — CRUD
 // ---------------------------------------------------------------------------
