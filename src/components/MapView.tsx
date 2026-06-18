@@ -3,25 +3,34 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { WorldMap, MapPin } from '../db'
 
+export interface PinMarkerStyle {
+  color: string
+  icon: string | null
+}
+
 interface Props {
   map: WorldMap
   pins: MapPin[]
+  styles: Map<string, PinMarkerStyle>
   addMode: boolean
   selectedPinId: string | null
   onMapClick: (lat: number, lng: number) => void
   onPinClick: (pinId: string) => void
+  onPinMove: (pinId: string, lat: number, lng: number) => void
 }
 
 // We use a "Simple" coordinate system so the map is just the flat image, with
 // pixel-based coordinates instead of real-world latitude/longitude.
-export default function MapView({ map, pins, addMode, selectedPinId, onMapClick, onPinClick }: Props) {
+export default function MapView({
+  map, pins, styles, addMode, selectedPinId, onMapClick, onPinClick, onPinMove,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const markersRef = useRef<Map<string, L.Marker>>(new Map())
-  // Keep latest callbacks in a ref so we can attach the click handler once.
-  const cbRef = useRef({ onMapClick, onPinClick })
+  // Keep latest callbacks in a ref so we can attach handlers once.
+  const cbRef = useRef({ onMapClick, onPinClick, onPinMove })
   useEffect(() => {
-    cbRef.current = { onMapClick, onPinClick }
+    cbRef.current = { onMapClick, onPinClick, onPinMove }
   })
 
   // Create the Leaflet map once per world-map image.
@@ -53,7 +62,7 @@ export default function MapView({ map, pins, addMode, selectedPinId, onMapClick,
     if (el) el.style.cursor = addMode ? 'crosshair' : ''
   }, [addMode])
 
-  // Sync markers with the pins array.
+  // Sync markers with the pins array and their derived styles.
   useEffect(() => {
     const lmap = mapRef.current
     if (!lmap) return
@@ -63,39 +72,58 @@ export default function MapView({ map, pins, addMode, selectedPinId, onMapClick,
     for (const pin of pins) {
       seen.add(pin.id)
       const selected = pin.id === selectedPinId
-      const icon = makeIcon(pin.label, selected)
+      const style = styles.get(pin.id) ?? { color: '#a0a0a0', icon: null }
+      const icon = makeIcon(pin.label, style, selected)
       let marker = existing.get(pin.id)
       if (marker) {
         marker.setLatLng([pin.lat, pin.lng])
         marker.setIcon(icon)
       } else {
-        marker = L.marker([pin.lat, pin.lng], { icon }).addTo(lmap)
-        marker.on('click', (e) => {
+        const m = L.marker([pin.lat, pin.lng], { icon, draggable: !addMode }).addTo(lmap)
+        marker = m
+        m.on('click', (e) => {
           L.DomEvent.stopPropagation(e) // don't also fire a map click
           cbRef.current.onPinClick(pin.id)
         })
-        existing.set(pin.id, marker)
+        m.on('dragend', () => {
+          const { lat, lng } = m.getLatLng()
+          cbRef.current.onPinMove(pin.id, lat, lng)
+        })
+        existing.set(pin.id, m)
+      }
+      // Dragging is disabled while placing a new pin to avoid click/drag conflicts.
+      if (marker.dragging) {
+        if (addMode) {
+          marker.dragging.disable()
+        } else {
+          marker.dragging.enable()
+        }
       }
     }
 
-    // Remove markers whose pins were deleted.
+    // Remove markers whose pins were deleted or filtered out.
     for (const [id, marker] of existing) {
       if (!seen.has(id)) {
         marker.remove()
         existing.delete(id)
       }
     }
-  }, [pins, selectedPinId])
+  }, [pins, styles, selectedPinId, addMode])
 
   return <div ref={containerRef} className="map-canvas" />
 }
 
-// A small teardrop pin rendered as an HTML element.
-function makeIcon(label: string, selected: boolean): L.DivIcon {
+// A small teardrop pin rendered as an HTML element, tinted by its type colour
+// with an optional emoji above the dot.
+function makeIcon(label: string, style: PinMarkerStyle, selected: boolean): L.DivIcon {
   const safe = label.replace(/</g, '&lt;')
+  const emoji = style.icon ? `<span class="pin-emoji">${style.icon}</span>` : ''
   return L.divIcon({
     className: 'pin-icon-wrap',
-    html: `<div class="pin-icon${selected ? ' selected' : ''}"><span class="pin-dot"></span><span class="pin-label">${safe}</span></div>`,
+    html:
+      `<div class="pin-icon${selected ? ' selected' : ''}">${emoji}` +
+      `<span class="pin-dot" style="background:${style.color}"></span>` +
+      `<span class="pin-label">${safe}</span></div>`,
     iconSize: [0, 0],
     iconAnchor: [0, 0],
   })

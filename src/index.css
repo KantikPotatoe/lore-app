@@ -455,6 +455,7 @@ a { color: inherit; text-decoration: none; }
 
 .template-color-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 .template-color-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--ink-faint); margin-right: 4px; }
+.template-icon-input { width: 60px; text-align: center; font-size: 18px; background: var(--bg-2); border: 1px solid var(--border); color: var(--ink); border-radius: 7px; padding: 4px; }
 .color-swatch { width: 20px; height: 20px; border-radius: 50%; border: 2px solid transparent; padding: 0; box-shadow: 0 0 0 1px rgba(0,0,0,0.25) inset; }
 .color-swatch:hover { border-color: var(--ink-faint); }
 .color-swatch.active { border-color: var(--ink); }
@@ -542,10 +543,31 @@ a { color: inherit; text-decoration: none; }
   background: var(--accent-soft); border: 2px solid #1c160a; box-shadow: 0 2px 4px rgba(0,0,0,.5);
 }
 .pin-icon.selected .pin-dot { background: #fff; }
+.pin-emoji { font-size: 15px; line-height: 1; margin-bottom: 2px; filter: drop-shadow(0 1px 1px rgba(0,0,0,.6)); }
 .pin-label {
   margin-top: 4px; font-size: 12px; color: var(--ink); background: rgba(20,18,14,.85);
   padding: 1px 7px; border-radius: 10px; border: 1px solid var(--border); font-weight: 600;
 }
+
+.map-legend {
+  position: absolute; bottom: 16px; left: 16px; z-index: 1000; max-height: 40%;
+  overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 8px; box-shadow: 0 8px 30px rgba(0,0,0,.5);
+}
+.legend-row {
+  display: flex; align-items: center; gap: 8px; padding: 4px 6px; border: none;
+  background: none; color: var(--ink); cursor: pointer; border-radius: 6px; font-size: 13px;
+}
+.legend-row:hover { background: var(--bg-2); }
+.legend-row.hidden { opacity: 0.4; }
+.legend-swatch {
+  width: 18px; height: 18px; border-radius: 50%; display: inline-flex;
+  align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0;
+  border: 1px solid rgba(0,0,0,.4);
+}
+.legend-name { flex: 1; text-align: left; }
+.legend-count { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 
 .pin-panel {
   position: absolute; top: 16px; right: 16px; width: 270px; z-index: 1000;
