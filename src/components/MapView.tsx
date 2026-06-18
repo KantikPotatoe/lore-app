@@ -89,7 +89,10 @@ export default function MapView({
       showPageHover(pin.pageId, pin.label, icon.getBoundingClientRect())
     }
     function out(e: MouseEvent) {
-      if ((e.target as HTMLElement).closest('.pin-icon[data-pin-id]')) scheduleWikiHoverClose()
+      const icon = (e.target as HTMLElement).closest('.pin-icon[data-pin-id]')
+      // Ignore moves that stay inside the same pin (parent→child), so crossing
+      // .pin-dot/.pin-label doesn't schedule a close — mirrors mouseleave.
+      if (icon && !icon.contains(e.relatedTarget as Node)) scheduleWikiHoverClose()
     }
     el.addEventListener('mouseover', over)
     el.addEventListener('mouseout', out)
