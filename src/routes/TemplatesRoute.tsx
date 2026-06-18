@@ -140,6 +140,27 @@ export default function TemplatesRoute() {
               />
             </div>
 
+            <div className="template-color-row">
+              <span className="template-color-label">Icon</span>
+              <input
+                className="template-icon-input"
+                value={selected.icon ?? ''}
+                maxLength={4}
+                placeholder="🏰"
+                title="An emoji shown on map pins of this type"
+                onChange={(e) => updateTemplate(selected.id, { icon: e.target.value })}
+              />
+              {selected.icon && (
+                <button
+                  className="mini-btn"
+                  onClick={() => updateTemplate(selected.id, { icon: '' })}
+                  title="Clear icon"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
             <div className="template-items">
               {selected.items.length === 0 && (
                 <p className="empty-hint">No rows yet. Add a field or a separator below.</p>
