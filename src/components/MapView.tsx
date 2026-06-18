@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { WorldMap, MapPin } from '../db'
+import { showPageHover, scheduleWikiHoverClose } from '../wikiLinkHover'
 
 export interface PinMarkerStyle {
   color: string
@@ -33,6 +34,16 @@ export default function MapView({
     cbRef.current = { onMapClick, onPinClick, onPinMove }
   })
 
+  // Latest pins / add-mode for the delegated hover handlers (attached once below).
+  const pinsRef = useRef(pins)
+  const addModeRef = useRef(addMode)
+  // True between a pin's dragstart and dragend, to suppress hover previews.
+  const draggingRef = useRef(false)
+  useEffect(() => {
+    pinsRef.current = pins
+    addModeRef.current = addMode
+  })
+
   // Create the Leaflet map once per world-map image.
   useEffect(() => {
     if (!containerRef.current) return
@@ -62,6 +73,31 @@ export default function MapView({
     if (el) el.style.cursor = addMode ? 'crosshair' : ''
   }, [addMode])
 
+  // Pin hover → page preview, reusing the app-wide popover bus. Delegated on the
+  // map container so it survives Leaflet re-creating marker elements. Suppressed
+  // while dragging or placing a pin (mirrors editor edit-mode suppression).
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    function over(e: MouseEvent) {
+      if (addModeRef.current || draggingRef.current) return
+      const icon = (e.target as HTMLElement).closest('.pin-icon[data-pin-id]') as HTMLElement | null
+      if (!icon) return
+      const pin = pinsRef.current.find((p) => p.id === icon.dataset.pinId)
+      if (!pin?.pageId) return
+      showPageHover(pin.pageId, pin.label, icon.getBoundingClientRect())
+    }
+    function out(e: MouseEvent) {
+      if ((e.target as HTMLElement).closest('.pin-icon[data-pin-id]')) scheduleWikiHoverClose()
+    }
+    el.addEventListener('mouseover', over)
+    el.addEventListener('mouseout', out)
+    return () => {
+      el.removeEventListener('mouseover', over)
+      el.removeEventListener('mouseout', out)
+    }
+  }, [])
+
   // Sync markers with the pins array and their derived styles.
   useEffect(() => {
     const lmap = mapRef.current
@@ -73,7 +109,7 @@ export default function MapView({
       seen.add(pin.id)
       const selected = pin.id === selectedPinId
       const style = styles.get(pin.id) ?? { color: '#a0a0a0', icon: null }
-      const icon = makeIcon(pin.label, style, selected)
+      const icon = makeIcon(pin, style, selected)
       let marker = existing.get(pin.id)
       if (marker) {
         marker.setLatLng([pin.lat, pin.lng])
@@ -85,7 +121,12 @@ export default function MapView({
           L.DomEvent.stopPropagation(e) // don't also fire a map click
           cbRef.current.onPinClick(pin.id)
         })
+        m.on('dragstart', () => {
+          draggingRef.current = true
+          scheduleWikiHoverClose()
+        })
         m.on('dragend', () => {
+          draggingRef.current = false
           const { lat, lng } = m.getLatLng()
           cbRef.current.onPinMove(pin.id, lat, lng)
         })
@@ -114,14 +155,16 @@ export default function MapView({
 }
 
 // A small teardrop pin rendered as an HTML element, tinted by its type colour
-// with an optional emoji above the dot.
-function makeIcon(label: string, style: PinMarkerStyle, selected: boolean): L.DivIcon {
-  const safe = label.replace(/</g, '&lt;')
+// with an optional emoji above the dot. Linked pins carry data-pin-id so the
+// delegated hover handler can resolve them back to a page.
+function makeIcon(pin: MapPin, style: PinMarkerStyle, selected: boolean): L.DivIcon {
+  const safe = pin.label.replace(/</g, '&lt;')
   const emoji = style.icon ? `<span class="pin-emoji">${style.icon}</span>` : ''
+  const idAttr = pin.pageId ? ` data-pin-id="${pin.id}"` : ''
   return L.divIcon({
     className: 'pin-icon-wrap',
     html:
-      `<div class="pin-icon${selected ? ' selected' : ''}">${emoji}` +
+      `<div class="pin-icon${selected ? ' selected' : ''}"${idAttr}>${emoji}` +
       `<span class="pin-dot" style="background:${style.color}"></span>` +
       `<span class="pin-label">${safe}</span></div>`,
     iconSize: [0, 0],
