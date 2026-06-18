@@ -18,12 +18,13 @@ interface Props {
   onMapClick: (lat: number, lng: number) => void
   onPinClick: (pinId: string) => void
   onPinMove: (pinId: string, lat: number, lng: number) => void
+  focusPinId?: string | null
 }
 
 // We use a "Simple" coordinate system so the map is just the flat image, with
 // pixel-based coordinates instead of real-world latitude/longitude.
 export default function MapView({
-  map, pins, styles, addMode, selectedPinId, onMapClick, onPinClick, onPinMove,
+  map, pins, styles, addMode, selectedPinId, onMapClick, onPinClick, onPinMove, focusPinId,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -150,6 +151,18 @@ export default function MapView({
       }
     }
   }, [pins, styles, selectedPinId, addMode])
+
+  // Pan to a deep-linked pin once its marker exists. `focusedRef` ensures we pan
+  // once per target rather than on every pins update (e.g. while dragging).
+  const focusedRef = useRef<string | null>(null)
+  useEffect(() => {
+    const lmap = mapRef.current
+    if (!lmap || !focusPinId || focusedRef.current === focusPinId) return
+    const pin = pins.find((p) => p.id === focusPinId)
+    if (!pin) return
+    focusedRef.current = focusPinId
+    lmap.setView([pin.lat, pin.lng], Math.max(lmap.getZoom(), 1))
+  }, [focusPinId, pins])
 
   return <div ref={containerRef} className="map-canvas" />
 }
