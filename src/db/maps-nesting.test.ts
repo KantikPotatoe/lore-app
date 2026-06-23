@@ -75,4 +75,9 @@ describe('ancestorMapIds', () => {
   it('returns just the map itself when top-level', () => {
     expect(ancestorMapIds('continent', pins, [])).toEqual(new Set(['continent']))
   })
+
+  it('terminates on a cycle instead of looping forever', () => {
+    const cyc = [pin('p1', 'a', 'b'), pin('p2', 'b', 'a')]
+    expect(ancestorMapIds('a', cyc, [])).toEqual(new Set(['a', 'b']))
+  })
 })
