@@ -594,6 +594,15 @@ a { color: inherit; text-decoration: none; }
   border-bottom: 1px solid var(--border); background: var(--bg-2); flex-shrink: 0;
 }
 .map-toolbar select { background: var(--panel); border: 1px solid var(--border); color: var(--ink); border-radius: 7px; padding: 7px 10px; }
+.map-breadcrumb { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 13px; }
+.map-crumb { display: inline-flex; align-items: center; gap: 4px; }
+.map-crumb-link {
+  background: none; border: none; color: var(--accent); cursor: pointer; padding: 2px 4px;
+  border-radius: 5px; font-size: 13px;
+}
+.map-crumb-link:hover { background: var(--bg-2); }
+.map-crumb-current { color: var(--ink); font-weight: 600; padding: 2px 4px; }
+.map-crumb-sep { color: var(--ink-faint); }
 .map-hint { margin-left: auto; color: var(--ink-faint); font-size: 13px; }
 .map-body { position: relative; flex: 1; min-height: 0; }
 .map-canvas { position: absolute; inset: 0; background: #0e0c09; }
@@ -641,6 +650,26 @@ a { color: inherit; text-decoration: none; }
 }
 .legend-name { flex: 1; text-align: left; }
 .legend-count { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+.map-find {
+  position: absolute; top: 16px; left: 16px; z-index: 1000; width: 240px; max-height: 50%;
+  display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: 0 8px 30px rgba(0,0,0,.5); overflow: hidden;
+}
+.map-find-head { display: flex; align-items: center; gap: 6px; padding: 8px; }
+.map-find-head input {
+  flex: 1; background: var(--bg-2); border: 1px solid var(--border); color: var(--ink);
+  border-radius: 7px; padding: 7px 9px; font-size: 13px;
+}
+.map-find-list { overflow-y: auto; padding: 4px 8px 8px; display: flex; flex-direction: column; gap: 2px; }
+.map-find-row {
+  display: flex; align-items: center; gap: 8px; padding: 5px 6px; border: none; background: none;
+  color: var(--ink); cursor: pointer; border-radius: 6px; font-size: 13px; text-align: left;
+}
+.map-find-row:hover { background: var(--bg-2); }
+.map-find-mark { flex-shrink: 0; }
+.map-find-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-find-empty { margin: 4px 6px; font-size: 13px; }
 
 .pin-panel {
   position: absolute; top: 16px; right: 16px; width: 270px; z-index: 1000;
