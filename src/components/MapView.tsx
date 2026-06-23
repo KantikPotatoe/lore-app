@@ -87,6 +87,16 @@ export default function MapView({
     const markers = markersRef.current
     const polygons = polygonsRef.current
     return () => {
+      // Persist any in-progress vertex edit before the layers are destroyed
+      // (e.g. the user switches maps or navigates away mid-edit).
+      const editing = editingRef.current
+      if (editing) {
+        const p = polygons.get(editing) as EditablePolygon | undefined
+        if (p?.editing?.enabled()) {
+          const ring = p.getLatLngs()[0] as L.LatLng[]
+          cbRef.current.onRegionEdit(editing, ring.map((ll) => [ll.lat, ll.lng] as [number, number]))
+        }
+      }
       lmap.remove()
       mapRef.current = null
       markers.clear()
