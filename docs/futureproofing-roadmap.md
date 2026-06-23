@@ -153,7 +153,7 @@ is now: bump `CURRENT_SCHEMA_VERSION` and add a `MIGRATIONS[n]` entry.
 
 ## Tier 3 — Scale & resilience
 
-### 6. Incremental search / graph indexing ⬜
+### 6. Incremental search / graph indexing ✅ *(branch `perf/incremental-search`, PR #61)*
 
 **Why:** `App.tsx` rebuilds the **entire** FlexSearch index on every `db.pages` change
 (`liveQuery` → `buildIndex()`). Fine at ~50 pages; at a 500-page world with frequent
@@ -164,6 +164,38 @@ change deltas rather than a full rebuild. Defer until it actually bites — meas
 
 **Done when:** index updates are incremental and a large-world (hundreds of pages) save
 is visibly snappy.
+
+**Measured first (per the plan).** A throwaway bench timed the current full
+`buildIndex()` — the work done on *every* save — against world size (happy-dom/Node, a
+rough proxy; a real browser's native DOMParser is faster, but the shape holds):
+
+| World | Full rebuild (today) | Incremental `syncIndex` (1 edit) |
+|---|---|---|
+| 100 pages × ~2 KB | ~20 ms | — |
+| **500 pages × ~2 KB** | **~92 ms** | **0.4 ms** |
+| 500 pages × ~5 KB | ~205 ms | 0.3 ms |
+| 1000 pages × ~2 KB | ~200 ms | 1.0 ms |
+
+So it **does** bite: by 500 pages every keystroke-save blocks ~100 ms (well past one
+16 ms frame), and ~200 ms with longer articles. Proceeding was justified.
+
+**Outcome (shipped):** `search.ts` gains `syncIndex(pages)`, which reconciles the index
+against the current page set touching only deltas — unchanged pages (matched by
+`updatedAt`) are skipped *before* the costly `stripHtml`/DOMParser pass; new pages
+`add`, changed pages `update`, vanished pages `remove`. The store now carries `updatedAt`
+as the change signal. `App.tsx`'s liveQuery calls `syncIndex` instead of `buildIndex`
+(first emission still does a full build via the null-index fallback). Result: a single
+edit in a 500-page world drops from **~92 ms → 0.4 ms** (~230×).
+
+**Scope note — graph not changed:** `buildGraphData()` runs only inside `GraphRoute`'s
+`useMemo`, i.e. on demand when the graph is open, *not* globally on every save like the
+search index. It doesn't carry the same always-on per-edit cost, so it was left as-is;
+the always-on hot path was search, which is what the measurement targeted and this fixes.
+
+**Tests (6 new, 96 total):** `src/search.test.ts` — `buildIndex`/`searchPages` by
+title/stripped-body/tags, and `syncIndex` add / update (old term gone) / remove /
+skip-unchanged (proves the `updatedAt` short-circuit) / a combined add+update+remove+skip
+pass.
 
 ### 7. Top-level `ErrorBoundary` + IndexedDB quota/eviction surfacing ⬜
 

@@ -49,7 +49,7 @@ Defined here (add new ones here): `BUILTIN_TEMPLATES` (the ~19 shipped page type
 
 ### Routing — `src/App.tsx`
 
-The app uses **hash routing**. `/` is special-cased: it renders `LoreSelectorRoute` full-screen with **no** sidebar/overlay shell (you pick a world before entering it). Every other path renders inside a persistent `<Sidebar>` + `<main>` shell with a `<BackupBanner>`. `App.tsx` mounts two global overlays (`SearchModal`, `WikiLinkPopover`) and owns the reactive FlexSearch index rebuild (a `liveQuery` subscription on `db.pages` calls `buildIndex()` on every change). On app start it runs `bootstrapDefaultLore()`, `requestPersistentStorage()`, `seedTemplates()`, `seedDefaultCalendar()`, and `maybeTakeSnapshot()`.
+The app uses **hash routing**. `/` is special-cased: it renders `LoreSelectorRoute` full-screen with **no** sidebar/overlay shell (you pick a world before entering it). Every other path renders inside a persistent `<Sidebar>` + `<main>` shell with a `<BackupBanner>`. `App.tsx` mounts two global overlays (`SearchModal`, `WikiLinkPopover`) and owns the reactive FlexSearch index sync (a `liveQuery` subscription on `db.pages` calls `syncIndex()` on every change — incremental: the first emission builds, later ones apply only the changed/added/removed pages). On app start it runs `bootstrapDefaultLore()`, `requestPersistentStorage()`, `seedTemplates()`, `seedDefaultCalendar()`, and `maybeTakeSnapshot()`.
 
 | Path | Component | Purpose |
 |---|---|---|
@@ -108,7 +108,7 @@ An **Auto-snapshots** section (below "Recently edited") lists up to 10 stored sn
 
 ### Full-text search — `src/search.ts` + `src/components/SearchModal.tsx`
 
-`src/search.ts` maintains a FlexSearch `Index` (tokenize `'forward'`, resolution 5) rebuilt on every `db.pages` change via a `liveQuery` subscription in `App.tsx`. The index stores stripped-HTML body text, title, summary, and tags per page. `searchPages(query)` returns up to 20 `SearchResult` objects with a body snippet centred on the first match. `highlightSnippet()` wraps the first query word in `<mark>` for display.
+`src/search.ts` maintains a FlexSearch `Index` (tokenize `'forward'`, resolution 5) kept in sync on every `db.pages` change via a `liveQuery` subscription in `App.tsx`. Sync is **incremental**: `buildIndex()` does the initial full build, then `syncIndex(pages)` reconciles only the deltas — unchanged pages (matched by `updatedAt`) are skipped before the costly `stripHtml` parse, new pages `add`, changed pages `update`, vanished pages `remove`. (A full rebuild per edit was ~100 ms at 500 pages; incremental is ~0.4 ms — see roadmap #6.) The index stores stripped-HTML body text, title, summary, and tags per page. `searchPages(query)` returns up to 20 `SearchResult` objects with a body snippet centred on the first match. `highlightSnippet()` wraps the first query word in `<mark>` for display.
 
 `SearchModal` is a full-screen overlay (z-index 900) with an auto-focused input, arrow-key + Enter keyboard navigation, and click-to-navigate results. Closing with Escape or clicking the backdrop calls `onClose()`. The sidebar search input is `readOnly` — it opens the modal on focus/click and no longer does its own filtering.
 
