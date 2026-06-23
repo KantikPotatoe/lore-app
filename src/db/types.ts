@@ -67,6 +67,7 @@ export interface MapPin {
   lng: number
   label: string
   pageId: string | null // linked lore page, or null
+  childMapId?: string // portal: the map this pin opens (drill-down); absent ⇒ none
 }
 
 /** A drawable area on a map (territory, biome…), optionally linked to a page.
@@ -78,6 +79,7 @@ export interface MapRegion {
   label: string
   pageId: string | null // linked lore page, or null
   color?: string // per-region colour override; absent ⇒ derive from page type
+  childMapId?: string // portal: the map this region opens (drill-down); absent ⇒ none
 }
 
 /** One month in a custom calendar. */

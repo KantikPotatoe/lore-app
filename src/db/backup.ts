@@ -23,7 +23,7 @@ import type {
  * changes, and add a MIGRATIONS step (below) for the new version so older
  * backups keep importing.
  */
-export const CURRENT_SCHEMA_VERSION = 6
+export const CURRENT_SCHEMA_VERSION = 7
 
 /** The shape produced by exportAll() and accepted by importAll().
  *  `schemaVersion`/`appVersion` were added in schema v5's tooling; legacy
@@ -74,6 +74,9 @@ const MIGRATIONS: Record<number, (d: BackupData) => BackupData> = {
   4: (d) => ({ ...d, calendars: asArray(d.calendars), events: asArray(d.events) }),
   // v6 added the map regions table.
   5: (d) => ({ ...d, regions: asArray(d.regions) }),
+  // v7 added pin/region childMapId portals — an additive optional field inside the
+  // existing pins/regions arrays, so no migration step is needed (old backups simply
+  // lack it ⇒ no portal). The version still bumps to mirror the Dexie store version.
 }
 
 /**
