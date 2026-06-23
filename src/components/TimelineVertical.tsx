@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { absoluteToDate, eraForYear, formatDate, yearLength } from '../calendar'
+import { sanitizeHtml } from '../sanitize'
 import type { Calendar, TimelineEvent, LorePage, CalendarEra } from '../db'
 
 interface Props {
@@ -109,7 +110,10 @@ export default function TimelineVertical({
                       {event.description && (
                         <div
                           className="tl-event-desc"
-                          dangerouslySetInnerHTML={{ __html: event.description }}
+                          // Defence-in-depth: event descriptions are sanitized on import
+                          // (db/backup.ts), but this is the one raw HTML render sink, so
+                          // scrub again here in case content predates that pass. See #8.
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(event.description) }}
                         />
                       )}
                       {linkedPage && (

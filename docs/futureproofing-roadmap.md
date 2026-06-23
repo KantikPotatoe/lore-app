@@ -178,7 +178,7 @@ and storage-quota / eviction errors aren't surfaced.
 **Done when:** a thrown render error shows a recovery UI instead of a blank page, and a
 simulated quota error is reported to the user.
 
-### 8. Sanitize stored HTML on import ⬜
+### 8. Sanitize stored HTML on import ✅ *(branch `feat/sanitize-import-html`, PR #__)*
 
 **Why:** Tiptap HTML is stored as strings and re-rendered via `dangerouslySetInnerHTML`.
 Single-user local use is low-risk, but the moment a user imports a **shared** backup,
@@ -190,6 +190,30 @@ path. Whitelist the tags Tiptap actually produces (incl. tables, images as data 
 
 **Done when:** an imported backup containing a `<script>`/`onerror` payload is rendered
 inert, covered by a test.
+
+**Outcome (shipped):** New `src/sanitize.ts` runs DOMPurify with an explicit whitelist
+of exactly the tags/attrs Tiptap emits — StarterKit blocks/marks, `data-wikilink`/
+`data-title` wiki anchors, `ext-link` anchors (`target`/`rel`), inline `data:` URL images,
+and TableKit tables (col/rowspan, widths). `data-*` are allowed via `ALLOW_DATA_ATTR`.
+
+**Decision — sanitize on import _and_ at the one raw render sink (both):**
+- **On import** is the primary boundary. `importAll()` (db/backup.ts) sanitizes every
+  page `content` and event `description` before they touch the DB, so all downstream
+  render paths get clean HTML regardless of how they render it. `parseBackup()` stays a
+  pure validator/migrator (no DOM dependency in the counts/validation path).
+- **On render** as defence-in-depth only where the HTML is dropped into the DOM raw:
+  `TimelineVertical`'s `dangerouslySetInnerHTML` is wrapped with `sanitizeHtml()` (covers
+  content authored before this change). The page **body** render needs no extra pass — it
+  goes through Tiptap, which rebuilds from its schema and inherently drops unknown
+  tags/attrs. Plain-text fields (`summary`, infobox values via `WikiText`) are React text,
+  already escaped.
+
+**Tests (15 new, 105 total):** `src/sanitize.test.ts` (whitelist kept / scripting stripped)
+and `src/db/import-sanitize.test.ts` (a `<script>`/`onerror` payload in an imported backup
+is inert in stored `content`/`description`, legit markup preserved). Both run under **jsdom**
+via a `@vitest-environment jsdom` docblock — happy-dom's HTML parser isn't faithful enough
+for DOMPurify (it lets `<script>` survive); jsdom is DOMPurify's reference DOM and matches
+the production browser. The rest of the suite stays on the faster happy-dom default.
 
 ---
 
