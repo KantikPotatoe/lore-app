@@ -153,7 +153,7 @@ is now: bump `CURRENT_SCHEMA_VERSION` and add a `MIGRATIONS[n]` entry.
 
 ## Tier 3 — Scale & resilience
 
-### 6. Incremental search / graph indexing ✅ *(branch `perf/incremental-search`, PR #__)*
+### 6. Incremental search / graph indexing ✅ *(branch `perf/incremental-search`, PR #61)*
 
 **Why:** `App.tsx` rebuilds the **entire** FlexSearch index on every `db.pages` change
 (`liveQuery` → `buildIndex()`). Fine at ~50 pages; at a 500-page world with frequent
