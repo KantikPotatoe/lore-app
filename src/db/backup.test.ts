@@ -21,7 +21,7 @@ import pkg from '../../package.json'
 
 async function clearAll(): Promise<void> {
   await Promise.all([
-    db.pages.clear(), db.maps.clear(), db.pins.clear(),
+    db.pages.clear(), db.maps.clear(), db.pins.clear(), db.regions.clear(),
     db.templates.clear(), db.calendars.clear(), db.events.clear(),
   ])
 }
@@ -72,6 +72,7 @@ describe('migrateBackup — version ladder', () => {
     expect(out.templates).toEqual([]) // added at v3
     expect(out.calendars).toEqual([]) // added at v5
     expect(out.events).toEqual([])
+    expect(out.regions).toEqual([]) // added at v6
   })
 
   it('upgrades a v2 backup (pre-templates) up through every later step', () => {
@@ -148,6 +149,20 @@ describe('importAll — round-trips', () => {
     expect(await db.pages.get('p1')).toMatchObject({ id: 'p1', title: 'Page p1' })
     expect(await db.calendars.get('c1')).toMatchObject({ id: 'c1' })
     expect(await db.events.get('e1')).toMatchObject({ id: 'e1', calendarId: 'c1' })
+  })
+
+  it('round-trips regions', async () => {
+    await db.maps.add({ id: 'm1', name: 'M', image: '', width: 1, height: 1, createdAt: 1 })
+    await db.regions.add({
+      id: 'r1', mapId: 'm1', points: [[0, 0], [0, 5], [5, 0]], label: 'Forest',
+      pageId: null, color: '#8fae6f',
+    })
+
+    const json = await exportAll()
+    await clearAll()
+    await importAll(json)
+
+    expect(await db.regions.get('r1')).toMatchObject({ id: 'r1', label: 'Forest', color: '#8fae6f' })
   })
 
   it('imports a legacy (unversioned) backup and re-seeds the built-ins it lacks', async () => {
