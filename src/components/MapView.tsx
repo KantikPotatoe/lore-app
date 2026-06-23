@@ -1,8 +1,17 @@
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import type { WorldMap, MapPin } from '../db'
+import 'leaflet-draw'
+import 'leaflet-draw/dist/leaflet.draw.css'
+import type { WorldMap, MapPin, MapRegion } from '../db'
 import { showPageHover, scheduleWikiHoverClose } from '../wikiLinkHover'
+
+// leaflet-draw augments polygon layers with an `editing` handler and adds the
+// L.Draw.* / L.Draw.Event globals, but @types/leaflet-draw doesn't surface the
+// per-layer handle, so we narrow it locally.
+type EditablePolygon = L.Polygon & {
+  editing: { enable(): void; disable(): void; enabled(): boolean }
+}
 
 export interface PinMarkerStyle {
   color: string
@@ -19,30 +28,45 @@ interface Props {
   onPinClick: (pinId: string) => void
   onPinMove: (pinId: string, lat: number, lng: number) => void
   focusPinId?: string | null
+  regions: MapRegion[]
+  regionStyles: Map<string, { color: string }>
+  selectedRegionId: string | null
+  drawMode: boolean
+  onRegionClick: (id: string) => void
+  onRegionCreate: (points: [number, number][]) => void
+  onRegionEdit: (id: string, points: [number, number][]) => void
 }
 
 // We use a "Simple" coordinate system so the map is just the flat image, with
 // pixel-based coordinates instead of real-world latitude/longitude.
 export default function MapView({
   map, pins, styles, addMode, selectedPinId, onMapClick, onPinClick, onPinMove, focusPinId,
+  regions, regionStyles, selectedRegionId, drawMode, onRegionClick, onRegionCreate, onRegionEdit,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const markersRef = useRef<Map<string, L.Marker>>(new Map())
+  const polygonsRef = useRef<Map<string, L.Polygon>>(new Map())
+  // id of the region whose vertices are currently being edited, or null.
+  const editingRef = useRef<string | null>(null)
   // Keep latest callbacks in a ref so we can attach handlers once.
-  const cbRef = useRef({ onMapClick, onPinClick, onPinMove })
+  const cbRef = useRef({ onMapClick, onPinClick, onPinMove, onRegionClick, onRegionCreate, onRegionEdit })
   useEffect(() => {
-    cbRef.current = { onMapClick, onPinClick, onPinMove }
+    cbRef.current = { onMapClick, onPinClick, onPinMove, onRegionClick, onRegionCreate, onRegionEdit }
   })
 
-  // Latest pins / add-mode for the delegated hover handlers (attached once below).
+  // Latest pins / regions / modes for delegated + layer handlers.
   const pinsRef = useRef(pins)
   const addModeRef = useRef(addMode)
+  const regionsRef = useRef(regions)
+  const drawModeRef = useRef(drawMode)
   // True between a pin's dragstart and dragend, to suppress hover previews.
   const draggingRef = useRef(false)
   useEffect(() => {
     pinsRef.current = pins
     addModeRef.current = addMode
+    regionsRef.current = regions
+    drawModeRef.current = drawMode
   })
 
   // Create the Leaflet map once per world-map image.
@@ -61,10 +85,13 @@ export default function MapView({
     lmap.on('click', (e) => cbRef.current.onMapClick(e.latlng.lat, e.latlng.lng))
     mapRef.current = lmap
     const markers = markersRef.current
+    const polygons = polygonsRef.current
     return () => {
       lmap.remove()
       mapRef.current = null
       markers.clear()
+      polygons.clear()
+      editingRef.current = null
     }
   }, [map.id, map.image, map.width, map.height])
 
@@ -154,6 +181,106 @@ export default function MapView({
       }
     }
   }, [pins, styles, selectedPinId, addMode])
+
+  // Sync polygons with the regions array and their derived fill colours. Polygons
+  // live in the default overlay pane (z 400), below the marker pane (z 600), so
+  // pins stay clickable on top.
+  useEffect(() => {
+    const lmap = mapRef.current
+    if (!lmap) return
+    const existing = polygonsRef.current
+    const seen = new Set<string>()
+
+    for (const region of regions) {
+      if (region.points.length < 3) continue
+      seen.add(region.id)
+      const selected = region.id === selectedRegionId
+      const fill = regionStyles.get(region.id)?.color ?? '#a0a0a0'
+      const style: L.PathOptions = {
+        color: fill,
+        fillColor: fill,
+        fillOpacity: selected ? 0.45 : 0.25,
+        weight: selected ? 3 : 2,
+      }
+      const poly = existing.get(region.id)
+      if (poly) {
+        // Don't fight the user's in-progress vertex edits on this layer.
+        if (editingRef.current !== region.id) poly.setLatLngs(region.points)
+        poly.setStyle(style)
+        poly.setTooltipContent(region.label)
+      } else {
+        const p = L.polygon(region.points, style).addTo(lmap)
+        p.bindTooltip(region.label, { permanent: true, direction: 'center', className: 'region-label' })
+        p.on('click', (e) => {
+          L.DomEvent.stopPropagation(e) // don't also fire a map click
+          cbRef.current.onRegionClick(region.id)
+        })
+        p.on('mouseover', () => {
+          if (drawModeRef.current || editingRef.current) return
+          const r = regionsRef.current.find((x) => x.id === region.id)
+          if (!r?.pageId) return
+          const el = p.getElement() as HTMLElement | null
+          if (el) showPageHover(r.pageId, r.label, el.getBoundingClientRect())
+        })
+        p.on('mouseout', () => scheduleWikiHoverClose())
+        existing.set(region.id, p)
+      }
+    }
+
+    for (const [id, poly] of existing) {
+      if (!seen.has(id)) {
+        poly.remove()
+        existing.delete(id)
+      }
+    }
+  }, [regions, regionStyles, selectedRegionId])
+
+  // While drawMode is on, enable leaflet-draw's polygon drawer. On completion we
+  // hand the vertices up; the new polygon is rendered from state (not added here),
+  // so there's no duplicate layer.
+  useEffect(() => {
+    const lmap = mapRef.current
+    if (!lmap || !drawMode) return
+    const drawer = new L.Draw.Polygon(lmap as L.DrawMap, {
+      allowIntersection: true,
+      shapeOptions: { color: '#e0a458', weight: 2 },
+    })
+    drawer.enable()
+    const onCreated = (e: L.LeafletEvent) => {
+      const layer = (e as unknown as { layer: L.Polygon }).layer
+      const ring = layer.getLatLngs()[0] as L.LatLng[]
+      const points = ring.map((ll) => [ll.lat, ll.lng] as [number, number])
+      if (points.length >= 3) cbRef.current.onRegionCreate(points)
+    }
+    lmap.on(L.Draw.Event.CREATED, onCreated)
+    return () => {
+      drawer.disable()
+      lmap.off(L.Draw.Event.CREATED, onCreated)
+    }
+  }, [drawMode])
+
+  // Enable vertex editing on the selected region; when selection leaves a region
+  // that was being edited, disable editing and persist its new shape.
+  useEffect(() => {
+    const polys = polygonsRef.current
+    const prev = editingRef.current
+    if (prev && prev !== selectedRegionId) {
+      const p = polys.get(prev) as EditablePolygon | undefined
+      if (p?.editing?.enabled()) {
+        p.editing.disable()
+        const ring = p.getLatLngs()[0] as L.LatLng[]
+        cbRef.current.onRegionEdit(prev, ring.map((ll) => [ll.lat, ll.lng] as [number, number]))
+      }
+      editingRef.current = null
+    }
+    if (selectedRegionId) {
+      const p = polys.get(selectedRegionId) as EditablePolygon | undefined
+      if (p?.editing && !p.editing.enabled()) {
+        p.editing.enable()
+        editingRef.current = selectedRegionId
+      }
+    }
+  }, [selectedRegionId, regions])
 
   // Pan to a deep-linked pin once its marker exists. `focusedRef` ensures we pan
   // once per target rather than on every pins update (e.g. while dragging).

@@ -611,6 +611,13 @@ a { color: inherit; text-decoration: none; }
   padding: 1px 7px; border-radius: 10px; border: 1px solid var(--border); font-weight: 600;
 }
 
+.region-label {
+  background: rgba(20,18,14,.7); color: var(--ink); border: 1px solid var(--border);
+  border-radius: 8px; padding: 1px 7px; font-size: 12px; font-weight: 600;
+  box-shadow: none;
+}
+.region-label::before { display: none; } /* drop Leaflet's tooltip pointer arrow */
+
 .map-legend {
   position: absolute; bottom: 16px; left: 16px; z-index: 1000; max-height: 40%;
   overflow-y: auto; display: flex; flex-direction: column; gap: 2px;

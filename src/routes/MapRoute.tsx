@@ -168,6 +168,13 @@ export default function MapRoute() {
             onPinClick={setSelectedPinId}
             onPinMove={(id, lat, lng) => db.pins.update(id, { lat, lng })}
             focusPinId={focusPinId}
+            regions={[]}
+            regionStyles={new Map()}
+            selectedRegionId={null}
+            drawMode={false}
+            onRegionClick={() => {}}
+            onRegionCreate={() => {}}
+            onRegionEdit={() => {}}
           />
         )}
 
