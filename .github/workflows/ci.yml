@@ -1,0 +1,33 @@
+name: CI
+
+# Runs the same gates we run locally — type-check, lint, and tests — on every
+# pull request and on pushes to main, so a broken build or failing test can't
+# merge unnoticed.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check and build
+        run: npm run build
+
+      - name: Test
+        run: npm run test:run
