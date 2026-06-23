@@ -122,7 +122,7 @@ anything but the barrel.
 
 **Outcome (shipped):** `src/db.ts` decomposed into `src/db/{types,schema,templates,pages,maps,graph,calendar,backup,snapshots}.ts` with a barrel `index.ts` that `export *`s the lot — **zero call-site changes** (every import still resolves `'../db'`/`'./db'` to the folder). Cross-module helpers (`uid`/`now`, `categoryColor`, `defaultInfobox`, `linkedTitles`, `seedTemplates`/`seedDefaultCalendar`) live in their owning module and are shared via import; no import cycles. `src/db/barrel.test.ts` (47 cases) pins the re-exported surface so a dropped `export *` fails a test rather than a route. `npm run build` + `npm run lint` + `npm run test:run` all green.
 
-### 5. Version-stamp exports for forward-compatible import ⬜
+### 5. Version-stamp exports for forward-compatible import ✅ *(branch `feat/versioned-exports`)*
 
 **Why:** The Dexie *schema* migrations are clean, but `exportAll()` JSON carries **no
 `schemaVersion`**. As the schema evolves again, today's backups *and the auto-snapshots*
@@ -137,6 +137,17 @@ become ambiguous to import — risking the one thing the whole app exists to pro
 
 **Done when:** a current export contains a version field and `importAll()` round-trips
 both versioned and legacy (unversioned) backups, covered by tests.
+
+**Outcome (shipped):** `exportAll()` now stamps `schemaVersion` (`CURRENT_SCHEMA_VERSION`,
+mirroring the Dexie store version) and `appVersion` (imported from `package.json`, so it
+never drifts). `parseBackup()` runs `migrateBackup()` — a `MIGRATIONS` ladder keyed by
+source version — to bring any backup up to the current shape before returning it, and
+reports the read `schemaVersion`. No version ⇒ legacy (treated as v1) walked through every
+step; since each schema bump only *added* tables, the steps backfill `templates` (v3) and
+`calendars`/`events` (v5), preserving the existing re-seed behaviour. `importAll()` now
+coerces every table to an array defensively. Covered by `src/db/backup.test.ts` (10 tests:
+each migration step, version stamping, and versioned + legacy round-trips). Adding a step
+is now: bump `CURRENT_SCHEMA_VERSION` and add a `MIGRATIONS[n]` entry.
 
 ---
 
