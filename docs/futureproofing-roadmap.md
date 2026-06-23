@@ -153,7 +153,7 @@ is now: bump `CURRENT_SCHEMA_VERSION` and add a `MIGRATIONS[n]` entry.
 
 ## Tier 3 — Scale & resilience
 
-### 6. Incremental search / graph indexing ⬜
+### 6. Incremental search / graph indexing ✅ *(branch `perf/incremental-search`, PR #61)*
 
 **Why:** `App.tsx` rebuilds the **entire** FlexSearch index on every `db.pages` change
 (`liveQuery` → `buildIndex()`). Fine at ~50 pages; at a 500-page world with frequent
@@ -165,7 +165,7 @@ change deltas rather than a full rebuild. Defer until it actually bites — meas
 **Done when:** index updates are incremental and a large-world (hundreds of pages) save
 is visibly snappy.
 
-### 7. Top-level `ErrorBoundary` + IndexedDB quota/eviction surfacing ⬜
+### 7. Top-level `ErrorBoundary` + IndexedDB quota/eviction surfacing ✅ *(branch `feat/error-boundary-quota`, PR #60)*
 
 **Why:** Local-first means failures are silent. `requestPersistentStorage()` is already
 called (good) — but a render crash currently blanks the whole app with no recovery path,
