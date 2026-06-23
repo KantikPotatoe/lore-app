@@ -1,6 +1,7 @@
 import { db, now } from './schema'
 import { seedTemplates } from './templates'
 import { seedDefaultCalendar } from './calendar'
+import { sanitizeHtml } from '../sanitize'
 import pkg from '../../package.json'
 import type {
   Calendar,
@@ -143,8 +144,27 @@ export async function exportAll(): Promise<string> {
   })
 }
 
+/**
+ * Strip any scripting from the rich-text HTML a backup carries, so importing an
+ * untrusted (e.g. shared) backup can't inject XSS. This is the import-time half of
+ * roadmap item #8: sanitizing here — the single boundary where outside data enters
+ * the DB — means every render path downstream gets clean HTML, regardless of how it
+ * later renders it (the page body goes through Tiptap, but a timeline-event
+ * description is dropped straight into the DOM via dangerouslySetInnerHTML). Only the
+ * two HTML-bearing fields are touched; `summary`, infobox values, etc. are plain text
+ * rendered as React text, which React already escapes. See src/sanitize.ts.
+ */
+function sanitizeBackup(data: BackupData): BackupData {
+  return {
+    ...data,
+    pages: asArray(data.pages).map((p) => ({ ...p, content: sanitizeHtml(p.content) })),
+    events: asArray(data.events).map((e) => ({ ...e, description: sanitizeHtml(e.description) })),
+  }
+}
+
 export async function importAll(json: string): Promise<void> {
-  const { data } = parseBackup(json) // throws before any clear(); data is migrated to the current shape
+  const { data: parsed } = parseBackup(json) // throws before any clear(); migrated to the current shape
+  const data = sanitizeBackup(parsed) // strip XSS from untrusted HTML before it touches the DB
   await db.transaction('rw', [db.pages, db.maps, db.pins, db.templates, db.calendars, db.events], async () => {
     await Promise.all([
       db.pages.clear(), db.maps.clear(), db.pins.clear(),
