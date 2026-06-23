@@ -1,139 +1,112 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code working in this repo.
+
+## Models
+
+- **Opus** — planning/design only.
+- **Sonnet** — default for coding/edits.
+- **Haiku** — only when explicitly deemed necessary (cheap, mechanical work).
 
 ## Commands
 
 ```bash
-npm run dev      # start dev server (Vite, hot reload)
-npm run build    # type-check then bundle to dist/
-npm run lint     # ESLint
-npm run preview  # serve the built dist/ locally
+npm run dev        # Vite dev server (hot reload)
+npm run build      # tsc -b + vite build → dist/
+npm run lint       # ESLint
+npm run preview    # serve built dist/
+npm test           # Vitest (watch)
+npm run test:run   # Vitest (CI, one-shot)
 ```
 
-The dev/preview server is **pinned to port 5174** (`strictPort` in `vite.config.ts`)
-and launched via `start-lore-codex.cmd`, which always opens Firefox at
-`http://localhost:5174`. This is deliberate: IndexedDB is keyed to the origin, so a
-drifting port would present an empty database and make saved lore look lost. Do not
-change the port in one place without changing it in the other.
-
-There are no automated tests in this project.
+- **Port is pinned to 5174** (`strictPort` in `vite.config.ts`; `start-lore-codex.cmd` opens Firefox there). IndexedDB is keyed to origin, so a drifting port shows an empty DB and looks like lost data. Change it in **both** places or neither.
+- TS is `strict`. CI (`.github/workflows/ci.yml`) runs lint + build + test on PRs/pushes to `main`. Run all three before claiming done.
+- Tests: Vitest + happy-dom + fake-indexeddb. **DOMPurify tests need jsdom** — add `// @vitest-environment jsdom` (happy-dom's parser lets `<script>` survive). `*.test.{ts,tsx}`.
 
 ## Architecture
 
-**Lore Codex** is a local-first worldbuilding wiki that runs entirely in the browser. All data is stored in IndexedDB via Dexie — nothing is sent to a server.
+**Lore Codex** — a local-first worldbuilding wiki, entirely in-browser. All data in IndexedDB via Dexie; nothing leaves the machine. `useLiveQuery` (dexie-react-hooks) for reactive reads throughout.
 
 ### Data layer — `src/db/`
 
-The single source of truth: TypeScript interfaces, the Dexie schema, all CRUD helpers, infobox templates, category/status definitions, backlink computation, and export/import. When touching data concerns, start here.
+Single source of truth: types, Dexie schema, all CRUD, templates, backlinks, graph, export/import. Start here for data work. Split into modules behind a **barrel `index.ts` that re-exports everything** — always import from `'../db'`/`'./db'`, and **re-export any new public API from `index.ts`** (`barrel.test.ts` fails if a re-export is dropped).
 
-Once a single ~1,100-line `src/db.ts`, it is now split into focused modules under `src/db/` behind a **barrel `index.ts` that re-exports the entire public surface** — so every call site still imports from `'../db'` / `'./db'` unchanged. The modules: `types.ts` (data-model interfaces, no runtime code), `schema.ts` (the `LoreDB` class + version ladder + the `db` singleton, `getMeta`/`setMeta`, category/status definitions, and the shared `uid()`/`now()` helpers), `templates.ts` (page types: built-ins, seeding, infobox/template helpers + CRUD), `pages.ts` (page CRUD, `renamePage` link-rewriting, backlinks), `maps.ts` (maps/pins CRUD + `pinType`), `graph.ts` (`buildGraphData`), `calendar.ts` (timeline calendar/event CRUD — distinct from the pure `src/calendar.ts`), `backup.ts` (`exportAll`/`importAll`/`parseBackup`), and `snapshots.ts`. `src/db/barrel.test.ts` pins the public surface so a dropped re-export fails a test rather than a route. When adding public data API, re-export it from `index.ts`.
+| Module | Holds |
+|---|---|
+| `types.ts` | data-model interfaces (no runtime code) |
+| `schema.ts` | `LoreDB` class + version ladder + `db` singleton, `getMeta`/`setMeta`, category/status defs, `uid()`/`now()` |
+| `templates.ts` | page types: built-ins, seeding, infobox/template CRUD |
+| `pages.ts` | page CRUD, `renamePage` link-rewriting, backlinks |
+| `maps.ts` | maps/pins CRUD + `pinType` |
+| `graph.ts` | `buildGraphData` |
+| `calendar.ts` | timeline calendar/event CRUD (distinct from pure `src/calendar.ts`) |
+| `backup.ts` | `exportAll`/`importAll`/`parseBackup` + versioning + import sanitization |
+| `snapshots.ts` | snapshot CRUD |
 
-Key types:
-- `LorePage` — a wiki article with rich-text `content` (HTML), `summary`, `tags`, a `status`, and an optional `Infobox`
-- `Infobox` / `InfoboxField` — the wiki-style sidebar card; fields are seeded from a template but fully customisable per page. A field with `kind: 'separator'` is a full-width section heading (its `label` is the heading; `value` is unused). A field can also be **typed** via `fieldType: 'text' | 'ref' | 'number'` (absent ⇒ `'text'`): a `'ref'` field links to pages of the type named in `refType` and stores them as `[[Title]]` tokens in `value` (so backlinks/graph need no special handling) — the edit UI uses `RefField.tsx` to search/create pages of that type; a `'number'` field stores a numeric string
-- `InfoboxTemplate` / `TemplateItem` — a **page type**: a named, coloured category (`color`) plus an ordered list of starter infobox rows (fields or separators). A `TemplateItem` carries the same optional `fieldType`/`refType`, so a type declares each field's kind (set per row on the Templates screen). Stored in the `templates` table and editable from the Templates screen. A page's `category` is the name of a template; choosing a type also seeds its infobox
-- `WorldMap` — an uploaded image stored as a data URL
-- `MapPin` — a lat/lng point on a map, optionally linked to a `LorePage`
-- `Calendar` / `CalendarMonth` / `CalendarEra` — a custom in-world calendar: ordered `months` (each with a name + day count), `weekdays`, `eras`, and an `anchor` (the absolute day on which the calendar's year 0 sits). See **Timeline & calendars** below
-- `TimelineEvent` — a dated occurrence on a calendar, optionally spanning a range. Stores the in-world date (`startYear`/`startMonth`/`startDay`, optional `end*`) plus a **cached `startAbsolute`/`endAbsolute`** (computed via `calendar.ts` on every write) for sorting and axis positioning, an optional `color`/`icon`, and an optional linked `pageId`
-- `Snapshot` — a point-in-time export snapshot: `id`, `timestamp`, `editCount` (pages + events changed since last snapshot), `data` (raw `exportAll()` JSON). Up to 10 are kept; oldest is pruned on overflow. CRUD: `saveSnapshot()`, `getSnapshots()`, `deleteSnapshot()`
-- `MetaEntry` — key/value app settings (e.g. last-backup time, last-snapshot time); Dexie schema is at **v5**
-- `Lore` (in `src/lores.ts`, a separate `lore-registry` DB) — a saved world: `id`, `name`, optional `banner`. Each lore is its own IndexedDB database; see **Multiple worlds (lores)** below
+**Per-lore DB:** `db = new LoreDB(dbNameFor(currentLoreId()))` is bound at module load, so the active world is fixed for the page's lifetime. `switchLore()` and deleting the active world `window.location.reload()` to rebind it.
 
-Defined here (add new ones here): `BUILTIN_TEMPLATES` (the ~19 shipped page types — name, colour, and starter rows, several with separators already placed), `DEFAULT_CATEGORY` (the type a new page starts as), `TYPE_COLORS` (palette for the colour picker), `STATUSES` (Stub/Draft/WIP/Complete) with `pageStatus()`/`statusColor()`. `CATEGORIES` is now just the built-in colour fallback. Page types are DB-backed: `seedTemplates()` (called on app start) reconciles the table with the shipped built-ins — adds missing ones, **removes built-ins no longer shipped** (your custom types are left alone), and backfills colours without overwriting edits; `getTemplates()`/`createTemplate()`/`updateTemplate()`/`deleteTemplate()`/`resetTemplate()` are the CRUD helpers, and `applyTemplate()` swaps a page's infobox rows while preserving entered values. `categoryColor()` reads a synchronous cache kept in sync with the `templates` table via a `liveQuery` subscription, so a type's colour updates everywhere instantly. `getBacklinks()`/`linkedTitles()` compute reverse links by scanning each page's body `<a data-wikilink>` anchors and infobox `[[…]]` values (both via the shared helpers in `src/html.ts` — see **Shared HTML helpers**). `renamePage(id, newTitle)` renames a page **and** atomically rewrites every reference to the old title across all other pages (body anchors + infobox `[[…]]` tokens), throwing if the new title clashes with an existing page. `findPageIdByTitle(title)` is resolve-only (no auto-creation); callers that want to create a missing page must confirm explicitly. `buildGraphData()` (consumed by the Graph route) resolves wiki links into a node/edge graph — see **Relationship graph**. Timeline data has its own CRUD here (`seedDefaultCalendar()`, `createCalendar()`/`updateCalendar()`/`deleteCalendar()`, `addEvent()`/`updateEvent()`/`deleteEvent()`); calendar/event mutations recompute the cached absolute-day fields and cascade-delete events when a calendar is removed.
+**Key types:** `LorePage` (rich-text HTML `content`, `summary`, `tags`, `status`, optional `Infobox`) · `Infobox`/`InfoboxField` (sidebar card; `kind:'separator'` = heading; `fieldType:'text'|'ref'|'number'`, `'ref'` stores `[[Title]]` tokens bound to `refType`) · `InfoboxTemplate`/`TemplateItem` (a **page type**: named coloured category + starter rows) · `WorldMap` · `MapPin` · `Calendar`/`CalendarMonth`/`CalendarEra` · `TimelineEvent` (in-world date + cached `startAbsolute`/`endAbsolute`) · `Snapshot` · `MetaEntry` (Dexie schema **v5**) · `Lore` (in `src/lores.ts`, separate `lore-registry` DB).
 
-> **Per-lore database.** `db` is constructed as `new LoreDB(dbNameFor(currentLoreId()))`, so the active world determines which IndexedDB the whole app reads/writes. Switching worlds reloads the page to rebind this singleton — see **Multiple worlds (lores)**.
+**Notable helpers (in `src/db/`):** `BUILTIN_TEMPLATES`, `DEFAULT_CATEGORY`, `TYPE_COLORS`, `STATUSES` + `pageStatus()`/`statusColor()`. Page types are DB-backed: `seedTemplates()` (on start) reconciles built-ins (adds missing, removes dropped built-ins, backfills colours; leaves custom types alone); CRUD `getTemplates`/`createTemplate`/`updateTemplate`/`deleteTemplate`/`resetTemplate`; `applyTemplate()` swaps rows preserving values. `categoryColor()` reads a `liveQuery`-synced cache. `getBacklinks()`/`linkedTitles()` scan body `<a data-wikilink>` + infobox `[[…]]` (via `src/html.ts`). `renamePage(id, title)` atomically rewrites all references, throws on title clash. `findPageIdByTitle()` is **resolve-only** (no auto-create — callers confirm before creating). Calendar/event mutations recompute cached absolute days and cascade-delete on calendar removal.
 
-`useLiveQuery` from `dexie-react-hooks` is used throughout for reactive reads; IndexedDB changes auto-re-render components.
+### Routing — `src/App.tsx` (hash routing)
 
-### Routing — `src/App.tsx`
-
-The app uses **hash routing**. `/` is special-cased: it renders `LoreSelectorRoute` full-screen with **no** sidebar/overlay shell (you pick a world before entering it). Every other path renders inside a persistent `<Sidebar>` + `<main>` shell with a `<BackupBanner>`. `App.tsx` mounts two global overlays (`SearchModal`, `WikiLinkPopover`) and owns the reactive FlexSearch index sync (a `liveQuery` subscription on `db.pages` calls `syncIndex()` on every change — incremental: the first emission builds, later ones apply only the changed/added/removed pages). On app start it runs `bootstrapDefaultLore()`, `requestPersistentStorage()`, `seedTemplates()`, `seedDefaultCalendar()`, and `maybeTakeSnapshot()`.
+`/` is special-cased: full-screen `LoreSelectorRoute`, no shell. Every other path renders in the `<Sidebar>` + `<main>` shell with `<BackupBanner>` + `<StorageErrorBanner>`. `App.tsx` mounts global overlays (`SearchModal`, `WikiLinkPopover`), drives the incremental search index (`liveQuery` on `db.pages` → `syncIndex()`), and on start runs `installStorageErrorListener`, `bootstrapDefaultLore`, `requestPersistentStorage`, `seedTemplates`, `seedDefaultCalendar`, `maybeTakeSnapshot`.
 
 | Path | Component | Purpose |
 |---|---|---|
-| `/` | `LoreSelectorRoute` | Full-screen world picker (no shell): create / rename / banner / delete / switch worlds |
-| `/home` | `HomeRoute` | Customisable overview: editable hero/about, wiki stats (by type & status), recent pages, auto-snapshots, backup & safety |
-| `/page/:id` | `PageRoute` | Page view/edit: header (title/category/status), editor, infobox, backlinks |
-| `/browse/:category` | `CategoryRoute` | Image grid of all pages in a category; clicking the category header in the sidebar navigates here |
+| `/` | `LoreSelectorRoute` | world picker (create/rename/banner/delete/switch), no shell |
+| `/home` | `HomeRoute` | editable overview: hero/about, stats, recent, snapshots, backup |
+| `/page/:id` | `PageRoute` | view/edit: header, editor, infobox, backlinks |
+| `/browse/:category` | `CategoryRoute` | image grid for a category |
 | `/map` | `MapRoute` | Leaflet map with pins |
-| `/graph` | `GraphRoute` | Force-directed relationship graph of pages and their links |
-| `/timeline` | `TimelineRoute` | In-world timeline of events across custom calendars (list or axis view) |
-| `/templates` | `TemplatesRoute` | Manage infobox templates: add/rename/delete, edit & reorder field/separator rows |
+| `/graph` | `GraphRoute` | force-directed relationship graph |
+| `/timeline` | `TimelineRoute` | timeline (list or axis view) |
+| `/templates` | `TemplatesRoute` | manage page-type templates |
 
-The sidebar lists pages grouped by category; category headers are `<Link>`s to `/browse/:category`. The sidebar search input is a read-only click target — focusing or clicking it opens `SearchModal`.
+Sidebar groups pages by category (headers link to `/browse/:category`); its search box is read-only and opens `SearchModal` on focus.
 
-### Multiple worlds (lores) — `src/loreId.ts` + `src/lores.ts`
+### Multiple worlds — `src/loreId.ts` + `src/lores.ts`
 
-The app can hold many independent worlds, each in its **own IndexedDB database**. `loreId.ts` is the tiny shared core: `currentLoreId()` reads the active id from `localStorage` (defaulting to `'default'`), and `dbNameFor(id)` maps it to a database name (`'lore-app'` for the default, `'lore-app-<id>'` otherwise). `db.ts` constructs its singleton from these at module load, so **the active lore is fixed for the lifetime of the page** — switching worlds (`switchLore()`) and deleting the active world both `window.location.reload()` to rebind the `db` singleton against the new database.
+Each world is its own IndexedDB. `loreId.ts`: `currentLoreId()` (from `localStorage`, default `'default'`), `dbNameFor(id)` (`'lore-app'` / `'lore-app-<id>'`). `lores.ts` owns the `lore-registry` DB + world CRUD (`createLore`/`renameLore`/`setLoreBanner`/`deleteLore`/`switchLore`); `bootstrapDefaultLore()` registers `'default'` on first run.
 
-`lores.ts` owns a separate `lore-registry` Dexie DB (the `Lore` rows — name/banner/timestamps, listed on the selector) and the world CRUD: `createLore()`, `renameLore()`, `setLoreBanner()`, `deleteLore()` (also `Dexie.delete()`s the world's data DB), and `switchLore()`. `bootstrapDefaultLore()` (called on app start) idempotently registers the `'default'` world on first run, migrating the legacy home-config title into the world name when present.
+### Rich text — `src/components/LoreEditor.tsx` + `src/extensions/WikiLink.ts`
 
-### Rich text editor — `src/components/LoreEditor.tsx` + `src/extensions/WikiLink.ts`
+Tiptap with `StarterKit` (Link → external `ext-link`, new tab), `WikiLink` (`[[Page Title]]` inline node, `data-wikilink`/`data-title`), `Image` (data-URL inline), `TableKit` (resizable). View mode: clicking a wiki link resolves via `findPageIdByTitle()`, **confirms before creating** a missing stub (broken targets get `.is-broken`). Edit mode: Ctrl/Cmd-click follows links. Hover → `wikiLinkHover.ts` bus (suppressed in edit mode).
 
-`LoreEditor` wraps Tiptap with these extensions: `StarterKit` (with Link configured for external URLs — opens in new tab, `ext-link` styling, kept distinct from `WikiLink`), `WikiLink` (custom extension for `[[Page Title]]` wiki links), `Image` (inline body images stored as data URLs), and `TableKit` (tables with resizable columns).
+### Timeline & calendars — `src/calendar.ts` + `TimelineRoute`
 
-The `WikiLink` node converts `[[Page Title]]` text into an inline link. In view mode, clicking a wiki link resolves via `findPageIdByTitle()` and navigates to the page — if the page doesn't exist it **confirms before creating a stub** (no silent auto-creation); missing targets render with `.is-broken` styling. In edit mode, Ctrl/Cmd-click follows the link. External `href` links also require Ctrl/Cmd-click in edit mode and open in a new tab in view mode.
+`calendar.ts` is **pure date math** (no React/Dexie): `dateToAbsolute()`/`absoluteToDate()` map to a shared absolute-day integer so different calendars share one axis (no leap rules; `yearLength` = sum of months); plus `eraForYear()`, `formatDate()`. Events cache `startAbsolute`/`endAbsolute`, recomputed on event/calendar change (`updateCalendar()` rewrites all its events in one tx). `TimelineRoute` → `TimelineVertical` (list) / `TimelineHorizontal` (zoom/pan axis); `CalendarEditor`/`EventEditor` modals.
 
-Hover events on wiki links (in both `LoreEditor` and `WikiText`) feed into the shared `wikiLinkHover.ts` event bus — suppressed while the editor is in edit mode.
+### Relationship graph — `GraphView.tsx` + `GraphRoute`
 
-### Map view — `src/components/MapView.tsx`
+`buildGraphData(pages)` → nodes+links: each page a node (lone pages = isolated dots, intentional), resolved wiki link = edge, self-links dropped, A↔B collapses to one undirected edge, `degree` drives size. **Runs on demand in `GraphRoute`'s `useMemo`** (not per-save). Filtering clones nodes/links (the force sim mutates them); derives `hubs`/`orphans`.
 
-Uses Leaflet with a custom CRS so the uploaded image fills the map bounds. Pins are stored in `db.pins` and can be linked to a lore page.
+### Page right sidebar — `Infobox.tsx`, `TableOfContents.tsx`, `Backlinks.tsx`
 
-### Timeline & calendars — `src/calendar.ts` + `TimelineRoute` + components
+Sticky `.page-aside` with: **TOC** (scans `h2`/`h3` post-render, slugifies ids, shown only if >3 headings, `IntersectionObserver` active-section) · **Infobox** (image/caption/fields; `applyTemplate()` preserves values; empty separators hidden in view; `[[links]]` via `WikiText.tsx`; typed-field editors branch only in edit mode — `RefField.tsx` for `ref`, numeric input for `number`) · **Backlinks**.
 
-Worlds can have custom calendars and a timeline of dated events. `calendar.ts` is **pure date math, no React/Dexie**: it converts between an in-world date and a shared **absolute-day integer** (`dateToAbsolute()` / `absoluteToDate()`), so events from calendars with different month/era layouts can share one axis. There are no leap rules — a year is a constant `yearLength(cal)` (sum of month lengths). It also provides `eraForYear()` and `formatDate()`. Because the absolute-day value depends on calendar layout, `db.ts` **caches `startAbsolute`/`endAbsolute` on each event and recomputes them** whenever the event or its calendar's months/anchor change (`updateCalendar()` rewrites all of that calendar's events in one transaction).
+### Search — `src/search.ts` + `SearchModal.tsx`
 
-`TimelineRoute` reads calendars/events/pages via `useLiveQuery`, offers a "reckoning" (display-calendar) picker, a category filter, and two views: `TimelineVertical` (a chronological list) and `TimelineHorizontal` (a zoom/pan axis — scroll to zoom, drag to pan; era bands and year ticks are drawn from the display calendar). `CalendarEditor` (modal) edits months/weekdays/eras/anchor; `EventEditor` (modal) edits one event with a `LoreEditor` description and an optional linked page. Both use `ConfirmDialog` for deletes.
+FlexSearch `Index` (tokenize `'forward'`, res 5), synced on every `db.pages` change. **Incremental:** `buildIndex()` does the first full build, then `syncIndex(pages)` applies only deltas — unchanged pages (matched by `updatedAt`) skip the costly `stripHtml` parse; new=add, changed=update, gone=remove (~100ms→~0.4ms at 500 pages). `searchPages(query)` → ≤20 results with a snippet; `highlightSnippet()` marks the first query word. `SearchModal` is a full-screen overlay (keyboard nav).
 
-### Relationship graph — `src/components/GraphView.tsx` + `GraphRoute` + `HubsOrphansPanel`
+### Sanitization & resilience
 
-`buildGraphData(pages)` in `db.ts` turns the pages into a `GraphData` (`nodes` + `links`): every page is a node (lone pages show as isolated dots — intentional, to surface them), each resolved wiki link becomes an edge, self-links are dropped, and A↔B collapses to one undirected edge; `degree` (distinct neighbours) drives node size. `GraphRoute` memoises the full graph, then filters by hidden categories / selected tag (cloning nodes+links because the force simulation **mutates** the objects it's given), and derives `hubs` (top by degree) and `orphans` (degree 0) for the `HubsOrphansPanel`. `GraphView` runs the force-directed layout and handles selection/zoom; arrows (link direction) are toggleable.
+- **HTML sanitization (`src/sanitize.ts`):** `sanitizeHtml()` runs DOMPurify with an explicit whitelist of the tags/attrs Tiptap emits (blocks/marks, `data-wikilink` + `ext-link` anchors, `data:` URL images, tables). Applied **on import** (`importAll()` scrubs page `content` + event `description` — the boundary where untrusted backups enter) **and** at the one raw render sink (`TimelineVertical`'s `dangerouslySetInnerHTML`). Page bodies render through Tiptap (rebuilt from schema, inherently safe); plain-text fields are React-escaped.
+- **Crash recovery (`src/components/ErrorBoundary.tsx`):** wraps the tree in `main.tsx` (outside the router). Fallback is a recovery screen whose first action is "Download a backup", plus reload + technical details.
+- **Quota surfacing (`src/storageError.ts`):** React-free bus + `isQuotaError()` (cross-browser); `installStorageErrorListener()` hooks `window` `unhandledrejection` (where fire-and-forget Dexie writes land) and raises a one-time notice via `StorageErrorBanner`.
 
-### Page right sidebar — `src/components/Infobox.tsx`, `TableOfContents.tsx`, `Backlinks.tsx`
+### Backup & data safety — `src/db/backup.ts` + `src/backup.ts`
 
-The `.page-aside` is a sticky scrollable column (`position: sticky; max-height: calc(100vh - 32px); overflow-y: auto`) containing three stacked elements:
+`exportAll()`/`importAll()` serialise the whole DB to/from JSON. **Import replaces all data** (no merge); guarded by `parseBackup()` (validates + returns `counts` *before* any `clear()`); older backups re-seed built-ins after import. Home import shows counts, writes `downloadPreImportBackup()` first, then imports.
 
-1. **TableOfContents** — scans `h2`/`h3` tags in `.page-main` after render (`setTimeout(0)`), injects slugified `id` attributes, and renders a Contents nav. Only shown when there are more than 3 headings. Active section tracked via `IntersectionObserver`; clicking entries smooth-scrolls. Re-scans whenever `pageId` changes.
-2. **Infobox** — wiki-style sidebar card: image (data URL), caption, and label/value fields seeded from a template but fully customisable. `applyTemplate()` in `db.ts` swaps rows while preserving entered values. Separators with no filled field beneath are hidden in view mode (`dropEmptySeparators`). Field values support `[[links]]` via `WikiText.tsx`. Typed fields branch only in edit mode: a `ref` field uses the `RefField.tsx` picker (chips + type-filtered search + inline "create page of this type") and a `number` field uses a numeric input; view mode is unchanged since ref values are `[[Title]]` tokens already rendered by `WikiText`.
-3. **Backlinks** — lists every page that links here, computed by scanning `<a data-wikilink>` anchors and infobox `[[…]]` values.
+**Versioned exports:** payload stamps `schemaVersion` (`CURRENT_SCHEMA_VERSION`, mirrors Dexie store version) + `appVersion`. `parseBackup()` runs `migrateBackup()` (a `MIGRATIONS` ladder) up to current shape; no version ⇒ legacy v1. **When the exported shape changes, bump `CURRENT_SCHEMA_VERSION` and add a `MIGRATIONS` step.** `importAll()` coerces tables to arrays defensively.
 
-### Home overview — `src/routes/HomeRoute.tsx`
+`src/backup.ts` (storage helpers): `downloadBackup`, `downloadPreImportBackup`, `requestPersistentStorage`, and the change-tracking that drives `BackupBanner`/Home overdue state (covers pages, maps, events). **Backups stay download-based** (Firefox lacks the File System Access API).
 
-The landing page is a customisable wiki overview. A `HomeConfig` (title, tagline, about, and per-section visibility toggles) is stored as a single `meta` row (`home-config`); a "Customize" toggle edits it inline. To avoid rapid edits to different fields clobbering each other through the async live query, the config is loaded once into local `draft` state that acts as the source of truth and is persisted on change. The overview computes counts by type (coloured chips) and by status (segmented bar) from all pages, plus a recent-pages grid.
+### Other
 
-An **Auto-snapshots** section (below "Recently edited") lists up to 10 stored snapshots via `getSnapshots()` (`useLiveQuery`). Each row shows timestamp + page count and a Restore button that reuses the existing `pendingImport` / `ConfirmDialog` flow — no separate restore logic needed. An **Export as HTML** button in the Data & Safety section calls `exportAsHtml()` from `src/htmlExport.ts`.
-
-### Full-text search — `src/search.ts` + `src/components/SearchModal.tsx`
-
-`src/search.ts` maintains a FlexSearch `Index` (tokenize `'forward'`, resolution 5) kept in sync on every `db.pages` change via a `liveQuery` subscription in `App.tsx`. Sync is **incremental**: `buildIndex()` does the initial full build, then `syncIndex(pages)` reconciles only the deltas — unchanged pages (matched by `updatedAt`) are skipped before the costly `stripHtml` parse, new pages `add`, changed pages `update`, vanished pages `remove`. (A full rebuild per edit was ~100 ms at 500 pages; incremental is ~0.4 ms — see roadmap #6.) The index stores stripped-HTML body text, title, summary, and tags per page. `searchPages(query)` returns up to 20 `SearchResult` objects with a body snippet centred on the first match. `highlightSnippet()` wraps the first query word in `<mark>` for display.
-
-`SearchModal` is a full-screen overlay (z-index 900) with an auto-focused input, arrow-key + Enter keyboard navigation, and click-to-navigate results. Closing with Escape or clicking the backdrop calls `onClose()`. The sidebar search input is `readOnly` — it opens the modal on focus/click and no longer does its own filtering.
-
-### Wiki link hover previews — `src/wikiLinkHover.ts` + `src/components/WikiLinkPopover.tsx`
-
-`wikiLinkHover.ts` is a module-level event bus (no React dep): `showWikiHover(title, rect)` fires after a 300 ms debounce; `scheduleWikiHoverClose()` fires after 150 ms (cancellable by moving the cursor into the popover via `cancelWikiHoverClose()`). The `useWikiHoverTarget()` hook subscribes React components to the current hover state.
-
-`WikiLinkPopover` is mounted once at the app root. It fetches the hovered page via `findPageIdByTitle()` + `db.pages.get()` and renders a floating card (category chip, title, summary, or "Page not found" for broken links). Position is fixed, clamped to the viewport left edge, and flipped above the link when there's insufficient space below. Hover events are attached in `LoreEditor` (mouse-over/out delegation on `a[data-wikilink]`) and `WikiText` (`onMouseEnter`/`Leave` on each `<a>`); both are suppressed while the editor is in edit mode.
-
-### Shared HTML helpers — `src/html.ts`
-
-Page bodies (and event descriptions) are stored as HTML strings, so several modules need to read text or wiki-link targets back out. `html.ts` centralises that: `parseHtml()` (a detached `DOMParser` document), `stripHtml()` (plain text — used by the search index), and `wikiLinkTitles()` (the `data-title`s of `<a data-wikilink>` anchors — used by `linkedTitles()`/`renamePage()` in `db.ts`). Use these instead of re-deriving DOM parsing per call site.
-
-### Auto-snapshots — `src/snapshots.ts`
-
-`maybeTakeSnapshot()` is cheap to call: it counts **pages + timeline events** changed since `snapshot-last-time` (stored in `meta`; events are filtered in memory since they have no `updatedAt` index). A snapshot is taken when ≥50 records have changed **or** ≥24 hours have passed with at least one change. On snapshot, `exportAll()` is serialised and stored via `saveSnapshot()`, which also prunes to the 10 most recent entries. Called on app start (in `App.tsx`) and after every edit session (in `PageRoute.tsx` when clicking Done).
-
-### HTML export — `src/htmlExport.ts`
-
-`exportAsHtml()` fetches all pages from Dexie, generates `index.html` (pages grouped and sorted by category), one `pages/<id>.html` per page (header + infobox + body), and `style.css`. Wiki links are rewritten to `<id>.html` paths (regex over the `<a data-wikilink>` markup); unresolvable links become `<span class="broken-link">`. The ZIP is assembled with JSZip and downloaded as `lore-export-<date>.zip`.
-
-### Backup & data safety — `src/backup.ts`
-
-`exportAll()` / `importAll()` in `src/db/backup.ts` serialise the whole DB (pages, maps, pins, templates, calendars, and events) to/from JSON. Import **replaces** all data — no merge; older backups without templates/calendars re-seed the built-ins (`seedTemplates()` + `seedDefaultCalendar()` run after import) — but is guarded by `parseBackup()` (validates structure and returns `counts` before any `clear()` so an invalid file never corrupts the DB). The Home import flow shows a `ConfirmDialog` with exact current-vs-incoming counts, calls `downloadPreImportBackup()` to write a timestamped recovery file first, then calls `importAll()`.
-
-**Versioned exports.** `exportAll()` stamps the payload with `schemaVersion` (`CURRENT_SCHEMA_VERSION`, which mirrors the Dexie store version) and `appVersion` (from `package.json`). `parseBackup()` runs `migrateBackup()` — a small migration ladder keyed by version — to bring any backup up to the current shape before returning it (and reports the `schemaVersion`). A backup with no `schemaVersion` is treated as legacy (version 1) and walked through every step; since each schema bump only ever *added* tables, the steps just backfill the missing ones (`templates` at v3, `calendars`/`events` at v5). When the exported shape changes, bump `CURRENT_SCHEMA_VERSION` **and** add a `MIGRATIONS` step. `importAll()` defensively coerces every table to an array, so a malformed or older file never crashes a `bulkAdd`.
-
-`backup.ts` provides: `downloadBackup()` (timestamped export, records time in `meta`), `downloadPreImportBackup()` (recovery snapshot before import), `requestPersistentStorage()` (called on app start to avoid browser eviction), `latestChangeTime()` / `unbackedChangeCount()` / `hasUnbackedUpChanges()` / `isBackupOverdue()` — these drive the edit count display and overdue (red) treatment in `BackupBanner` and Home. Change tracking covers pages, maps, **and timeline events**, so timeline edits also count toward the backup reminder. Backups remain **download-based** (Firefox lacks the File System Access API for auto-folder writes). Data is browser-local, so off-device backups matter.
+- **Auto-snapshots (`src/snapshots.ts`):** `maybeTakeSnapshot()` snapshots when ≥50 records changed or ≥24h passed with ≥1 change; keeps 10 most recent. Called on start + after each edit session.
+- **HTML export (`src/htmlExport.ts`):** `exportAsHtml()` builds a JSZip site (`index.html` + `pages/<id>.html` + `style.css`); wiki links rewritten to file paths.
+- **Shared HTML (`src/html.ts`):** `parseHtml()`, `stripHtml()`, `wikiLinkTitles()` — use these instead of re-parsing per call site.
+- **Wiki hover (`src/wikiLinkHover.ts` + `WikiLinkPopover.tsx`):** debounced module bus; popover fetches the hovered page and renders a floating card.
