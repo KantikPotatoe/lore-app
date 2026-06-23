@@ -165,7 +165,7 @@ change deltas rather than a full rebuild. Defer until it actually bites — meas
 **Done when:** index updates are incremental and a large-world (hundreds of pages) save
 is visibly snappy.
 
-### 7. Top-level `ErrorBoundary` + IndexedDB quota/eviction surfacing ⬜
+### 7. Top-level `ErrorBoundary` + IndexedDB quota/eviction surfacing ✅ *(branch `feat/error-boundary-quota`, PR #__)*
 
 **Why:** Local-first means failures are silent. `requestPersistentStorage()` is already
 called (good) — but a render crash currently blanks the whole app with no recovery path,
@@ -177,6 +177,31 @@ and storage-quota / eviction errors aren't surfaced.
 
 **Done when:** a thrown render error shows a recovery UI instead of a blank page, and a
 simulated quota error is reported to the user.
+
+**Outcome (shipped):** Two independent safety nets.
+
+- **Crash recovery.** `src/components/ErrorBoundary.tsx` — a class boundary wrapping the
+  whole tree in `main.tsx` (outside `HashRouter`, so even a routing/render crash is
+  caught). Its fallback is a full-viewport recovery screen whose **first action is
+  "Download a backup"** (reuses `downloadBackup()` — the escape hatch), plus "Reload the
+  app" and a collapsible technical-details `<pre>`. The download handler swallows its own
+  errors so the last line of defence can't crash again.
+- **Quota/eviction surfacing.** `src/storageError.ts` — a React-free event bus plus
+  `isQuotaError()`, which detects an out-of-space write across browsers (Chrome/Safari
+  `QuotaExceededError` / legacy code 22, Firefox `NS_ERROR_DOM_QUOTA_REACHED`, message
+  match, and Dexie's nested `.inner`, guarded against self-referential cycles).
+  `installStorageErrorListener()` (called on app start) hooks `window`'s
+  `unhandledrejection` — where fire-and-forget Dexie writes land — and raises a one-time
+  app-wide notice. `StorageErrorBanner` (mounted in both App render branches, fixed
+  position) shows it with its own "Download a backup" button. `parseBackup`/`importAll`
+  are untouched.
+
+**Tests (13 new, 103 total):** `src/components/ErrorBoundary.test.tsx` (renders children
+normally; renders the recovery UI with the download/reload buttons when a child throws) —
+added `@testing-library/react` and widened the Vitest `include` to `*.test.{ts,tsx}`.
+`src/storageError.test.ts` (every `isQuotaError` branch incl. the cycle guard, and the bus:
+notify on quota, ignore non-quota, replay to late subscribers, clear). Both run on the
+suite-default happy-dom.
 
 ### 8. Sanitize stored HTML on import ⬜
 
