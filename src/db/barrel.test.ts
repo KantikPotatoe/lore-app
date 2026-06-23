@@ -29,7 +29,7 @@ const EXPECTED_FUNCTIONS = [
   'seedDefaultCalendar', 'createCalendar', 'updateCalendar', 'deleteCalendar',
   'addEvent', 'updateEvent', 'deleteEvent',
   // backup.ts
-  'parseBackup', 'exportAll', 'importAll',
+  'parseBackup', 'exportAll', 'importAll', 'migrateBackup',
   // snapshots.ts
   'saveSnapshot', 'getSnapshots', 'deleteSnapshot',
 ] as const
@@ -58,5 +58,6 @@ describe('db barrel', () => {
     expect(db.DEFAULT_CATEGORY).toBe('Character')
     expect(db.DEFAULT_STATUS).toBe('Draft')
     expect(typeof db.BUILTIN_ICONS).toBe('object')
+    expect(typeof db.CURRENT_SCHEMA_VERSION).toBe('number')
   })
 })
