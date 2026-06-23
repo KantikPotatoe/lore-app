@@ -23,9 +23,11 @@ There are no automated tests in this project.
 
 **Lore Codex** is a local-first worldbuilding wiki that runs entirely in the browser. All data is stored in IndexedDB via Dexie — nothing is sent to a server.
 
-### Data layer — `src/db.ts`
+### Data layer — `src/db/`
 
 The single source of truth: TypeScript interfaces, the Dexie schema, all CRUD helpers, infobox templates, category/status definitions, backlink computation, and export/import. When touching data concerns, start here.
+
+Once a single ~1,100-line `src/db.ts`, it is now split into focused modules under `src/db/` behind a **barrel `index.ts` that re-exports the entire public surface** — so every call site still imports from `'../db'` / `'./db'` unchanged. The modules: `types.ts` (data-model interfaces, no runtime code), `schema.ts` (the `LoreDB` class + version ladder + the `db` singleton, `getMeta`/`setMeta`, category/status definitions, and the shared `uid()`/`now()` helpers), `templates.ts` (page types: built-ins, seeding, infobox/template helpers + CRUD), `pages.ts` (page CRUD, `renamePage` link-rewriting, backlinks), `maps.ts` (maps/pins CRUD + `pinType`), `graph.ts` (`buildGraphData`), `calendar.ts` (timeline calendar/event CRUD — distinct from the pure `src/calendar.ts`), `backup.ts` (`exportAll`/`importAll`/`parseBackup`), and `snapshots.ts`. `src/db/barrel.test.ts` pins the public surface so a dropped re-export fails a test rather than a route. When adding public data API, re-export it from `index.ts`.
 
 Key types:
 - `LorePage` — a wiki article with rich-text `content` (HTML), `summary`, `tags`, a `status`, and an optional `Infobox`
