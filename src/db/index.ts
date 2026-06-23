@@ -11,7 +11,7 @@
 //                   categories/statuses, shared uid()/now() helpers
 //   templates.ts  — page types: built-ins, seeding, infobox/template helpers, CRUD
 //   pages.ts      — page CRUD, rename + link-rewrite, backlinks
-//   maps.ts       — maps & pins CRUD, pin-type resolution
+//   maps.ts       — maps, pins & regions CRUD, pin/region type resolution
 //   graph.ts      — relationship-graph builder
 //   calendar.ts   — timeline calendar/event CRUD (cached absolute-day upkeep)
 //   backup.ts     — exportAll / importAll / parseBackup

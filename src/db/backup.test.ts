@@ -81,6 +81,7 @@ describe('migrateBackup — version ladder', () => {
     expect(out.templates).toEqual([])
     expect(out.calendars).toEqual([])
     expect(out.events).toEqual([])
+    expect(out.regions).toEqual([]) // backfilled at v6
   })
 
   it('upgrades a v4 backup (pre-timeline) and preserves its existing tables', () => {
@@ -92,7 +93,7 @@ describe('migrateBackup — version ladder', () => {
     expect(out.events).toEqual([])
   })
 
-  it('leaves a current (v5) backup’s data intact and re-stamps the version', () => {
+  it("leaves a current (v6) backup’s data intact and re-stamps the version", () => {
     const cal = sampleCalendar('c1')
     const out = migrateBackup({
       schemaVersion: CURRENT_SCHEMA_VERSION,

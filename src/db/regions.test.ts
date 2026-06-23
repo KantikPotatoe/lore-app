@@ -39,6 +39,14 @@ describe('addRegion', () => {
     expect(r!.points).toEqual(tri)
     expect(r!.color).toBeUndefined()
   })
+
+  it('clearing the colour override via modify removes the property (Auto)', async () => {
+    const id = await addRegion('m1', tri)
+    await db.regions.update(id, { color: '#ff0000' })
+    expect((await db.regions.get(id))!.color).toBe('#ff0000')
+    await db.regions.update(id, (r) => { delete r.color })
+    expect((await db.regions.get(id))!.color).toBeUndefined()
+  })
 })
 
 describe('deleteMap cascade', () => {

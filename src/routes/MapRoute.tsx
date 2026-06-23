@@ -312,7 +312,7 @@ export default function MapRoute() {
               <button
                 className={selectedRegion.color ? 'region-swatch derive' : 'region-swatch derive active'}
                 title="Derive from linked page type"
-                onClick={() => db.regions.update(selectedRegion.id, { color: undefined })}
+                onClick={() => db.regions.update(selectedRegion.id, (r) => { delete r.color })}
               >
                 Auto
               </button>
