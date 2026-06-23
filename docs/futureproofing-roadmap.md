@@ -178,7 +178,7 @@ and storage-quota / eviction errors aren't surfaced.
 **Done when:** a thrown render error shows a recovery UI instead of a blank page, and a
 simulated quota error is reported to the user.
 
-### 8. Sanitize stored HTML on import ✅ *(branch `feat/sanitize-import-html`, PR #__)*
+### 8. Sanitize stored HTML on import ✅ *(branch `feat/sanitize-import-html`, PR #59)*
 
 **Why:** Tiptap HTML is stored as strings and re-rendered via `dangerouslySetInnerHTML`.
 Single-user local use is low-risk, but the moment a user imports a **shared** backup,
