@@ -165,39 +165,7 @@ change deltas rather than a full rebuild. Defer until it actually bites — meas
 **Done when:** index updates are incremental and a large-world (hundreds of pages) save
 is visibly snappy.
 
-**Measured first (per the plan).** A throwaway bench timed the current full
-`buildIndex()` — the work done on *every* save — against world size (happy-dom/Node, a
-rough proxy; a real browser's native DOMParser is faster, but the shape holds):
-
-| World | Full rebuild (today) | Incremental `syncIndex` (1 edit) |
-|---|---|---|
-| 100 pages × ~2 KB | ~20 ms | — |
-| **500 pages × ~2 KB** | **~92 ms** | **0.4 ms** |
-| 500 pages × ~5 KB | ~205 ms | 0.3 ms |
-| 1000 pages × ~2 KB | ~200 ms | 1.0 ms |
-
-So it **does** bite: by 500 pages every keystroke-save blocks ~100 ms (well past one
-16 ms frame), and ~200 ms with longer articles. Proceeding was justified.
-
-**Outcome (shipped):** `search.ts` gains `syncIndex(pages)`, which reconciles the index
-against the current page set touching only deltas — unchanged pages (matched by
-`updatedAt`) are skipped *before* the costly `stripHtml`/DOMParser pass; new pages
-`add`, changed pages `update`, vanished pages `remove`. The store now carries `updatedAt`
-as the change signal. `App.tsx`'s liveQuery calls `syncIndex` instead of `buildIndex`
-(first emission still does a full build via the null-index fallback). Result: a single
-edit in a 500-page world drops from **~92 ms → 0.4 ms** (~230×).
-
-**Scope note — graph not changed:** `buildGraphData()` runs only inside `GraphRoute`'s
-`useMemo`, i.e. on demand when the graph is open, *not* globally on every save like the
-search index. It doesn't carry the same always-on per-edit cost, so it was left as-is;
-the always-on hot path was search, which is what the measurement targeted and this fixes.
-
-**Tests (6 new, 96 total):** `src/search.test.ts` — `buildIndex`/`searchPages` by
-title/stripped-body/tags, and `syncIndex` add / update (old term gone) / remove /
-skip-unchanged (proves the `updatedAt` short-circuit) / a combined add+update+remove+skip
-pass.
-
-### 7. Top-level `ErrorBoundary` + IndexedDB quota/eviction surfacing ⬜
+### 7. Top-level `ErrorBoundary` + IndexedDB quota/eviction surfacing ✅ *(branch `feat/error-boundary-quota`, PR #60)*
 
 **Why:** Local-first means failures are silent. `requestPersistentStorage()` is already
 called (good) — but a render crash currently blanks the whole app with no recovery path,
@@ -209,6 +177,31 @@ and storage-quota / eviction errors aren't surfaced.
 
 **Done when:** a thrown render error shows a recovery UI instead of a blank page, and a
 simulated quota error is reported to the user.
+
+**Outcome (shipped):** Two independent safety nets.
+
+- **Crash recovery.** `src/components/ErrorBoundary.tsx` — a class boundary wrapping the
+  whole tree in `main.tsx` (outside `HashRouter`, so even a routing/render crash is
+  caught). Its fallback is a full-viewport recovery screen whose **first action is
+  "Download a backup"** (reuses `downloadBackup()` — the escape hatch), plus "Reload the
+  app" and a collapsible technical-details `<pre>`. The download handler swallows its own
+  errors so the last line of defence can't crash again.
+- **Quota/eviction surfacing.** `src/storageError.ts` — a React-free event bus plus
+  `isQuotaError()`, which detects an out-of-space write across browsers (Chrome/Safari
+  `QuotaExceededError` / legacy code 22, Firefox `NS_ERROR_DOM_QUOTA_REACHED`, message
+  match, and Dexie's nested `.inner`, guarded against self-referential cycles).
+  `installStorageErrorListener()` (called on app start) hooks `window`'s
+  `unhandledrejection` — where fire-and-forget Dexie writes land — and raises a one-time
+  app-wide notice. `StorageErrorBanner` (mounted in both App render branches, fixed
+  position) shows it with its own "Download a backup" button. `parseBackup`/`importAll`
+  are untouched.
+
+**Tests (13 new, 103 total):** `src/components/ErrorBoundary.test.tsx` (renders children
+normally; renders the recovery UI with the download/reload buttons when a child throws) —
+added `@testing-library/react` and widened the Vitest `include` to `*.test.{ts,tsx}`.
+`src/storageError.test.ts` (every `isQuotaError` branch incl. the cycle guard, and the bus:
+notify on quota, ignore non-quota, replay to late subscribers, clear). Both run on the
+suite-default happy-dom.
 
 ### 8. Sanitize stored HTML on import ⬜
 
