@@ -154,6 +154,19 @@ export class LoreDB extends Dexie {
       calendars: 'id, name, createdAt',
       events: 'id, calendarId, startAbsolute, pageId',
     })
+    // v7 indexes childMapId on pins & regions for map nesting (portals);
+    // existing data is preserved (an added index needs no data migration).
+    this.version(7).stores({
+      pages: 'id, title, category, updatedAt',
+      maps: 'id, name, createdAt',
+      pins: 'id, mapId, pageId, childMapId',
+      regions: 'id, mapId, pageId, childMapId',
+      meta: '&key',
+      templates: 'id, name',
+      snapshots: '++id, timestamp',
+      calendars: 'id, name, createdAt',
+      events: 'id, calendarId, startAbsolute, pageId',
+    })
   }
 }
 

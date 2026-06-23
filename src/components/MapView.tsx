@@ -16,6 +16,15 @@ type EditablePolygon = L.Polygon & {
 export interface PinMarkerStyle {
   color: string
   icon: string | null
+  portal?: boolean // pin opens a child map — show a drill-down badge
+}
+
+/** A request to centre the map on a pin or region. `nonce` changes on every
+ *  request so re-selecting the same target re-pans. */
+export interface FocusTarget {
+  kind: 'pin' | 'region'
+  id: string
+  nonce: number
 }
 
 interface Props {
@@ -29,12 +38,13 @@ interface Props {
   onPinMove: (pinId: string, lat: number, lng: number) => void
   focusPinId?: string | null
   regions: MapRegion[]
-  regionStyles: Map<string, { color: string }>
+  regionStyles: Map<string, { color: string; portal?: boolean }>
   selectedRegionId: string | null
   drawMode: boolean
   onRegionClick: (id: string) => void
   onRegionCreate: (points: [number, number][]) => void
   onRegionEdit: (id: string, points: [number, number][]) => void
+  focusTarget?: FocusTarget | null
 }
 
 // We use a "Simple" coordinate system so the map is just the flat image, with
@@ -42,6 +52,7 @@ interface Props {
 export default function MapView({
   map, pins, styles, addMode, selectedPinId, onMapClick, onPinClick, onPinMove, focusPinId,
   regions, regionStyles, selectedRegionId, drawMode, onRegionClick, onRegionCreate, onRegionEdit,
+  focusTarget,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -205,7 +216,9 @@ export default function MapView({
       if (region.points.length < 3) continue
       seen.add(region.id)
       const selected = region.id === selectedRegionId
-      const fill = regionStyles.get(region.id)?.color ?? '#a0a0a0'
+      const entry = regionStyles.get(region.id)
+      const fill = entry?.color ?? '#a0a0a0'
+      const labelText = entry?.portal ? `${region.label} ⤵` : region.label
       const style: L.PathOptions = {
         color: fill,
         fillColor: fill,
@@ -217,10 +230,10 @@ export default function MapView({
         // Don't fight the user's in-progress vertex edits on this layer.
         if (editingRef.current !== region.id) poly.setLatLngs(region.points)
         poly.setStyle(style)
-        poly.setTooltipContent(region.label)
+        poly.setTooltipContent(labelText)
       } else {
         const p = L.polygon(region.points, style).addTo(lmap)
-        p.bindTooltip(region.label, { permanent: true, direction: 'center', className: 'region-label' })
+        p.bindTooltip(labelText, { permanent: true, direction: 'center', className: 'region-label' })
         p.on('click', (e) => {
           L.DomEvent.stopPropagation(e) // don't also fire a map click
           cbRef.current.onRegionClick(region.id)
@@ -304,6 +317,20 @@ export default function MapView({
     lmap.setView([pin.lat, pin.lng], Math.max(lmap.getZoom(), 1))
   }, [focusPinId, pins])
 
+  // Centre the map on a pin or region requested by the route (find panel / drill).
+  // `focusTarget.nonce` changes per request so re-selecting the same target re-pans.
+  useEffect(() => {
+    const lmap = mapRef.current
+    if (!lmap || !focusTarget) return
+    if (focusTarget.kind === 'pin') {
+      const pin = pinsRef.current.find((p) => p.id === focusTarget.id)
+      if (pin) lmap.setView([pin.lat, pin.lng], Math.max(lmap.getZoom(), 1))
+    } else {
+      const poly = polygonsRef.current.get(focusTarget.id)
+      if (poly) lmap.fitBounds(poly.getBounds())
+    }
+  }, [focusTarget])
+
   return <div ref={containerRef} className="map-canvas" />
 }
 
@@ -313,12 +340,13 @@ export default function MapView({
 function makeIcon(pin: MapPin, style: PinMarkerStyle, selected: boolean): L.DivIcon {
   const safe = pin.label.replace(/</g, '&lt;')
   const emoji = style.icon ? `<span class="pin-emoji">${style.icon}</span>` : ''
+  const portal = style.portal ? '<span class="pin-portal" title="Opens another map">⤵</span>' : ''
   const idAttr = pin.pageId ? ` data-pin-id="${pin.id}"` : ''
   return L.divIcon({
     className: 'pin-icon-wrap',
     html:
       `<div class="pin-icon${selected ? ' selected' : ''}"${idAttr}>${emoji}` +
-      `<span class="pin-dot" style="background:${style.color}"></span>` +
+      `<span class="pin-dot" style="background:${style.color}"></span>${portal}` +
       `<span class="pin-label">${safe}</span></div>`,
     iconSize: [0, 0],
     iconAnchor: [0, 0],

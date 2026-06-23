@@ -3,9 +3,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   db, addMap, addPin, addRegion, deleteMap, pinType, regionStyle,
+  mapBreadcrumb, ancestorMapIds,
   TYPE_COLORS, type MapPin, type MapRegion, type InfoboxTemplate,
 } from '../db'
-import MapView, { type PinMarkerStyle } from '../components/MapView'
+import MapView, { type PinMarkerStyle, type FocusTarget } from '../components/MapView'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { compressImage } from '../imageUtils'
 
@@ -13,13 +14,17 @@ export default function MapRoute() {
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const maps = useLiveQuery(() => db.maps.orderBy('createdAt').toArray(), []) ?? []
+  const mapsData = useLiveQuery(() => db.maps.orderBy('createdAt').toArray(), [])
+  const maps = useMemo(() => mapsData ?? [], [mapsData])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [addMode, setAddMode] = useState(false)
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null)
   const [confirmDeleteMap, setConfirmDeleteMap] = useState(false)
   const [drawMode, setDrawMode] = useState(false)
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null)
+  const [focusTarget, setFocusTarget] = useState<FocusTarget | null>(null)
+  const [showFind, setShowFind] = useState(false)
+  const [findQuery, setFindQuery] = useState('')
 
   const [searchParams] = useSearchParams()
   const focusPinId = searchParams.get('pin')
@@ -52,10 +57,16 @@ export default function MapRoute() {
     () => (mapId ? db.regions.where('mapId').equals(mapId).toArray() : Promise.resolve([] as MapRegion[])),
     [mapId],
   )
+  // All pins/regions across every map — needed to derive the breadcrumb (which
+  // portal opens this map) and the cycle-exclusion set for the portal picker.
+  const allPinsData = useLiveQuery(() => db.pins.toArray(), [])
+  const allRegionsData = useLiveQuery(() => db.regions.toArray(), [])
   const regions = useMemo(() => regionsData ?? [], [regionsData])
   const pins = useMemo(() => pinsData ?? [], [pinsData])
   const allPages = useMemo(() => allPagesData ?? [], [allPagesData])
   const templates = useMemo(() => templatesData ?? [], [templatesData])
+  const allPins = useMemo(() => allPinsData ?? [], [allPinsData])
+  const allRegions = useMemo(() => allRegionsData ?? [], [allRegionsData])
   // Legend filter: set of type-keys hidden on this map. "" = the Untyped group.
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set())
 
@@ -98,6 +109,21 @@ export default function MapRoute() {
     return [...rows.values()].sort((a, b) => a.name.localeCompare(b.name))
   }, [pins, pinTypes, regions, regionStyles])
 
+  const mapsById = useMemo(() => new Map(maps.map((m) => [m.id, m])), [maps])
+  const breadcrumb = useMemo(
+    () => mapBreadcrumb(mapId, maps, allPins, allRegions),
+    [mapId, maps, allPins, allRegions],
+  )
+  // Maps a portal on the current map may NOT target (itself + its ancestors).
+  const portalExcluded = useMemo(
+    () => ancestorMapIds(mapId, allPins, allRegions),
+    [mapId, allPins, allRegions],
+  )
+  const portalTargets = useMemo(
+    () => maps.filter((m) => !portalExcluded.has(m.id)),
+    [maps, portalExcluded],
+  )
+
   // Pins passed to the map, minus any whose type is hidden.
   const visiblePins = useMemo(
     () => pins.filter((p) => !hiddenTypes.has(pinTypes.get(p.id)?.name ?? '')),
@@ -111,17 +137,22 @@ export default function MapRoute() {
 
   // Fill colour per region id (only what MapView needs).
   const regionFills = useMemo(() => {
-    const m = new Map<string, { color: string }>()
-    for (const [id, s] of regionStyles) m.set(id, { color: s.fill })
+    const m = new Map<string, { color: string; portal?: boolean }>()
+    for (const r of regions) {
+      m.set(r.id, { color: regionStyles.get(r.id)?.fill ?? '#a0a0a0', portal: !!r.childMapId })
+    }
     return m
-  }, [regionStyles])
+  }, [regions, regionStyles])
 
   // Marker styles keyed by pin id (only what MapView needs).
   const pinStyles = useMemo(() => {
     const m = new Map<string, PinMarkerStyle>()
-    for (const [id, t] of pinTypes) m.set(id, { color: t.color, icon: t.icon })
+    for (const p of pins) {
+      const t = pinTypes.get(p.id)!
+      m.set(p.id, { color: t.color, icon: t.icon, portal: !!p.childMapId })
+    }
     return m
-  }, [pinTypes])
+  }, [pins, pinTypes])
 
   function toggleType(key: string) {
     setHiddenTypes((prev) => {
@@ -135,9 +166,49 @@ export default function MapRoute() {
     })
   }
 
+  // Switch the active map, resetting all transient UI (used by the dropdown,
+  // breadcrumb, and the "Enter map →" drill-down).
+  function switchToMap(id: string) {
+    setActiveId(id)
+    setSelectedPinId(null)
+    setSelectedRegionId(null)
+    setAddMode(false)
+    setDrawMode(false)
+    setHiddenTypes(new Set())
+    setFindQuery('')
+    setShowFind(false)
+    setFocusTarget(null)
+  }
+
+  // Select + centre on a pin/region. Bumping nonce re-pans even if it was already
+  // selected (incremented in a handler, never during render — purity rule).
+  function focusPin(id: string) {
+    setSelectedPinId(id)
+    setSelectedRegionId(null)
+    setFocusTarget((t) => ({ kind: 'pin', id, nonce: (t?.nonce ?? 0) + 1 }))
+  }
+  function focusRegion(id: string) {
+    setSelectedRegionId(id)
+    setSelectedPinId(null)
+    setFocusTarget((t) => ({ kind: 'region', id, nonce: (t?.nonce ?? 0) + 1 }))
+  }
+
   // Read from visiblePins so the pin panel closes when its type is filtered out.
   const selectedPin = visiblePins.find((p) => p.id === selectedPinId) ?? null
   const selectedRegion = visibleRegions.find((r) => r.id === selectedRegionId) ?? null
+
+  // Find panel: current-map pins + regions matching the query, respecting the
+  // legend filter (so the list matches what's visible on the map).
+  const findResults = useMemo(() => {
+    const q = findQuery.trim().toLowerCase()
+    const pinRows = visiblePins
+      .filter((p) => p.label.toLowerCase().includes(q))
+      .map((p) => ({ kind: 'pin' as const, id: p.id, label: p.label }))
+    const regionRows = visibleRegions
+      .filter((r) => r.label.toLowerCase().includes(q))
+      .map((r) => ({ kind: 'region' as const, id: r.id, label: r.label }))
+    return [...pinRows, ...regionRows].sort((a, b) => a.label.localeCompare(b.label))
+  }, [visiblePins, visibleRegions, findQuery])
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -180,13 +251,22 @@ export default function MapRoute() {
   return (
     <div className="map-page">
       <div className="map-toolbar">
-        <select value={currentMap?.id} onChange={(e) => {
-          setActiveId(e.target.value)
-          setSelectedPinId(null)
-          setSelectedRegionId(null)
-          setDrawMode(false)
-          setHiddenTypes(new Set())
-        }}>
+        {breadcrumb.length > 1 && (
+          <nav className="map-breadcrumb" aria-label="Map hierarchy">
+            {breadcrumb.map((m, i) => {
+              const last = i === breadcrumb.length - 1
+              return (
+                <span key={m.id} className="map-crumb">
+                  {last
+                    ? <span className="map-crumb-current">{m.name}</span>
+                    : <button className="map-crumb-link" onClick={() => switchToMap(m.id)}>{m.name}</button>}
+                  {!last && <span className="map-crumb-sep">›</span>}
+                </span>
+              )
+            })}
+          </nav>
+        )}
+        <select value={currentMap?.id} onChange={(e) => switchToMap(e.target.value)}>
           {maps.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
         <button
@@ -208,6 +288,12 @@ export default function MapRoute() {
           onClick={() => currentMap && setConfirmDeleteMap(true)}
         >
           Delete map
+        </button>
+        <button
+          className={showFind ? 'primary-btn' : 'ghost-btn'}
+          onClick={() => setShowFind((v) => !v)}
+        >
+          🔍 Find
         </button>
         <span className="map-hint">{pins.length} pins · {regions.length} regions</span>
       </div>
@@ -232,7 +318,35 @@ export default function MapRoute() {
             onRegionClick={(id) => { setSelectedRegionId(id); setSelectedPinId(null) }}
             onRegionCreate={handleRegionCreate}
             onRegionEdit={(id, points) => db.regions.update(id, { points })}
+            focusTarget={focusTarget}
           />
+        )}
+
+        {showFind && (
+          <div className="map-find">
+            <div className="map-find-head">
+              <input
+                autoFocus
+                placeholder="Find a pin or region…"
+                value={findQuery}
+                onChange={(e) => setFindQuery(e.target.value)}
+              />
+              <button className="tag-x" onClick={() => { setShowFind(false); setFindQuery('') }}>×</button>
+            </div>
+            <div className="map-find-list">
+              {findResults.length === 0 && <p className="muted map-find-empty">No matches</p>}
+              {findResults.map((row) => (
+                <button
+                  key={`${row.kind}-${row.id}`}
+                  className="map-find-row"
+                  onClick={() => (row.kind === 'pin' ? focusPin(row.id) : focusRegion(row.id))}
+                >
+                  <span className="map-find-mark">{row.kind === 'pin' ? '📍' : '▱'}</span>
+                  <span className="map-find-label">{row.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
         {legend.length > 0 && (
@@ -274,7 +388,22 @@ export default function MapRoute() {
               <option value="">— none —</option>
               {allPages.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
             </select>
+            <label>Opens map</label>
+            <select
+              value={selectedPin.childMapId ?? ''}
+              onChange={(e) => {
+                const v = e.target.value
+                if (v) db.pins.update(selectedPin.id, { childMapId: v })
+                else db.pins.update(selectedPin.id, (p) => { delete p.childMapId })
+              }}
+            >
+              <option value="">— none —</option>
+              {portalTargets.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
             <div className="pin-panel-actions">
+              {selectedPin.childMapId && mapsById.has(selectedPin.childMapId) && (
+                <button className="ghost-btn" onClick={() => switchToMap(selectedPin.childMapId!)}>Enter map →</button>
+              )}
               {selectedPin.pageId && (
                 <button className="ghost-btn" onClick={() => navigate(`/page/${selectedPin.pageId}`)}>Open page →</button>
               )}
@@ -326,7 +455,22 @@ export default function MapRoute() {
                 />
               ))}
             </div>
+            <label>Opens map</label>
+            <select
+              value={selectedRegion.childMapId ?? ''}
+              onChange={(e) => {
+                const v = e.target.value
+                if (v) db.regions.update(selectedRegion.id, { childMapId: v })
+                else db.regions.update(selectedRegion.id, (r) => { delete r.childMapId })
+              }}
+            >
+              <option value="">— none —</option>
+              {portalTargets.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
             <div className="pin-panel-actions">
+              {selectedRegion.childMapId && mapsById.has(selectedRegion.childMapId) && (
+                <button className="ghost-btn" onClick={() => switchToMap(selectedRegion.childMapId!)}>Enter map →</button>
+              )}
               {selectedRegion.pageId && (
                 <button className="ghost-btn" onClick={() => navigate(`/page/${selectedRegion.pageId}`)}>Open page →</button>
               )}

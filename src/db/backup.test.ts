@@ -166,6 +166,23 @@ describe('importAll — round-trips', () => {
     expect(await db.regions.get('r1')).toMatchObject({ id: 'r1', label: 'Forest', color: '#8fae6f' })
   })
 
+  it('round-trips pin and region portals (childMapId)', async () => {
+    await db.maps.add({ id: 'm1', name: 'Continent', image: '', width: 1, height: 1, createdAt: 1 })
+    await db.maps.add({ id: 'm2', name: 'City', image: '', width: 1, height: 1, createdAt: 2 })
+    await db.pins.add({ id: 'pin1', mapId: 'm1', lat: 1, lng: 1, label: 'Capital', pageId: null, childMapId: 'm2' })
+    await db.regions.add({
+      id: 'r1', mapId: 'm1', points: [[0, 0], [0, 5], [5, 0]], label: 'Reach',
+      pageId: null, childMapId: 'm2',
+    })
+
+    const json = await exportAll()
+    await clearAll()
+    await importAll(json)
+
+    expect(await db.pins.get('pin1')).toMatchObject({ id: 'pin1', childMapId: 'm2' })
+    expect(await db.regions.get('r1')).toMatchObject({ id: 'r1', childMapId: 'm2' })
+  })
+
   it('imports a legacy (unversioned) backup and re-seeds the built-ins it lacks', async () => {
     // A pre-versioning backup: just a pages array, no schemaVersion / templates / calendars.
     await importAll(JSON.stringify({ pages: [samplePage('legacy')] }))
@@ -174,5 +191,17 @@ describe('importAll — round-trips', () => {
     // Missing templates + calendar are re-seeded by importAll's seed* calls.
     expect(await db.templates.count()).toBeGreaterThan(0)
     expect(await db.calendars.count()).toBeGreaterThan(0)
+  })
+})
+
+describe('schema version', () => {
+  it('is at 7 for Phase 4 (childMapId portals)', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(7)
+  })
+
+  it('stamps a v6 backup up to 7 with no data loss', () => {
+    const out = migrateBackup({ schemaVersion: 6, pages: [], regions: [] })
+    expect(out.schemaVersion).toBe(7)
+    expect(out.regions).toEqual([])
   })
 })

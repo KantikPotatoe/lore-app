@@ -1,5 +1,5 @@
 import { db, uid, now, categoryColor } from './schema'
-import type { InfoboxTemplate, LorePage, MapPin, MapRegion } from './types'
+import type { InfoboxTemplate, LorePage, MapPin, MapRegion, WorldMap } from './types'
 
 // ---------------------------------------------------------------------------
 // Maps & pins
@@ -74,4 +74,56 @@ export function regionStyle(
 ): { fill: string; type: PinType } {
   const type = linkedPageType(region.pageId, pagesById, templatesByName)
   return { fill: region.color ?? type.color, type }
+}
+
+// ---------------------------------------------------------------------------
+// Map nesting — derived parent / breadcrumb (Phase 4)
+// ---------------------------------------------------------------------------
+// A pin or region carries an optional `childMapId` — the map it opens (a
+// "portal"). A map's parent is *derived* by finding the portal that opens it
+// (pins before regions); there is no stored parentMapId. All three helpers are
+// pure so callers pass the arrays once per render and they stay test-friendly.
+
+/** The mapId of the first portal (pins before regions) whose childMapId === mapId,
+ *  or null when no portal opens this map (a top-level map). */
+export function findParentMapId(mapId: string, pins: MapPin[], regions: MapRegion[]): string | null {
+  const pin = pins.find((p) => p.childMapId === mapId)
+  if (pin) return pin.mapId
+  const region = regions.find((r) => r.childMapId === mapId)
+  return region ? region.mapId : null
+}
+
+/** The ancestor chain root→current as WorldMaps, derived by walking incoming
+ *  portals upward. A `visited` set guards against cycles; an unknown map (or one
+ *  whose ancestor is unknown) yields an empty/short chain. */
+export function mapBreadcrumb(
+  mapId: string,
+  maps: WorldMap[],
+  pins: MapPin[],
+  regions: MapRegion[],
+): WorldMap[] {
+  const byId = new Map(maps.map((m) => [m.id, m]))
+  const chain: WorldMap[] = []
+  const visited = new Set<string>()
+  let cur: string | null = mapId
+  while (cur && !visited.has(cur)) {
+    visited.add(cur)
+    const m = byId.get(cur)
+    if (!m) break
+    chain.unshift(m)
+    cur = findParentMapId(cur, pins, regions)
+  }
+  return chain
+}
+
+/** The set of maps a portal on `mapId` must not target (the map itself and its
+ *  ancestors) — choosing one would create a cycle. */
+export function ancestorMapIds(mapId: string, pins: MapPin[], regions: MapRegion[]): Set<string> {
+  const set = new Set<string>()
+  let cur: string | null = mapId
+  while (cur && !set.has(cur)) {
+    set.add(cur)
+    cur = findParentMapId(cur, pins, regions)
+  }
+  return set
 }
