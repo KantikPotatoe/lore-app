@@ -14,7 +14,8 @@ export default function MapRoute() {
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const maps = useLiveQuery(() => db.maps.orderBy('createdAt').toArray(), []) ?? []
+  const mapsData = useLiveQuery(() => db.maps.orderBy('createdAt').toArray(), [])
+  const maps = useMemo(() => mapsData ?? [], [mapsData])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [addMode, setAddMode] = useState(false)
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null)
@@ -175,6 +176,8 @@ export default function MapRoute() {
     setDrawMode(false)
     setHiddenTypes(new Set())
     setFindQuery('')
+    setShowFind(false)
+    setFocusTarget(null)
   }
 
   // Select + centre on a pin/region. Bumping nonce re-pans even if it was already
