@@ -102,7 +102,7 @@ status check in the GitHub branch-protection settings for `main` (repo admin act
 
 ## Tier 2 — Structural (medium effort)
 
-### 4. Split `db.ts` (currently 1,103 lines) ⬜
+### 4. Split `db.ts` (currently 1,103 lines) ✅ *(branch `refactor/split-db-barrel`)*
 
 **Why:** It's a true god-module — types + Dexie schema + CRUD for
 pages/maps/pins/templates/calendars/events + backlinks + graph + export/import. It
@@ -119,6 +119,8 @@ conflicts as features land.
 
 **Done when:** `db.ts` is decomposed, `npm run build` passes, and no module imports
 anything but the barrel.
+
+**Outcome (shipped):** `src/db.ts` decomposed into `src/db/{types,schema,templates,pages,maps,graph,calendar,backup,snapshots}.ts` with a barrel `index.ts` that `export *`s the lot — **zero call-site changes** (every import still resolves `'../db'`/`'./db'` to the folder). Cross-module helpers (`uid`/`now`, `categoryColor`, `defaultInfobox`, `linkedTitles`, `seedTemplates`/`seedDefaultCalendar`) live in their owning module and are shared via import; no import cycles. `src/db/barrel.test.ts` (47 cases) pins the re-exported surface so a dropped `export *` fails a test rather than a route. `npm run build` + `npm run lint` + `npm run test:run` all green.
 
 ### 5. Version-stamp exports for forward-compatible import ⬜
 
