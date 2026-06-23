@@ -23,6 +23,7 @@ const EXPECTED_FUNCTIONS = [
   'linkedTitles', 'getBacklinks',
   // maps.ts
   'addMap', 'deleteMap', 'addPin', 'pinType', 'addRegion', 'regionStyle',
+  'findParentMapId', 'mapBreadcrumb', 'ancestorMapIds',
   // graph.ts
   'buildGraphData',
   // calendar.ts
