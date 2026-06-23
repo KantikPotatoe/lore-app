@@ -17,7 +17,7 @@ import LoreSelectorRoute from './routes/LoreSelectorRoute'
 import { requestPersistentStorage } from './backup'
 import { seedTemplates, seedDefaultCalendar, db } from './db'
 import { maybeTakeSnapshot } from './snapshots'
-import { buildIndex } from './search'
+import { syncIndex } from './search'
 import { bootstrapDefaultLore } from './lores'
 import { installStorageErrorListener } from './storageError'
 
@@ -34,10 +34,12 @@ export default function App() {
     maybeTakeSnapshot()
   }, [])
 
-  // Rebuild the FlexSearch index whenever pages change.
+  // Keep the FlexSearch index in sync as pages change. The liveQuery emits the whole
+  // table on every edit, but syncIndex only re-indexes the deltas (see search.ts) —
+  // the first emission builds, later ones apply just the changed/added/removed pages.
   useEffect(() => {
     const sub = liveQuery(() => db.pages.toArray()).subscribe((pages) => {
-      buildIndex(pages)
+      syncIndex(pages)
     })
     return () => sub.unsubscribe()
   }, [])
