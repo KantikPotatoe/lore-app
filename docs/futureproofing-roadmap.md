@@ -165,7 +165,7 @@ change deltas rather than a full rebuild. Defer until it actually bites — meas
 **Done when:** index updates are incremental and a large-world (hundreds of pages) save
 is visibly snappy.
 
-### 7. Top-level `ErrorBoundary` + IndexedDB quota/eviction surfacing ✅ *(branch `feat/error-boundary-quota`, PR #__)*
+### 7. Top-level `ErrorBoundary` + IndexedDB quota/eviction surfacing ✅ *(branch `feat/error-boundary-quota`, PR #60)*
 
 **Why:** Local-first means failures are silent. `requestPersistentStorage()` is already
 called (good) — but a render crash currently blanks the whole app with no recovery path,
