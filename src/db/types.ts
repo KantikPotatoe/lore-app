@@ -69,6 +69,17 @@ export interface MapPin {
   pageId: string | null // linked lore page, or null
 }
 
+/** A drawable area on a map (territory, biome…), optionally linked to a page.
+ *  Colour derives from the linked page's type unless `color` overrides it. */
+export interface MapRegion {
+  id: string
+  mapId: string
+  points: [number, number][] // [lat, lng] vertices in Leaflet CRS.Simple coords
+  label: string
+  pageId: string | null // linked lore page, or null
+  color?: string // per-region colour override; absent ⇒ derive from page type
+}
+
 /** One month in a custom calendar. */
 export interface CalendarMonth {
   name: string

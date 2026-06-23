@@ -4,6 +4,7 @@ import type {
   LorePage,
   WorldMap,
   MapPin,
+  MapRegion,
   MetaEntry,
   InfoboxTemplate,
   Snapshot,
@@ -91,6 +92,7 @@ export class LoreDB extends Dexie {
   pages!: Table<LorePage, string>
   maps!: Table<WorldMap, string>
   pins!: Table<MapPin, string>
+  regions!: Table<MapRegion, string>
   meta!: Table<MetaEntry, string>
   templates!: Table<InfoboxTemplate, string>
   snapshots!: Table<Snapshot, number>
@@ -134,6 +136,18 @@ export class LoreDB extends Dexie {
       pages: 'id, title, category, updatedAt',
       maps: 'id, name, createdAt',
       pins: 'id, mapId, pageId',
+      meta: '&key',
+      templates: 'id, name',
+      snapshots: '++id, timestamp',
+      calendars: 'id, name, createdAt',
+      events: 'id, calendarId, startAbsolute, pageId',
+    })
+    // v6 adds drawable map regions (polygons); existing data is preserved.
+    this.version(6).stores({
+      pages: 'id, title, category, updatedAt',
+      maps: 'id, name, createdAt',
+      pins: 'id, mapId, pageId',
+      regions: 'id, mapId, pageId',
       meta: '&key',
       templates: 'id, name',
       snapshots: '++id, timestamp',
