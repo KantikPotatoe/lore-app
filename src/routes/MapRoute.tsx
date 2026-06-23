@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, addMap, addPin, deleteMap, pinType, type MapPin, type InfoboxTemplate } from '../db'
+import {
+  db, addMap, addPin, addRegion, deleteMap, pinType, regionStyle,
+  TYPE_COLORS, type MapPin, type MapRegion, type InfoboxTemplate,
+} from '../db'
 import MapView, { type PinMarkerStyle } from '../components/MapView'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { compressImage } from '../imageUtils'
@@ -15,6 +18,8 @@ export default function MapRoute() {
   const [addMode, setAddMode] = useState(false)
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null)
   const [confirmDeleteMap, setConfirmDeleteMap] = useState(false)
+  const [drawMode, setDrawMode] = useState(false)
+  const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null)
 
   const [searchParams] = useSearchParams()
   const focusPinId = searchParams.get('pin')
@@ -43,6 +48,11 @@ export default function MapRoute() {
   const allPagesData = useLiveQuery(() => db.pages.orderBy('title').toArray(), [])
   const templatesData = useLiveQuery(() => db.templates.toArray(), [])
   // Stable empty-array fallbacks so downstream useMemo deps don't change every render.
+  const regionsData = useLiveQuery(
+    () => (mapId ? db.regions.where('mapId').equals(mapId).toArray() : Promise.resolve([] as MapRegion[])),
+    [mapId],
+  )
+  const regions = useMemo(() => regionsData ?? [], [regionsData])
   const pins = useMemo(() => pinsData ?? [], [pinsData])
   const allPages = useMemo(() => allPagesData ?? [], [allPagesData])
   const templates = useMemo(() => templatesData ?? [], [templatesData])
@@ -61,24 +71,50 @@ export default function MapRoute() {
     [pins, pagesById, templatesByName],
   )
 
-  // Legend rows: one per distinct type present on this map (plus Untyped), with counts.
+  // Resolve every region's fill + derived type once.
+  const regionStyles = useMemo(
+    () => new Map(regions.map((r) => [r.id, regionStyle(r, pagesById, templatesByName)])),
+    [regions, pagesById, templatesByName],
+  )
+
+  // Legend rows: one per distinct derived type present on this map (plus Untyped),
+  // counting both pins and regions; toggling a row hides both.
   const legend = useMemo(() => {
     const rows = new Map<string, { key: string; name: string; color: string; icon: string | null; count: number }>()
-    for (const p of pins) {
-      const t = pinTypes.get(p.id)!
-      const key = t.name ?? ''
+    const bump = (name: string | null, color: string, icon: string | null) => {
+      const key = name ?? ''
       const row = rows.get(key)
       if (row) row.count++
-      else rows.set(key, { key, name: t.name ?? 'Untyped', color: t.color, icon: t.icon, count: 1 })
+      else rows.set(key, { key, name: name ?? 'Untyped', color, icon, count: 1 })
+    }
+    for (const p of pins) {
+      const t = pinTypes.get(p.id)!
+      bump(t.name, t.color, t.icon)
+    }
+    for (const r of regions) {
+      const s = regionStyles.get(r.id)!
+      bump(s.type.name, s.type.color, s.type.icon)
     }
     return [...rows.values()].sort((a, b) => a.name.localeCompare(b.name))
-  }, [pins, pinTypes])
+  }, [pins, pinTypes, regions, regionStyles])
 
   // Pins passed to the map, minus any whose type is hidden.
   const visiblePins = useMemo(
     () => pins.filter((p) => !hiddenTypes.has(pinTypes.get(p.id)?.name ?? '')),
     [pins, pinTypes, hiddenTypes],
   )
+
+  const visibleRegions = useMemo(
+    () => regions.filter((r) => !hiddenTypes.has(regionStyles.get(r.id)?.type.name ?? '')),
+    [regions, regionStyles, hiddenTypes],
+  )
+
+  // Fill colour per region id (only what MapView needs).
+  const regionFills = useMemo(() => {
+    const m = new Map<string, { color: string }>()
+    for (const [id, s] of regionStyles) m.set(id, { color: s.fill })
+    return m
+  }, [regionStyles])
 
   // Marker styles keyed by pin id (only what MapView needs).
   const pinStyles = useMemo(() => {
@@ -101,6 +137,7 @@ export default function MapRoute() {
 
   // Read from visiblePins so the pin panel closes when its type is filtered out.
   const selectedPin = visiblePins.find((p) => p.id === selectedPinId) ?? null
+  const selectedRegion = visibleRegions.find((r) => r.id === selectedRegionId) ?? null
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -120,6 +157,14 @@ export default function MapRoute() {
     setAddMode(false)
   }
 
+  async function handleRegionCreate(points: [number, number][]) {
+    if (!currentMap) return
+    const id = await addRegion(currentMap.id, points)
+    setDrawMode(false)
+    setSelectedPinId(null)
+    setSelectedRegionId(id)
+  }
+
   // ---- No maps yet -------------------------------------------------------
   if (maps.length === 0) {
     return (
@@ -135,14 +180,26 @@ export default function MapRoute() {
   return (
     <div className="map-page">
       <div className="map-toolbar">
-        <select value={currentMap?.id} onChange={(e) => { setActiveId(e.target.value); setSelectedPinId(null); setHiddenTypes(new Set()) }}>
+        <select value={currentMap?.id} onChange={(e) => {
+          setActiveId(e.target.value)
+          setSelectedPinId(null)
+          setSelectedRegionId(null)
+          setDrawMode(false)
+          setHiddenTypes(new Set())
+        }}>
           {maps.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
         <button
           className={addMode ? 'primary-btn' : 'ghost-btn'}
-          onClick={() => { setAddMode((v) => !v); setSelectedPinId(null) }}
+          onClick={() => { setAddMode((v) => !v); setDrawMode(false); setSelectedPinId(null); setSelectedRegionId(null) }}
         >
           {addMode ? '✓ Click the map to place…' : '📍 Add pin'}
+        </button>
+        <button
+          className={drawMode ? 'primary-btn' : 'ghost-btn'}
+          onClick={() => { setDrawMode((v) => !v); setAddMode(false); setSelectedPinId(null); setSelectedRegionId(null) }}
+        >
+          {drawMode ? '✓ Click to draw, click first point to close' : '▱ Add region'}
         </button>
         <button className="ghost-btn" onClick={() => fileRef.current?.click()}>⭱ New map</button>
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleUpload} />
@@ -152,7 +209,7 @@ export default function MapRoute() {
         >
           Delete map
         </button>
-        <span className="map-hint">{pins.length} pins</span>
+        <span className="map-hint">{pins.length} pins · {regions.length} regions</span>
       </div>
 
       <div className="map-body">
@@ -165,9 +222,16 @@ export default function MapRoute() {
             addMode={addMode}
             selectedPinId={selectedPinId}
             onMapClick={handleMapClick}
-            onPinClick={setSelectedPinId}
+            onPinClick={(id) => { setSelectedPinId(id); setSelectedRegionId(null) }}
             onPinMove={(id, lat, lng) => db.pins.update(id, { lat, lng })}
             focusPinId={focusPinId}
+            regions={visibleRegions}
+            regionStyles={regionFills}
+            selectedRegionId={selectedRegionId}
+            drawMode={drawMode}
+            onRegionClick={(id) => { setSelectedRegionId(id); setSelectedPinId(null) }}
+            onRegionCreate={handleRegionCreate}
+            onRegionEdit={(id, points) => db.regions.update(id, { points })}
           />
         )}
 
@@ -219,6 +283,58 @@ export default function MapRoute() {
                 onClick={() => { db.pins.delete(selectedPin.id); setSelectedPinId(null) }}
               >
                 Delete pin
+              </button>
+            </div>
+          </div>
+        )}
+
+        {selectedRegion && (
+          <div className="pin-panel">
+            <div className="pin-panel-head">
+              <h3>Region</h3>
+              <button className="tag-x" onClick={() => setSelectedRegionId(null)}>×</button>
+            </div>
+            <label>Label</label>
+            <input
+              value={selectedRegion.label}
+              onChange={(e) => db.regions.update(selectedRegion.id, { label: e.target.value })}
+            />
+            <label>Linked page</label>
+            <select
+              value={selectedRegion.pageId ?? ''}
+              onChange={(e) => db.regions.update(selectedRegion.id, { pageId: e.target.value || null })}
+            >
+              <option value="">— none —</option>
+              {allPages.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
+            <label>Colour</label>
+            <div className="region-swatches">
+              <button
+                className={selectedRegion.color ? 'region-swatch derive' : 'region-swatch derive active'}
+                title="Derive from linked page type"
+                onClick={() => db.regions.update(selectedRegion.id, (r) => { delete r.color })}
+              >
+                Auto
+              </button>
+              {TYPE_COLORS.map((c) => (
+                <button
+                  key={c}
+                  className={selectedRegion.color === c ? 'region-swatch active' : 'region-swatch'}
+                  style={{ background: c }}
+                  title={c}
+                  onClick={() => db.regions.update(selectedRegion.id, { color: c })}
+                />
+              ))}
+            </div>
+            <div className="pin-panel-actions">
+              {selectedRegion.pageId && (
+                <button className="ghost-btn" onClick={() => navigate(`/page/${selectedRegion.pageId}`)}>Open page →</button>
+              )}
+              <button
+                className="ghost-btn danger"
+                onClick={() => { db.regions.delete(selectedRegion.id); setSelectedRegionId(null) }}
+              >
+                Delete region
               </button>
             </div>
           </div>

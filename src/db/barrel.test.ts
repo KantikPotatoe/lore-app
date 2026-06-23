@@ -22,7 +22,7 @@ const EXPECTED_FUNCTIONS = [
   'createPage', 'updatePage', 'deletePage', 'findPageIdByTitle', 'renamePage',
   'linkedTitles', 'getBacklinks',
   // maps.ts
-  'addMap', 'deleteMap', 'addPin', 'pinType',
+  'addMap', 'deleteMap', 'addPin', 'pinType', 'addRegion', 'regionStyle',
   // graph.ts
   'buildGraphData',
   // calendar.ts

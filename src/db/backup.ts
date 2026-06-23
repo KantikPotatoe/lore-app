@@ -8,6 +8,7 @@ import type {
   InfoboxTemplate,
   LorePage,
   MapPin,
+  MapRegion,
   TimelineEvent,
   WorldMap,
 } from './types'
@@ -22,7 +23,7 @@ import type {
  * changes, and add a MIGRATIONS step (below) for the new version so older
  * backups keep importing.
  */
-export const CURRENT_SCHEMA_VERSION = 5
+export const CURRENT_SCHEMA_VERSION = 6
 
 /** The shape produced by exportAll() and accepted by importAll().
  *  `schemaVersion`/`appVersion` were added in schema v5's tooling; legacy
@@ -34,6 +35,7 @@ export interface BackupData {
   pages: LorePage[]
   maps?: WorldMap[]
   pins?: MapPin[]
+  regions?: MapRegion[]
   templates?: InfoboxTemplate[]
   calendars?: Calendar[]
   events?: TimelineEvent[]
@@ -44,6 +46,7 @@ export interface BackupCounts {
   pages: number
   maps: number
   pins: number
+  regions: number
   templates: number
   calendars: number
   events: number
@@ -69,6 +72,8 @@ const MIGRATIONS: Record<number, (d: BackupData) => BackupData> = {
   2: (d) => ({ ...d, templates: asArray(d.templates) }),
   // v5 added the timeline calendars + events tables.
   4: (d) => ({ ...d, calendars: asArray(d.calendars), events: asArray(d.events) }),
+  // v6 added the map regions table.
+  5: (d) => ({ ...d, regions: asArray(d.regions) }),
 }
 
 /**
@@ -115,6 +120,7 @@ export function parseBackup(
       pages: data.pages.length,
       maps: asArray(data.maps).length,
       pins: asArray(data.pins).length,
+      regions: asArray(data.regions).length,
       templates: asArray(data.templates).length,
       calendars: asArray(data.calendars).length,
       events: asArray(data.events).length,
@@ -123,10 +129,11 @@ export function parseBackup(
 }
 
 export async function exportAll(): Promise<string> {
-  const [pages, maps, pins, templates, calendars, events] = await Promise.all([
+  const [pages, maps, pins, regions, templates, calendars, events] = await Promise.all([
     db.pages.toArray(),
     db.maps.toArray(),
     db.pins.toArray(),
+    db.regions.toArray(),
     db.templates.toArray(),
     db.calendars.toArray(),
     db.events.toArray(),
@@ -138,6 +145,7 @@ export async function exportAll(): Promise<string> {
     pages,
     maps,
     pins,
+    regions,
     templates,
     calendars,
     events,
@@ -165,14 +173,15 @@ function sanitizeBackup(data: BackupData): BackupData {
 export async function importAll(json: string): Promise<void> {
   const { data: parsed } = parseBackup(json) // throws before any clear(); migrated to the current shape
   const data = sanitizeBackup(parsed) // strip XSS from untrusted HTML before it touches the DB
-  await db.transaction('rw', [db.pages, db.maps, db.pins, db.templates, db.calendars, db.events], async () => {
+  await db.transaction('rw', [db.pages, db.maps, db.pins, db.regions, db.templates, db.calendars, db.events], async () => {
     await Promise.all([
-      db.pages.clear(), db.maps.clear(), db.pins.clear(),
+      db.pages.clear(), db.maps.clear(), db.pins.clear(), db.regions.clear(),
       db.templates.clear(), db.calendars.clear(), db.events.clear(),
     ])
     await db.pages.bulkAdd(asArray(data.pages))
     await db.maps.bulkAdd(asArray(data.maps))
     await db.pins.bulkAdd(asArray(data.pins))
+    await db.regions.bulkAdd(asArray(data.regions))
     await db.templates.bulkAdd(asArray(data.templates))
     await db.calendars.bulkAdd(asArray(data.calendars))
     await db.events.bulkAdd(asArray(data.events))
