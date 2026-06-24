@@ -1611,3 +1611,20 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .lightbox-prev { left: -56px; }
 .lightbox-next { right: -56px; }
 .lightbox-nav:hover { background: rgba(0,0,0,.7); }
+
+/* Route transition: content fades in and rises slightly on navigation. */
+.route-fade { height: 100%; animation: route-fade-in 120ms ease-out; }
+@keyframes route-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Floating back-to-top, bottom-right of the viewport (clear of the sidebar). */
+.back-to-top {
+  position: fixed; bottom: 22px; right: 22px; z-index: 50;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: linear-gradient(180deg, var(--accent-soft), var(--accent));
+  color: #2a210b; border: none; font-size: 18px; line-height: 1;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.back-to-top:hover { filter: brightness(1.07); }
