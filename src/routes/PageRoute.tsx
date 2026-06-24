@@ -5,6 +5,7 @@ import { db, createPage, updatePage, renamePage, deletePage, findPageIdByTitle, 
 import LoreEditor from '../components/LoreEditor'
 import Infobox from '../components/Infobox'
 import Backlinks from '../components/Backlinks'
+import ImageGallery from '../components/ImageGallery'
 import TableOfContents from '../components/TableOfContents'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { maybeTakeSnapshot } from '../snapshots'
@@ -228,6 +229,7 @@ export default function PageRoute() {
             onWikiClick={followWikiLink}
             knownTitles={knownTitles}
           />
+          <ImageGallery page={page} editable={editing} />
         </div>
 
         <div className="page-aside">
