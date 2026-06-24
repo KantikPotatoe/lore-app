@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
 import { db } from './db'
-import type { LorePage } from './db'
+import type { LorePage, PageImage } from './db'
 
 function rewriteWikiLinks(html: string, titleToId: Map<string, string>): string {
   return html.replace(
@@ -32,7 +32,18 @@ function renderInfobox(page: LorePage): string {
   return `<table class="infobox">\n${img}${rows}\n</table>`
 }
 
-function pageHtml(page: LorePage, body: string, backlinks: LorePage[]): string {
+function renderGallery(images: PageImage[]): string {
+  if (images.length === 0) return ''
+  const items = images
+    .map((img) => {
+      const cap = img.caption ? `<figcaption>${img.caption}</figcaption>` : ''
+      return `<figure class="gallery-item"><img src="${img.dataUrl}" alt="">${cap}</figure>`
+    })
+    .join('\n')
+  return `<section class="gallery"><h2>Images</h2><div class="gallery-grid">${items}</div></section>`
+}
+
+function pageHtml(page: LorePage, body: string, backlinks: LorePage[], images: PageImage[]): string {
   const bl = backlinks.length
     ? `<section class="backlinks"><h2>What links here</h2><ul>${backlinks.map(b => `<li><a href="./${b.id}.html">${b.title}</a></li>`).join('')}</ul></section>`
     : ''
@@ -52,6 +63,7 @@ function pageHtml(page: LorePage, body: string, backlinks: LorePage[]): string {
   </header>
   ${renderInfobox(page)}
   <div class="page-body">${body}</div>
+  ${renderGallery(images)}
   ${bl}
 </article>
 </body>
@@ -100,6 +112,11 @@ h1 { margin: 0 0 8px; }
 .infobox-sep { font-weight: 600; background: var(--border); }
 .infobox-img img { max-width: 100%; display: block; }
 .page-body img { max-width: 100%; }
+.gallery { clear: both; margin-top: 32px; }
+.gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.gallery-item { margin: 0; }
+.gallery-item img { width: 100%; border-radius: 6px; display: block; }
+.gallery-item figcaption { font-size: 0.8rem; color: var(--ink-dim); text-align: center; margin-top: 4px; }
 .backlinks { margin-top: 32px; border-top: 1px solid var(--border); padding-top: 16px; }
 .index { max-width: 900px; margin: 0 auto; }
 .index section { margin-bottom: 24px; }
@@ -122,6 +139,15 @@ export async function exportAsHtml(): Promise<void> {
     }
   }
 
+  // Group gallery images by page, sorted by their grid order.
+  const imagesByPage = new Map<string, PageImage[]>()
+  for (const img of await db.images.toArray()) {
+    const list = imagesByPage.get(img.pageId) ?? []
+    list.push(img)
+    imagesByPage.set(img.pageId, list)
+  }
+  for (const list of imagesByPage.values()) list.sort((a, b) => a.order - b.order)
+
   const zip = new JSZip()
   zip.file('style.css', CSS.trim())
   zip.file('index.html', indexHtml(pages))
@@ -130,7 +156,7 @@ export async function exportAsHtml(): Promise<void> {
   for (const page of pages) {
     const body = rewriteWikiLinks(page.content, titleToId)
     const backlinks = backlinkMap.get(page.title) ?? []
-    pagesFolder.file(`${page.id}.html`, pageHtml(page, body, backlinks))
+    pagesFolder.file(`${page.id}.html`, pageHtml(page, body, backlinks, imagesByPage.get(page.id) ?? []))
   }
 
   const blob = await zip.generateAsync({ type: 'blob' })
