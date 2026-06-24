@@ -126,6 +126,17 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
   font-family: var(--display); font-size: 12px; text-transform: uppercase;
   letter-spacing: 1px; padding: 8px 8px 4px; display: flex; gap: 6px; align-items: center;
 }
+.group-head { display: flex; align-items: center; gap: 2px; }
+.group-toggle {
+  background: none; border: none; color: var(--ink-faint);
+  font-size: 10px; line-height: 1; padding: 6px 2px 4px 4px; cursor: pointer; flex-shrink: 0;
+}
+.group-toggle:hover { color: var(--ink); }
+.group-head .group-label { flex: 1; min-width: 0; }
+.group-label-static {
+  font-family: var(--display); font-size: 12px; text-transform: uppercase;
+  letter-spacing: 1px; padding: 8px 8px 4px 2px; color: var(--ink-dim);
+}
 .group-count { color: var(--ink-faint); font-family: var(--sans); }
 .page-link {
   display: flex; align-items: center; gap: 9px; padding: 6px 9px; border-radius: 7px;
