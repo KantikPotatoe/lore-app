@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, createPage, categoryColor, statusColor, pageStatus, type LorePage } from '../db'
@@ -35,7 +35,7 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) 
   const activeLore = useLiveQuery(() => getLore(currentLoreId()), [])
   const loreName = activeLore?.name ?? 'Lore Codex'
 
-  const loreId = currentLoreId()
+  const [loreId] = useState(currentLoreId)
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(getCollapsedGroups(loreId)))
   const toggle = (name: string) => setCollapsed(new Set(toggleCollapsedGroup(name, loreId)))
 
@@ -53,10 +53,12 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) 
   // Resolve per-world recent ids to live page records; drop any that were deleted.
   const recentPages = useMemo(() => {
     const byId = new Map(pages.map((p) => [p.id, p]))
-    const ids = getRecent(loreId)
-    const present = ids.filter((id) => byId.has(id))
-    if (present.length !== ids.length) pruneRecent(new Set(byId.keys()), loreId)
-    return present.map((id) => byId.get(id)!)
+    return getRecent(loreId).filter((id) => byId.has(id)).map((id) => byId.get(id)!)
+  }, [pages, loreId])
+
+  // Prune ids of deleted pages from storage (side-effect kept out of the memo).
+  useEffect(() => {
+    pruneRecent(new Set(pages.map((p) => p.id)), loreId)
   }, [pages, loreId])
 
   async function handleNew() {
