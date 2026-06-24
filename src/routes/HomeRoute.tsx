@@ -180,7 +180,7 @@ export default function HomeRoute() {
       e.target.value = ''
       return
     }
-    const [pages, maps, pins, regions, templates, calendars, events] = await Promise.all([
+    const [pages, maps, pins, regions, templates, calendars, events, images] = await Promise.all([
       db.pages.count(),
       db.maps.count(),
       db.pins.count(),
@@ -188,8 +188,9 @@ export default function HomeRoute() {
       db.templates.count(),
       db.calendars.count(),
       db.events.count(),
+      db.images.count(),
     ])
-    setPendingImport({ json: text, current: { pages, maps, pins, regions, templates, calendars, events }, incoming })
+    setPendingImport({ json: text, current: { pages, maps, pins, regions, templates, calendars, events, images }, incoming })
     e.target.value = ''
   }
 
@@ -411,11 +412,11 @@ export default function HomeRoute() {
                   disabled={busy}
                   onClick={async () => {
                     const { counts: incoming } = parseBackup(snap.data)
-                    const [pages, maps, pins, regions, templates, calendars, events] = await Promise.all([
+                    const [pages, maps, pins, regions, templates, calendars, events, images] = await Promise.all([
                       db.pages.count(), db.maps.count(), db.pins.count(), db.regions.count(),
-                      db.templates.count(), db.calendars.count(), db.events.count(),
+                      db.templates.count(), db.calendars.count(), db.events.count(), db.images.count(),
                     ])
-                    setPendingImport({ json: snap.data, current: { pages, maps, pins, regions, templates, calendars, events }, incoming })
+                    setPendingImport({ json: snap.data, current: { pages, maps, pins, regions, templates, calendars, events, images }, incoming })
                   }}
                 >
                   Restore
