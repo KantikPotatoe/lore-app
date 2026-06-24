@@ -11,6 +11,13 @@
       rel="stylesheet"
     />
     <title>Lore Codex</title>
+    <!-- Paint the app's dark base immediately so a full reload (e.g. switching
+         worlds, which rebinds the per-lore DB) doesn't flash white before the
+         stylesheet loads. Mirrors --bg in src/index.css. -->
+    <style>
+      :root { color-scheme: dark; }
+      html, body { background: #15130f; margin: 0; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

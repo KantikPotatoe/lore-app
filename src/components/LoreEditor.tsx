@@ -1,11 +1,35 @@
-import { useEffect, useRef, useState } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEditor, EditorContent, type Editor } from '@tiptap/react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import { TableKit } from '@tiptap/extension-table'
 import { WikiLink } from '../extensions/WikiLink'
+import { db } from '../db'
 import { compressImage } from '../imageUtils'
 import { showWikiHover, scheduleWikiHoverClose } from '../wikiLinkHover'
+import { findOpenWikiQuery, rankWikiTitles } from '../wikiAutocomplete'
+
+/** State of the open [[autocomplete]] menu: the partial query, the document
+ *  range (`from`..`to`) covering the `[[query` text to be replaced on accept,
+ *  and the highlighted row. */
+interface WikiSuggest { query: string; from: number; to: number; index: number }
+
+/** Inspect the text just before the cursor for an unclosed `[[`. Returns the
+ *  suggestion anchor, or null when there's nothing to complete. */
+function computeSuggest(editor: Editor): WikiSuggest | null {
+  if (!editor.isEditable) return null
+  const { selection } = editor.state
+  if (!selection.empty) return null
+  const $from = selection.$from
+  // textBetween with a placeholder for leaf nodes so an inline atom (an existing
+  // wiki link) reads as one non-bracket char rather than splicing text together.
+  const textBefore = $from.parent.textBetween(0, $from.parentOffset, '\n', '￼')
+  const found = findOpenWikiQuery(textBefore)
+  if (!found) return null
+  const to = selection.from
+  return { query: found.query, from: to - found.matchLength, to, index: 0 }
+}
 
 interface Props {
   content: string
@@ -38,6 +62,20 @@ function Btn({ active, onClick, title, children }: {
 }
 
 export default function LoreEditor({ content, editable, onChange, onWikiClick, knownTitles }: Props) {
+  // --- [[wiki link]] autocomplete state ------------------------------------
+  // `index` is the highlighted row; it lives in the same object so a new query
+  // (a fresh suggest) naturally resets it to 0 without a separate effect.
+  const [suggest, setSuggest] = useState<WikiSuggest | null>(null)
+  // Titles of all pages, for the suggestion menu. Indexed by title in Dexie.
+  const pageTitles = useLiveQuery(
+    () => db.pages.orderBy('title').toArray().then((ps) => ps.map((p) => p.title)),
+    [],
+  )
+  const items = useMemo(
+    () => (suggest ? rankWikiTitles(pageTitles ?? [], suggest.query) : []),
+    [suggest, pageTitles],
+  )
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -54,8 +92,37 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
     ],
     content,
     editable,
-    onUpdate: ({ editor }) => onChange(editor.getHTML()),
+    onUpdate: ({ editor }) => { onChange(editor.getHTML()); setSuggest(computeSuggest(editor)) },
+    onSelectionUpdate: ({ editor }) => setSuggest(computeSuggest(editor)),
+    onBlur: () => setSuggest(null),
   })
+
+  // Replace the `[[query` text with a real wiki-link node to `title`.
+  const acceptSuggestion = useCallback((title: string) => {
+    if (!editor || !suggest) return
+    editor.chain().focus()
+      .deleteRange({ from: suggest.from, to: suggest.to })
+      .insertContent([{ type: 'wikiLink', attrs: { title } }, { type: 'text', text: ' ' }])
+      .run()
+    setSuggest(null)
+  }, [editor, suggest])
+
+  // Drive the menu from the keyboard. A capture-phase listener on the editor DOM
+  // runs before ProseMirror's own keymap, so we can claim the nav keys (and stop
+  // them reaching the doc) only while the menu has results.
+  useEffect(() => {
+    if (!editor || !editable || !suggest || items.length === 0) return
+    const dom = editor.view.dom
+    const idx = Math.min(suggest.index, items.length - 1)
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); setSuggest((s) => s && { ...s, index: (idx + 1) % items.length }) }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); setSuggest((s) => s && { ...s, index: (idx - 1 + items.length) % items.length }) }
+      else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); e.stopPropagation(); acceptSuggestion(items[idx]) }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setSuggest(null) }
+    }
+    dom.addEventListener('keydown', onKeyDown, true)
+    return () => dom.removeEventListener('keydown', onKeyDown, true)
+  }, [editor, editable, suggest, items, acceptSuggestion])
 
   const fileInput = useRef<HTMLInputElement>(null)
   const [showLinkBox, setShowLinkBox] = useState(false)
@@ -112,6 +179,16 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
   }, [editor, editable, knownTitles, content])
 
   if (!editor) return null
+
+  // Caret coords for the autocomplete menu (viewport-fixed). coordsAtPos reads
+  // layout and can throw for a transient out-of-range pos, so guard it.
+  let suggestPos: { left: number; top: number } | null = null
+  if (editable && suggest && items.length > 0) {
+    try {
+      const c = editor.view.coordsAtPos(suggest.to)
+      suggestPos = { left: c.left, top: c.bottom }
+    } catch { suggestPos = null }
+  }
 
   // Route clicks: wiki links navigate in-app; external href links open a new
   // tab. In edit mode both require Ctrl/Cmd-click so plain clicks place the cursor.
@@ -210,6 +287,22 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
       >
         <EditorContent editor={editor} />
       </div>
+      {suggestPos && (
+        <div className="wiki-suggest" style={{ left: suggestPos.left, top: suggestPos.top }}>
+          {items.map((title, i) => (
+            <button
+              key={title}
+              type="button"
+              className={`wiki-suggest-item${i === Math.min(suggest!.index, items.length - 1) ? ' active' : ''}`}
+              // Keep editor focus/selection so acceptSuggestion's range stays valid.
+              onMouseDown={(e) => { e.preventDefault(); acceptSuggestion(title) }}
+              onMouseEnter={() => setSuggest((s) => s && { ...s, index: i })}
+            >
+              {title}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

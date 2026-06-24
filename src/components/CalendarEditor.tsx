@@ -7,6 +7,7 @@ import {
   type Calendar, type CalendarMonth, type CalendarEra,
 } from '../db'
 import ConfirmDialog from './ConfirmDialog'
+import { useEscapeKey } from '../useEscapeKey'
 
 interface Props {
   onClose: () => void
@@ -17,6 +18,9 @@ export default function CalendarEditor({ onClose }: Props) {
   const [editId, setEditId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Calendar | null>(null)
   const [pendingDelete, setPendingDelete] = useState<Calendar | null>(null)
+
+  // Esc closes the editor, unless the delete confirmation owns it.
+  useEscapeKey(onClose, pendingDelete === null)
 
   function startEdit(cal: Calendar) {
     setDraft(JSON.parse(JSON.stringify(cal)))
