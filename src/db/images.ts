@@ -28,10 +28,17 @@ export async function deleteImage(id: string): Promise<void> {
   await db.images.delete(id)
 }
 
-/** Reassign order to 0..n-1 following the given id sequence, in one transaction. */
-export async function reorderImages(_pageId: string, orderedIds: string[]): Promise<void> {
+/** Reassign order to 0..n-1 following the given id sequence, in one transaction.
+ *  Guards ownership: ids in `orderedIds` that don't belong to `pageId` are
+ *  ignored, so a stale or foreign id can never reorder another page's images. */
+export async function reorderImages(pageId: string, orderedIds: string[]): Promise<void> {
   await db.transaction('rw', db.images, async () => {
-    await Promise.all(orderedIds.map((imageId, index) => db.images.update(imageId, { order: index })))
+    const owned = new Set(await db.images.where('pageId').equals(pageId).primaryKeys())
+    await Promise.all(
+      orderedIds
+        .filter((id) => owned.has(id))
+        .map((imageId, index) => db.images.update(imageId, { order: index })),
+    )
   })
 }
 

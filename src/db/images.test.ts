@@ -59,6 +59,19 @@ describe('images CRUD', () => {
     expect(rows.map((r) => r.id)).toEqual([c, a, b])
     expect(rows.map((r) => r.order)).toEqual([0, 1, 2])
   })
+
+  it('reorderImages ignores ids that do not belong to the page', async () => {
+    const a = await addImage('p1', 'data:image/png;base64,A')
+    const b = await addImage('p1', 'data:image/png;base64,B')
+    const foreign = await addImage('p2', 'data:image/png;base64,X')
+    // Pass a foreign id mixed in; it must not be reordered or throw.
+    await reorderImages('p1', [b, foreign, a])
+    const p1 = await db.images.where('pageId').equals('p1').sortBy('order')
+    expect(p1.map((r) => r.id)).toEqual([b, a])
+    expect(p1.map((r) => r.order)).toEqual([0, 1])
+    // The foreign image keeps its own order, untouched.
+    expect((await db.images.get(foreign))?.order).toBe(0)
+  })
 })
 
 describe('setAsPortrait', () => {
