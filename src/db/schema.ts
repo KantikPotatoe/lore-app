@@ -10,6 +10,7 @@ import type {
   Snapshot,
   Calendar,
   TimelineEvent,
+  PageImage,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -98,6 +99,7 @@ export class LoreDB extends Dexie {
   snapshots!: Table<Snapshot, number>
   calendars!: Table<Calendar, string>
   events!: Table<TimelineEvent, string>
+  images!: Table<PageImage, string>
 
   constructor(name: string = 'lore-app') {
     super(name)
@@ -166,6 +168,20 @@ export class LoreDB extends Dexie {
       snapshots: '++id, timestamp',
       calendars: 'id, name, createdAt',
       events: 'id, calendarId, startAbsolute, pageId',
+    })
+    // v8 adds the per-page image gallery table; existing data is preserved
+    // (a new table needs no data migration of the others).
+    this.version(8).stores({
+      pages: 'id, title, category, updatedAt',
+      maps: 'id, name, createdAt',
+      pins: 'id, mapId, pageId, childMapId',
+      regions: 'id, mapId, pageId, childMapId',
+      meta: '&key',
+      templates: 'id, name',
+      snapshots: '++id, timestamp',
+      calendars: 'id, name, createdAt',
+      events: 'id, calendarId, startAbsolute, pageId',
+      images: 'id, pageId, order',
     })
   }
 }

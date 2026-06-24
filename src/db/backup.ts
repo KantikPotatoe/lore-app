@@ -23,7 +23,7 @@ import type {
  * changes, and add a MIGRATIONS step (below) for the new version so older
  * backups keep importing.
  */
-export const CURRENT_SCHEMA_VERSION = 7
+export const CURRENT_SCHEMA_VERSION = 8
 
 /** The shape produced by exportAll() and accepted by importAll().
  *  `schemaVersion`/`appVersion` were added in schema v5's tooling; legacy

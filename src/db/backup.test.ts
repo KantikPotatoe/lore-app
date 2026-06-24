@@ -195,13 +195,13 @@ describe('importAll — round-trips', () => {
 })
 
 describe('schema version', () => {
-  it('is at 7 for Phase 4 (childMapId portals)', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(7)
+  it('is at 8 for the image gallery', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(8)
   })
 
-  it('stamps a v6 backup up to 7 with no data loss', () => {
+  it('stamps an older backup up to current with no data loss', () => {
     const out = migrateBackup({ schemaVersion: 6, pages: [], regions: [] })
-    expect(out.schemaVersion).toBe(7)
+    expect(out.schemaVersion).toBe(8)
     expect(out.regions).toEqual([])
   })
 })
