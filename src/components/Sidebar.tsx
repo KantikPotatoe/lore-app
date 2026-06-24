@@ -37,8 +37,10 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) 
 
   const [loreId] = useState(currentLoreId)
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(getCollapsedGroups(loreId)))
-  const [recentsTick, setRecentsTick] = useState(0)
-  useEffect(() => subscribeRecents(() => setRecentsTick((v) => v + 1)), [])
+  // Recent ids live in state, refreshed by the recents bus, so the list updates
+  // the moment a page is viewed (visiting a page doesn't touch the `pages` query).
+  const [recentIds, setRecentIds] = useState<string[]>(() => getRecent(loreId))
+  useEffect(() => subscribeRecents(() => setRecentIds(getRecent(loreId))), [loreId])
   const toggle = (name: string) => setCollapsed(new Set(toggleCollapsedGroup(name, loreId)))
 
   // Group all pages by category.
@@ -55,8 +57,8 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) 
   // Resolve per-world recent ids to live page records; drop any that were deleted.
   const recentPages = useMemo(() => {
     const byId = new Map(pages.map((p) => [p.id, p]))
-    return getRecent(loreId).filter((id) => byId.has(id)).map((id) => byId.get(id)!)
-  }, [pages, loreId, recentsTick])
+    return recentIds.filter((id) => byId.has(id)).map((id) => byId.get(id)!)
+  }, [pages, recentIds])
 
   // Prune ids of deleted pages from storage (side-effect kept out of the memo).
   useEffect(() => {
