@@ -19,6 +19,11 @@ class LoreRegistryDB extends Dexie {
 
 export const registry = new LoreRegistryDB()
 
+// Marks that the one-time default-world seeding has happened. Without this,
+// an empty registry is indistinguishable from a fresh install, so deleting
+// every world would silently recreate one on the next load.
+const BOOTSTRAPPED_KEY = 'lore-bootstrapped'
+
 // Re-export so callers can import everything from one place
 export { currentLoreId } from './loreId'
 
@@ -68,8 +73,15 @@ export async function deleteLore(id: string): Promise<void> {
 }
 
 export async function bootstrapDefaultLore(): Promise<void> {
+  // Seed exactly once. An empty registry after this flag is set means the user
+  // deliberately deleted all their worlds — leave it empty so the lore selector
+  // can show its empty state instead of silently recreating a world.
+  if (localStorage.getItem(BOOTSTRAPPED_KEY)) return
   const count = await registry.lores.count()
-  if (count > 0) return // Already bootstrapped — idempotent guard
+  if (count > 0) {
+    localStorage.setItem(BOOTSTRAPPED_KEY, '1') // backfill for pre-flag installs
+    return
+  }
 
   // Only read the legacy home-config title when db.ts is pointing at 'lore-app'.
   // If the active lore is already set to something else, skip the title migration.
@@ -83,4 +95,5 @@ export async function bootstrapDefaultLore(): Promise<void> {
 
   const now = Date.now()
   await registry.lores.add({ id: 'default', name, banner: null, createdAt: now, updatedAt: now })
+  localStorage.setItem(BOOTSTRAPPED_KEY, '1')
 }
