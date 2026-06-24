@@ -123,8 +123,10 @@ h1 { margin: 0 0 8px; }
 .index ul { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 16px; }
 `
 
-export async function exportAsHtml(): Promise<void> {
-  const pages = await db.pages.toArray()
+/** Build the static export site as a path→content map (no DB, no download), so
+ *  the link/infobox/gallery/backlink rendering can be unit-tested. Keys are
+ *  `style.css`, `index.html`, and one `pages/<id>.html` per page. */
+export function buildHtmlSite(pages: LorePage[], images: PageImage[]): Record<string, string> {
   const titleToId = new Map(pages.map(p => [p.title, String(p.id)]))
 
   // Build reverse link index for backlinks
@@ -141,23 +143,30 @@ export async function exportAsHtml(): Promise<void> {
 
   // Group gallery images by page, sorted by their grid order.
   const imagesByPage = new Map<string, PageImage[]>()
-  for (const img of await db.images.toArray()) {
+  for (const img of images) {
     const list = imagesByPage.get(img.pageId) ?? []
     list.push(img)
     imagesByPage.set(img.pageId, list)
   }
   for (const list of imagesByPage.values()) list.sort((a, b) => a.order - b.order)
 
-  const zip = new JSZip()
-  zip.file('style.css', CSS.trim())
-  zip.file('index.html', indexHtml(pages))
-
-  const pagesFolder = zip.folder('pages')!
+  const files: Record<string, string> = {}
+  files['style.css'] = CSS.trim()
+  files['index.html'] = indexHtml(pages)
   for (const page of pages) {
     const body = rewriteWikiLinks(page.content, titleToId)
     const backlinks = backlinkMap.get(page.title) ?? []
-    pagesFolder.file(`${page.id}.html`, pageHtml(page, body, backlinks, imagesByPage.get(page.id) ?? []))
+    files[`pages/${page.id}.html`] = pageHtml(page, body, backlinks, imagesByPage.get(page.id) ?? [])
   }
+  return files
+}
+
+export async function exportAsHtml(): Promise<void> {
+  const [pages, images] = await Promise.all([db.pages.toArray(), db.images.toArray()])
+  const files = buildHtmlSite(pages, images)
+
+  const zip = new JSZip()
+  for (const [path, content] of Object.entries(files)) zip.file(path, content)
 
   const blob = await zip.generateAsync({ type: 'blob' })
   const url = URL.createObjectURL(blob)
