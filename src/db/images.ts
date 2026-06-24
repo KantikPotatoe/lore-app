@@ -11,7 +11,9 @@ import type { LorePage } from './types'
 // full id sequence to reorderImages.
 
 /** Append an image to a page's gallery at the next free order. Uses max+1 (not
- *  count) so an add after a delete never collides with an existing order. */
+ *  count) so an add after a delete never collides with an existing order. The
+ *  read-then-add isn't transactional, which is safe for this single-tab app
+ *  (no concurrent callers); reorderImages would self-heal any duplicate order. */
 export async function addImage(pageId: string, dataUrl: string): Promise<string> {
   const id = uid()
   const existing = await db.images.where('pageId').equals(pageId).toArray()

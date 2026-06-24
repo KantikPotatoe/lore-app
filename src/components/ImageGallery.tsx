@@ -89,7 +89,7 @@ export default function ImageGallery({ page, editable }: Props) {
             draggable={editable}
             onDragStart={() => editable && setDragId(img.id)}
             onDragOver={(e) => { if (editable) e.preventDefault() }}
-            onDrop={() => { if (editable) onDropThumb(img.id) }}
+            onDrop={(e) => { e.preventDefault(); if (editable) onDropThumb(img.id) }}
           >
             <button className="gallery-thumb" onClick={() => setLightboxIndex(i)}>
               <img src={img.dataUrl} alt={img.caption} />
@@ -114,10 +114,10 @@ export default function ImageGallery({ page, editable }: Props) {
         ))}
       </div>
 
-      {lightboxIndex !== null && (
+      {lightboxIndex !== null && images.length > 0 && (
         <Lightbox
           images={images}
-          index={lightboxIndex}
+          index={Math.min(lightboxIndex, images.length - 1)}
           onClose={() => setLightboxIndex(null)}
           onNavigate={setLightboxIndex}
         />
