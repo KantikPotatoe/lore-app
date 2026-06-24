@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { getRecent, recordRecent, pruneRecent } from './recents'
+import { getRecent, recordRecent, pruneRecent, subscribeRecents } from './recents'
 
 const L = 'test-lore'
 
@@ -46,5 +46,15 @@ describe('recents', () => {
   it('survives corrupt storage', () => {
     localStorage.setItem('lore:test-lore:recentPages', '{not json')
     expect(getRecent(L)).toEqual([])
+  })
+
+  it('notifies subscribers when a page is recorded, and stops after unsubscribe', () => {
+    let calls = 0
+    const unsub = subscribeRecents(() => { calls++ })
+    recordRecent('a', L)
+    expect(calls).toBe(1)
+    unsub()
+    recordRecent('b', L)
+    expect(calls).toBe(1)
   })
 })

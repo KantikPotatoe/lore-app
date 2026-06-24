@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, createPage, categoryColor, statusColor, pageStatus, type LorePage } from '../db'
 import { getLore, currentLoreId } from '../lores'
 import { showPageHover, scheduleWikiHoverClose } from '../wikiLinkHover'
-import { getRecent, pruneRecent } from '../recents'
+import { getRecent, pruneRecent, subscribeRecents } from '../recents'
 import { getCollapsedGroups, toggleCollapsedGroup, RECENT_GROUP } from '../sidebarPrefs'
 
 // Stable empty array so the live queries don't hand `useMemo` a fresh `[]`
@@ -37,6 +37,8 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) 
 
   const [loreId] = useState(currentLoreId)
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(getCollapsedGroups(loreId)))
+  const [recentsTick, setRecentsTick] = useState(0)
+  useEffect(() => subscribeRecents(() => setRecentsTick((v) => v + 1)), [])
   const toggle = (name: string) => setCollapsed(new Set(toggleCollapsedGroup(name, loreId)))
 
   // Group all pages by category.
@@ -54,7 +56,7 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) 
   const recentPages = useMemo(() => {
     const byId = new Map(pages.map((p) => [p.id, p]))
     return getRecent(loreId).filter((id) => byId.has(id)).map((id) => byId.get(id)!)
-  }, [pages, loreId])
+  }, [pages, loreId, recentsTick])
 
   // Prune ids of deleted pages from storage (side-effect kept out of the memo).
   useEffect(() => {

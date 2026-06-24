@@ -3,6 +3,20 @@ import { currentLoreId } from './lores'
 const CAP = 6
 const keyFor = (loreId: string) => `lore:${loreId}:recentPages`
 
+type Listener = () => void
+const listeners = new Set<Listener>()
+
+export function subscribeRecents(listener: Listener): () => void {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+function notify() {
+  for (const l of listeners) l()
+}
+
 function read(loreId: string): string[] {
   try {
     const raw = localStorage.getItem(keyFor(loreId))
@@ -27,7 +41,9 @@ export function getRecent(loreId: string = currentLoreId()): string[] {
 }
 
 export function recordRecent(id: string, loreId: string = currentLoreId()): string[] {
-  return write(loreId, [id, ...read(loreId).filter((x) => x !== id)].slice(0, CAP))
+  const next = write(loreId, [id, ...read(loreId).filter((x) => x !== id)].slice(0, CAP))
+  notify()
+  return next
 }
 
 export function pruneRecent(known: Set<string>, loreId: string = currentLoreId()): string[] {
