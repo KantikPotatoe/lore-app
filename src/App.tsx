@@ -32,15 +32,6 @@ export default function App() {
     contentRef.current?.scrollTo({ top: 0 })
   }, [location.pathname])
 
-  // Show the back-to-top button once the content is scrolled well down.
-  useEffect(() => {
-    const el = contentRef.current
-    if (!el) return
-    const onScroll = () => setShowTop(el.scrollTop > 600)
-    el.addEventListener('scroll', onScroll, { passive: true })
-    return () => el.removeEventListener('scroll', onScroll)
-  }, [])
-
   useEffect(() => {
     installStorageErrorListener() // surface IndexedDB quota/eviction write failures
     bootstrapDefaultLore()
@@ -75,7 +66,7 @@ export default function App() {
     <div className="app-shell">
       <StorageErrorBanner />
       <Sidebar onOpenSearch={() => setSearchOpen(true)} />
-      <main className="content" ref={contentRef}>
+      <main className="content" ref={contentRef} onScroll={(e) => setShowTop(e.currentTarget.scrollTop > 600)}>
         <BackupBanner />
         <div className="route-fade" key={location.pathname}>
           <Routes>

@@ -1625,6 +1625,6 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
   width: 40px; height: 40px; border-radius: 50%;
   background: linear-gradient(180deg, var(--accent-soft), var(--accent));
   color: #2a210b; border: none; font-size: 18px; line-height: 1;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); cursor: pointer;
 }
 .back-to-top:hover { filter: brightness(1.07); }
