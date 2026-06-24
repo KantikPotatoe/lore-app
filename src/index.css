@@ -37,6 +37,48 @@ button { font-family: inherit; cursor: pointer; }
 input, select, textarea { font-family: inherit; }
 a { color: inherit; text-decoration: none; }
 
+/* --- Foundations: focus, selection, scrollbars, motion -------------------- *
+   Cross-cutting polish + accessibility floor. Kept here (near the resets) so
+   the rules read as defaults, not page-specific overrides. */
+
+/* Keyboard focus ring. Only shows for keyboard nav (:focus-visible), never on
+   mouse click. Uses outline (not box-shadow) so it survives the overflow:hidden
+   panels (infobox, cards) that would clip a shadow ring. */
+a:focus-visible, button:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible, summary:focus-visible,
+[tabindex]:focus-visible, .ProseMirror:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Warm selection — the browser default is blue and fights the parchment look. */
+::selection { background: rgba(201, 162, 75, 0.30); color: var(--ink); }
+
+/* Themed scrollbars so the OS default (white on Windows) doesn't break the dark
+   immersion in the sidebar, page aside, and modals. Inset via a transparent
+   border + padding-box so the thumb sits cleanly on any panel shade. */
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover { background-color: var(--ink-faint); }
+
+/* Respect reduced-motion: drop the hover lifts, fades, and slide transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* --- Layout --------------------------------------------------------------- */
 .app-shell { display: flex; height: 100%; }
 .content { flex: 1; overflow-y: auto; }
@@ -241,7 +283,8 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--display); font-size: 36px; background: transparent; border: none;
   border-bottom: 1px dashed var(--border); color: var(--ink); width: 100%; padding: 0 0 4px;
 }
-.title-input:focus { outline: none; border-color: var(--accent); }
+.title-input:focus { border-color: var(--accent); }
+.title-input:focus:not(:focus-visible) { outline: none; }
 .page-header-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .page-meta { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
 .summary-text { color: var(--ink-dim); font-family: var(--serif); font-size: 16px; font-style: italic; }
@@ -278,7 +321,7 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--serif); font-size: 18px; line-height: 1.7; color: var(--ink);
   min-height: 300px; outline: none;
 }
-.ProseMirror:focus { outline: none; }
+.ProseMirror:focus:not(:focus-visible) { outline: none; }
 .ProseMirror h1, .ProseMirror h2, .ProseMirror h3 { font-family: var(--display); color: var(--ink); line-height: 1.2; }
 .ProseMirror h1 { font-size: 28px; } .ProseMirror h2 { font-size: 23px; } .ProseMirror h3 { font-size: 20px; }
 .ProseMirror blockquote { border-left: 3px solid var(--accent); margin: 1em 0; padding-left: 16px; color: var(--ink-dim); font-style: italic; }
