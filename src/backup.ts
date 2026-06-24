@@ -67,15 +67,17 @@ export async function downloadPreImportBackup(): Promise<void> {
  *  timeline edits). Events have no updatedAt index, so they're scanned in memory;
  *  the table is small enough that this stays cheap. */
 export async function latestChangeTime(): Promise<number> {
-  const [newestPage, newestMap, events, calendars] = await Promise.all([
+  const [newestPage, newestMap, events, calendars, images] = await Promise.all([
     db.pages.orderBy('updatedAt').last(),
     db.maps.orderBy('createdAt').last(),
     db.events.toArray(),
     db.calendars.toArray(),
+    db.images.toArray(),
   ])
   const newestEvent = events.reduce((max, e) => Math.max(max, e.updatedAt), 0)
   const newestCalendar = calendars.reduce((max, c) => Math.max(max, c.createdAt), 0)
-  return Math.max(newestPage?.updatedAt ?? 0, newestMap?.createdAt ?? 0, newestEvent, newestCalendar)
+  const newestImage = images.reduce((max, i) => Math.max(max, i.createdAt), 0)
+  return Math.max(newestPage?.updatedAt ?? 0, newestMap?.createdAt ?? 0, newestEvent, newestCalendar, newestImage)
 }
 
 /** True if there is data that has changed since the last backup. */
@@ -93,13 +95,15 @@ export function hasUnbackedUpChanges(lastBackup: number | null, latestChange: nu
  */
 export async function unbackedChangeCount(lastBackup: number | null): Promise<number> {
   const since = lastBackup ?? 0
-  const [pages, maps, events] = await Promise.all([
+  const [pages, maps, events, images] = await Promise.all([
     db.pages.where('updatedAt').above(since).count(),
     db.maps.where('createdAt').above(since).count(),
     db.events.toArray(),
+    db.images.toArray(),
   ])
   const eventChanges = events.filter((e) => e.updatedAt > since).length
-  return pages + maps + eventChanges
+  const imageChanges = images.filter((i) => i.createdAt > since).length
+  return pages + maps + eventChanges + imageChanges
 }
 
 const BACKUP_OVERDUE_MS = 7 * 24 * 60 * 60 * 1000 // one week

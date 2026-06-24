@@ -40,6 +40,7 @@ describe('parseBackup — acceptance and counts', () => {
       templates: 0,
       calendars: 0,
       events: 0,
+      images: 0,
     })
   })
 
@@ -63,6 +64,7 @@ describe('parseBackup — acceptance and counts', () => {
       templates: 1,
       calendars: 1,
       events: 2,
+      images: 0,
     })
   })
 

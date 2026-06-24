@@ -1498,3 +1498,50 @@ a { color: inherit; text-decoration: none; }
   position: absolute; bottom: 8px; right: 12px;
   font-size: 11px; color: var(--ink-faint); pointer-events: none;
 }
+
+/* Per-page image gallery (#19) */
+.image-gallery { margin-top: 28px; }
+.gallery-heading { font-size: 18px; margin: 0 0 12px; }
+.gallery-dropzone {
+  border: 1px dashed var(--border); border-radius: var(--radius); padding: 18px;
+  text-align: center; color: var(--ink-faint); cursor: pointer; margin-bottom: 14px;
+  font-size: 13px;
+}
+.gallery-dropzone:hover { background: var(--bg-2); color: var(--ink); }
+.gallery-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;
+}
+.gallery-item { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.gallery-thumb {
+  padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  background: var(--bg-2); cursor: zoom-in; aspect-ratio: 1; display: block;
+}
+.gallery-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery-caption { font-size: 12px; color: var(--ink-dim); text-align: center; }
+.gallery-caption-input {
+  width: 100%; background: var(--bg-2); border: 1px solid var(--border); color: var(--ink);
+  border-radius: 6px; padding: 4px 6px; font-size: 12px;
+}
+.gallery-item-actions { display: flex; gap: 4px; justify-content: center; }
+.gallery-item-actions .ghost-btn { font-size: 11px; padding: 3px 6px; }
+
+.lightbox-backdrop {
+  position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,.85);
+  display: flex; align-items: center; justify-content: center; padding: 32px;
+}
+.lightbox-content { position: relative; max-width: 90vw; max-height: 90vh; display: flex; align-items: center; }
+.lightbox-figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.lightbox-figure img { max-width: 86vw; max-height: 82vh; object-fit: contain; border-radius: 6px; }
+.lightbox-figure figcaption { color: #e0e0e0; font-size: 14px; text-align: center; }
+.lightbox-close {
+  position: absolute; top: -28px; right: 0; background: none; border: none; color: #fff;
+  font-size: 28px; line-height: 1; cursor: pointer;
+}
+.lightbox-nav {
+  background: rgba(0,0,0,.4); border: none; color: #fff; font-size: 40px; line-height: 1;
+  cursor: pointer; padding: 8px 14px; border-radius: 8px; position: absolute; top: 50%;
+  transform: translateY(-50%);
+}
+.lightbox-prev { left: -56px; }
+.lightbox-next { right: -56px; }
+.lightbox-nav:hover { background: rgba(0,0,0,.7); }

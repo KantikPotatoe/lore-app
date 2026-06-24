@@ -9,6 +9,7 @@ import type {
   LorePage,
   MapPin,
   MapRegion,
+  PageImage,
   TimelineEvent,
   WorldMap,
 } from './types'
@@ -23,7 +24,7 @@ import type {
  * changes, and add a MIGRATIONS step (below) for the new version so older
  * backups keep importing.
  */
-export const CURRENT_SCHEMA_VERSION = 7
+export const CURRENT_SCHEMA_VERSION = 8
 
 /** The shape produced by exportAll() and accepted by importAll().
  *  `schemaVersion`/`appVersion` were added in schema v5's tooling; legacy
@@ -39,6 +40,7 @@ export interface BackupData {
   templates?: InfoboxTemplate[]
   calendars?: Calendar[]
   events?: TimelineEvent[]
+  images?: PageImage[]
 }
 
 /** Counts of each record kind in a backup, for the import confirmation. */
@@ -50,6 +52,7 @@ export interface BackupCounts {
   templates: number
   calendars: number
   events: number
+  images: number
 }
 
 /** A defensive "treat anything that isn't an array as empty" helper, so a
@@ -77,6 +80,8 @@ const MIGRATIONS: Record<number, (d: BackupData) => BackupData> = {
   // v7 added pin/region childMapId portals — an additive optional field inside the
   // existing pins/regions arrays, so no migration step is needed (old backups simply
   // lack it ⇒ no portal). The version still bumps to mirror the Dexie store version.
+  // v8 added the per-page image gallery table; fill it in for older backups.
+  7: (d) => ({ ...d, images: asArray(d.images) }),
 }
 
 /**
@@ -127,12 +132,13 @@ export function parseBackup(
       templates: asArray(data.templates).length,
       calendars: asArray(data.calendars).length,
       events: asArray(data.events).length,
+      images: asArray(data.images).length,
     },
   }
 }
 
 export async function exportAll(): Promise<string> {
-  const [pages, maps, pins, regions, templates, calendars, events] = await Promise.all([
+  const [pages, maps, pins, regions, templates, calendars, events, images] = await Promise.all([
     db.pages.toArray(),
     db.maps.toArray(),
     db.pins.toArray(),
@@ -140,6 +146,7 @@ export async function exportAll(): Promise<string> {
     db.templates.toArray(),
     db.calendars.toArray(),
     db.events.toArray(),
+    db.images.toArray(),
   ])
   return JSON.stringify({
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -152,6 +159,7 @@ export async function exportAll(): Promise<string> {
     templates,
     calendars,
     events,
+    images,
   })
 }
 
@@ -170,16 +178,18 @@ function sanitizeBackup(data: BackupData): BackupData {
     ...data,
     pages: asArray(data.pages).map((p) => ({ ...p, content: sanitizeHtml(p.content) })),
     events: asArray(data.events).map((e) => ({ ...e, description: sanitizeHtml(e.description) })),
+    // Images carry no HTML; defend against a non-image payload smuggled into dataUrl.
+    images: asArray(data.images).filter((img) => typeof img.dataUrl === 'string' && img.dataUrl.startsWith('data:image/')),
   }
 }
 
 export async function importAll(json: string): Promise<void> {
   const { data: parsed } = parseBackup(json) // throws before any clear(); migrated to the current shape
   const data = sanitizeBackup(parsed) // strip XSS from untrusted HTML before it touches the DB
-  await db.transaction('rw', [db.pages, db.maps, db.pins, db.regions, db.templates, db.calendars, db.events], async () => {
+  await db.transaction('rw', [db.pages, db.maps, db.pins, db.regions, db.templates, db.calendars, db.events, db.images], async () => {
     await Promise.all([
       db.pages.clear(), db.maps.clear(), db.pins.clear(), db.regions.clear(),
-      db.templates.clear(), db.calendars.clear(), db.events.clear(),
+      db.templates.clear(), db.calendars.clear(), db.events.clear(), db.images.clear(),
     ])
     await db.pages.bulkAdd(asArray(data.pages))
     await db.maps.bulkAdd(asArray(data.maps))
@@ -188,6 +198,7 @@ export async function importAll(json: string): Promise<void> {
     await db.templates.bulkAdd(asArray(data.templates))
     await db.calendars.bulkAdd(asArray(data.calendars))
     await db.events.bulkAdd(asArray(data.events))
+    await db.images.bulkAdd(asArray(data.images))
   })
   // Older backups have no templates / calendars — make sure the built-ins exist.
   await seedTemplates()

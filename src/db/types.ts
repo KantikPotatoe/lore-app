@@ -49,6 +49,17 @@ export interface LorePage {
   updatedAt: number
 }
 
+/** One image in a page's gallery. Stored as a compressed JPEG data URL in its
+ *  own table (not on LorePage) so editing page text never rewrites image bytes. */
+export interface PageImage {
+  id: string
+  pageId: string // owner page
+  dataUrl: string // compressed JPEG data URL (via compressImage)
+  caption: string // optional; '' when none
+  order: number // 0-based position in the grid
+  createdAt: number
+}
+
 /** An uploaded world map image. */
 export interface WorldMap {
   id: string

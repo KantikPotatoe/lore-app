@@ -22,7 +22,7 @@ import pkg from '../../package.json'
 async function clearAll(): Promise<void> {
   await Promise.all([
     db.pages.clear(), db.maps.clear(), db.pins.clear(), db.regions.clear(),
-    db.templates.clear(), db.calendars.clear(), db.events.clear(),
+    db.templates.clear(), db.calendars.clear(), db.events.clear(), db.images.clear(),
   ])
 }
 
@@ -192,16 +192,47 @@ describe('importAll — round-trips', () => {
     expect(await db.templates.count()).toBeGreaterThan(0)
     expect(await db.calendars.count()).toBeGreaterThan(0)
   })
+
+  it('round-trips gallery images', async () => {
+    await db.images.add({ id: 'img1', pageId: 'p1', dataUrl: 'data:image/png;base64,AAA', caption: 'cape', order: 0, createdAt: 1 })
+
+    const json = await exportAll()
+    await db.images.clear()
+    await importAll(json)
+
+    expect(await db.images.get('img1')).toMatchObject({ id: 'img1', pageId: 'p1', caption: 'cape', order: 0 })
+  })
+
+  it('drops imported images whose dataUrl is not a data:image URL', async () => {
+    const json = JSON.stringify({
+      schemaVersion: 8,
+      pages: [],
+      images: [
+        { id: 'ok', pageId: 'p1', dataUrl: 'data:image/jpeg;base64,GOOD', caption: '', order: 0, createdAt: 1 },
+        { id: 'evil', pageId: 'p1', dataUrl: 'javascript:alert(1)', caption: '', order: 1, createdAt: 2 },
+      ],
+    })
+    await importAll(json)
+    expect(await db.images.get('ok')).toBeDefined()
+    expect(await db.images.get('evil')).toBeUndefined()
+  })
 })
 
 describe('schema version', () => {
-  it('is at 7 for Phase 4 (childMapId portals)', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(7)
+  it('is at 8 for the image gallery', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(8)
   })
 
-  it('stamps a v6 backup up to 7 with no data loss', () => {
+  it('stamps an older backup up to current with no data loss', () => {
     const out = migrateBackup({ schemaVersion: 6, pages: [], regions: [] })
-    expect(out.schemaVersion).toBe(7)
+    expect(out.schemaVersion).toBe(8)
     expect(out.regions).toEqual([])
+  })
+})
+
+describe('images migration', () => {
+  it('MIGRATIONS step normalizes a missing images table to an empty array', () => {
+    const out = migrateBackup({ schemaVersion: 7, pages: [] })
+    expect(out.images).toEqual([])
   })
 })

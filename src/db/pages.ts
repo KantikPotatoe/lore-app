@@ -32,6 +32,8 @@ export async function updatePage(id: string, changes: Partial<LorePage>): Promis
 
 export async function deletePage(id: string): Promise<void> {
   await db.pages.delete(id)
+  // Remove this page's gallery images so no orphans are left behind.
+  await db.images.where('pageId').equals(id).delete()
   // Unlink any pins that pointed at this page.
   const linked = await db.pins.where('pageId').equals(id).toArray()
   await Promise.all(linked.map((p) => db.pins.update(p.id, { pageId: null })))
