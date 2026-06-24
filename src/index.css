@@ -401,6 +401,20 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
   max-width: 100%; min-width: 0;
 }
 
+/* [[wiki link]] autocomplete menu — anchored to the caret (viewport-fixed). */
+.wiki-suggest {
+  position: fixed; z-index: 1200; margin-top: 4px; min-width: 180px; max-width: 320px;
+  max-height: 240px; overflow-y: auto; display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 4px; box-shadow: 0 8px 30px rgba(0,0,0,.55);
+}
+.wiki-suggest-item {
+  text-align: left; background: none; border: none; color: var(--ink);
+  padding: 6px 9px; border-radius: 6px; cursor: pointer; font-size: 13.5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wiki-suggest-item:hover, .wiki-suggest-item.active { background: var(--panel-2); }
+
 /* --- Page body: content + infobox columns --------------------------------- */
 .page-body { display: flex; gap: 32px; align-items: flex-start; }
 .page-main { flex: 1; min-width: 0; max-width: 760px; }
@@ -473,6 +487,8 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .infobox-value { color: var(--ink); word-break: break-word; }
 .infobox-row.editing { align-items: center; }
 .infobox-label-input { width: 40%; background: var(--bg-2); border: 1px solid var(--border); color: var(--ink-dim); border-radius: 6px; padding: 5px 7px; font-weight: 600; }
+/* Field name supplied by the page type — read-only, looks like a label not a box. */
+.infobox-label-input.locked { background: none; border: 1px solid transparent; color: var(--ink-dim); align-self: center; box-sizing: border-box; cursor: default; }
 .infobox-value-input { flex: 1; min-width: 0; background: var(--bg-2); border: 1px solid var(--border); color: var(--ink); border-radius: 6px; padding: 5px 7px; }
 
 .infobox-actions { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); flex-wrap: wrap; }
@@ -673,19 +689,31 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .map-body { position: relative; flex: 1; min-height: 0; }
 .map-canvas { position: absolute; inset: 0; background: #0e0c09; }
 
-/* Leaflet pins */
+/* Leaflet pins.
+   The marker is anchored (iconAnchor [0,0]) at the geographic point, then the
+   whole icon is shifted up/left by translate(-50%,-100%) so the DOT's bottom tip
+   lands exactly on that point. Only the dot is in normal flow — the emoji and
+   label are absolutely positioned around it — so their (variable) heights can't
+   inflate the box and push the true anchor away from the dot. If the label were
+   in flow, the anchor would sit at the bottom of the label instead, leaving a
+   fixed pixel offset that reads as the pin "sliding" off its spot as you zoom. */
 .pin-icon { position: relative; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; white-space: nowrap; }
 .pin-dot {
   width: 16px; height: 16px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
   background: var(--accent-soft); border: 2px solid #1c160a; box-shadow: 0 2px 4px rgba(0,0,0,.5);
 }
 .pin-icon.selected .pin-dot { background: #fff; }
-.pin-emoji { font-size: 15px; line-height: 1; margin-bottom: 2px; filter: drop-shadow(0 1px 1px rgba(0,0,0,.6)); }
+.pin-emoji {
+  position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+  margin-bottom: 2px; font-size: 15px; line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.6));
+}
 .pin-portal {
   position: absolute; top: -6px; right: -10px; font-size: 12px; line-height: 1;
   filter: drop-shadow(0 1px 1px rgba(0,0,0,.7)); pointer-events: none;
 }
 .pin-label {
+  position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
   margin-top: 4px; font-size: 12px; color: var(--ink); background: rgba(20,18,14,.85);
   padding: 1px 7px; border-radius: 10px; border: 1px solid var(--border); font-weight: 600;
 }
@@ -746,6 +774,9 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .pin-panel-head h3 { margin: 0; font-family: var(--display); }
 .pin-panel label { font-size: 12px; color: var(--ink-faint); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
 .pin-panel input, .pin-panel select { background: var(--bg-2); border: 1px solid var(--border); color: var(--ink); border-radius: 7px; padding: 8px 10px; }
+.pin-link-row { display: flex; gap: 6px; align-items: center; }
+.pin-link-row select { flex: 1; min-width: 0; }
+.pin-link-row .mini-btn { flex-shrink: 0; white-space: nowrap; }
 .region-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
 .region-swatch {
   width: 22px; height: 22px; border-radius: 6px; border: 2px solid transparent;

@@ -3,12 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   db, addMap, addPin, addRegion, deleteMap, pinType, regionStyle,
-  mapBreadcrumb, ancestorMapIds,
+  mapBreadcrumb, ancestorMapIds, createPage,
   TYPE_COLORS, type MapPin, type MapRegion, type InfoboxTemplate,
 } from '../db'
 import MapView, { type PinMarkerStyle, type FocusTarget } from '../components/MapView'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { compressImage } from '../imageUtils'
+import { useEscapeKey } from '../useEscapeKey'
 
 export default function MapRoute() {
   const navigate = useNavigate()
@@ -193,6 +194,16 @@ export default function MapRoute() {
     setFocusTarget((t) => ({ kind: 'region', id, nonce: (t?.nonce ?? 0) + 1 }))
   }
 
+  // Esc backs out of the open map UI one layer at a time (panel → mode), unless
+  // the delete-map confirmation owns it.
+  useEscapeKey(() => {
+    if (showFind) { setShowFind(false); setFindQuery('') }
+    else if (selectedPinId) setSelectedPinId(null)
+    else if (selectedRegionId) setSelectedRegionId(null)
+    else if (addMode) setAddMode(false)
+    else if (drawMode) setDrawMode(false)
+  }, !confirmDeleteMap)
+
   // Read from visiblePins so the pin panel closes when its type is filtered out.
   const selectedPin = visiblePins.find((p) => p.id === selectedPinId) ?? null
   const selectedRegion = visibleRegions.find((r) => r.id === selectedRegionId) ?? null
@@ -226,6 +237,14 @@ export default function MapRoute() {
     const id = await addPin(currentMap.id, lat, lng)
     setSelectedPinId(id)
     setAddMode(false)
+  }
+
+  // Create a fresh page named after the marker's label and link it. Lets you
+  // spin up a stub page straight from the map instead of only picking an
+  // existing one (mirrors RefField's inline "create new page").
+  async function createLinkedPage(label: string, link: (pageId: string) => void) {
+    const id = await createPage({ title: label.trim() || 'New page' })
+    link(id)
   }
 
   async function handleRegionCreate(points: [number, number][]) {
@@ -381,13 +400,24 @@ export default function MapRoute() {
               onChange={(e) => db.pins.update(selectedPin.id, { label: e.target.value })}
             />
             <label>Linked page</label>
-            <select
-              value={selectedPin.pageId ?? ''}
-              onChange={(e) => db.pins.update(selectedPin.id, { pageId: e.target.value || null })}
-            >
-              <option value="">— none —</option>
-              {allPages.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-            </select>
+            <div className="pin-link-row">
+              <select
+                value={selectedPin.pageId ?? ''}
+                onChange={(e) => db.pins.update(selectedPin.id, { pageId: e.target.value || null })}
+              >
+                <option value="">— none —</option>
+                {allPages.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+              </select>
+              {!selectedPin.pageId && (
+                <button
+                  className="mini-btn"
+                  title="Create a new page from this pin's label"
+                  onClick={() => createLinkedPage(selectedPin.label, (id) => db.pins.update(selectedPin.id, { pageId: id }))}
+                >
+                  ＋ New
+                </button>
+              )}
+            </div>
             <label>Opens map</label>
             <select
               value={selectedPin.childMapId ?? ''}
@@ -429,13 +459,24 @@ export default function MapRoute() {
               onChange={(e) => db.regions.update(selectedRegion.id, { label: e.target.value })}
             />
             <label>Linked page</label>
-            <select
-              value={selectedRegion.pageId ?? ''}
-              onChange={(e) => db.regions.update(selectedRegion.id, { pageId: e.target.value || null })}
-            >
-              <option value="">— none —</option>
-              {allPages.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-            </select>
+            <div className="pin-link-row">
+              <select
+                value={selectedRegion.pageId ?? ''}
+                onChange={(e) => db.regions.update(selectedRegion.id, { pageId: e.target.value || null })}
+              >
+                <option value="">— none —</option>
+                {allPages.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+              </select>
+              {!selectedRegion.pageId && (
+                <button
+                  className="mini-btn"
+                  title="Create a new page from this region's label"
+                  onClick={() => createLinkedPage(selectedRegion.label, (id) => db.regions.update(selectedRegion.id, { pageId: id }))}
+                >
+                  ＋ New
+                </button>
+              )}
+            </div>
             <label>Colour</label>
             <div className="region-swatches">
               <button

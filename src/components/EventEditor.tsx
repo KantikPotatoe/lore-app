@@ -4,6 +4,7 @@ import LoreEditor from './LoreEditor'
 import ConfirmDialog from './ConfirmDialog'
 import { addEvent, updateEvent, deleteEvent, type Calendar, type TimelineEvent, type LorePage } from '../db'
 import { eraForYear } from '../calendar'
+import { useEscapeKey } from '../useEscapeKey'
 
 interface Props {
   event?: TimelineEvent
@@ -54,6 +55,9 @@ export default function EventEditor({ event, calendars, allPages, onClose }: Pro
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+
+  // Esc closes the editor, unless the delete confirmation owns it.
+  useEscapeKey(onClose, !confirmDelete)
 
   const cal = calendars.find((c) => c.id === draft.calendarId) ?? calendars[0]
   const maxDay = cal?.months[draft.startMonth]?.days ?? 28

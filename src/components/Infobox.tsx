@@ -32,6 +32,16 @@ export default function Infobox({ box, editable, onChange, onRemove, title, acce
   const fileRef = useRef<HTMLInputElement>(null)
   const templates = useLiveQuery(() => db.templates.orderBy('name').toArray(), []) ?? []
 
+  // Field labels defined by this box's page type. Those are managed in /templates,
+  // so in edit mode we show them as read-only text (you fill in the value, not the
+  // name). Fields you add by hand aren't in this set and stay freely renamable.
+  const typeLabels = new Set(
+    templates
+      .find((t) => t.name === box.template)
+      ?.items.filter((it) => !it.separator)
+      .map((it) => it.label.toLowerCase()) ?? [],
+  )
+
   // A separator only "counts" as content if it has a following field with a value.
   const filledFields = box.fields.filter((fld) => fld.kind === 'separator' || fld.value.trim())
   const visibleRows = dropEmptySeparators(filledFields)
@@ -133,11 +143,17 @@ export default function Infobox({ box, editable, onChange, onRemove, title, acce
                 </div>
               ) : (
                 <div key={fld.id} className="infobox-row editing">
-                  <input
-                    className="infobox-label-input"
-                    value={fld.label}
-                    onChange={(e) => setField(fld.id, { label: e.target.value })}
-                  />
+                  {typeLabels.has(fld.label.toLowerCase()) ? (
+                    <span className="infobox-label-input locked" title="Defined by the page type — edit field names in Templates">
+                      {fld.label}
+                    </span>
+                  ) : (
+                    <input
+                      className="infobox-label-input"
+                      value={fld.label}
+                      onChange={(e) => setField(fld.id, { label: e.target.value })}
+                    />
+                  )}
                   {fld.fieldType === 'ref' && fld.refType ? (
                     <RefField
                       value={fld.value}
