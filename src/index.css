@@ -278,6 +278,18 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .page-view { max-width: 1120px; margin: 0 auto; padding: 36px 40px 100px; }
 .page-header { border-left: 3px solid var(--accent); padding-left: 18px; margin-bottom: 24px; }
 .page-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+
+.page-breadcrumb {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; margin-bottom: 12px; min-width: 0;
+}
+.page-crumb-link { font-weight: 600; }
+.page-crumb-link:hover { text-decoration: underline; }
+.page-crumb-sep { color: var(--ink-faint); }
+.page-crumb-current {
+  color: var(--ink-dim); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
 .page-title { font-family: var(--display); font-size: 36px; margin: 0; line-height: 1.1; }
 .title-input {
   font-family: var(--display); font-size: 36px; background: transparent; border: none;

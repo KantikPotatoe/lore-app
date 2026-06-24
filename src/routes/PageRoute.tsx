@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, createPage, updatePage, renamePage, deletePage, findPageIdByTitle, defaultInfobox, applyTemplate, STATUSES, categoryColor, statusColor, pageStatus, type Infobox as InfoboxType, type LorePage } from '../db'
@@ -9,6 +9,8 @@ import ImageGallery from '../components/ImageGallery'
 import TableOfContents from '../components/TableOfContents'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { maybeTakeSnapshot } from '../snapshots'
+import Breadcrumb from '../components/Breadcrumb'
+import { recordRecent } from '../recents'
 
 export default function PageRoute() {
   const { id = '' } = useParams()
@@ -42,6 +44,11 @@ export default function PageRoute() {
       mapName: mapName.get(p.mapId) ?? 'Map',
     }))
   }, [id]) ?? []
+
+  // Record this page in the per-world "recently viewed" list once it has loaded.
+  useEffect(() => {
+    if (page?.id === id && id) recordRecent(id)
+  }, [page?.id, id])
 
   // Start in view mode whenever you open a different page. Resetting during
   // render (rather than in an effect) avoids a flash of the previous page's
@@ -118,6 +125,7 @@ export default function PageRoute() {
   return (
     <div className="page-view">
       <header className="page-header" style={{ borderColor: categoryColor(page.category) }}>
+        <Breadcrumb category={page.category} title={page.title} color={categoryColor(page.category)} />
         <div className="page-header-row">
           {editing ? (
             <input
