@@ -24,6 +24,8 @@ const EXPECTED_FUNCTIONS = [
   // maps.ts
   'addMap', 'deleteMap', 'addPin', 'pinType', 'addRegion', 'regionStyle',
   'findParentMapId', 'mapBreadcrumb', 'ancestorMapIds',
+  // images.ts
+  'addImage', 'updateImageCaption', 'deleteImage', 'reorderImages', 'setAsPortrait',
   // graph.ts
   'buildGraphData',
   // calendar.ts

@@ -12,6 +12,7 @@
 //   templates.ts  — page types: built-ins, seeding, infobox/template helpers, CRUD
 //   pages.ts      — page CRUD, rename + link-rewrite, backlinks
 //   maps.ts       — maps, pins & regions CRUD, pin/region type resolution
+//   images.ts     — per-page gallery CRUD, portrait assignment
 //   graph.ts      — relationship-graph builder
 //   calendar.ts   — timeline calendar/event CRUD (cached absolute-day upkeep)
 //   backup.ts     — exportAll / importAll / parseBackup
@@ -22,6 +23,7 @@ export * from './schema'
 export * from './templates'
 export * from './pages'
 export * from './maps'
+export * from './images'
 export * from './graph'
 export * from './calendar'
 export * from './backup'
