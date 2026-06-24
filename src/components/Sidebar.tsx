@@ -1,13 +1,30 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, createPage, categoryColor, statusColor, pageStatus, type LorePage } from '../db'
 import { getLore, currentLoreId } from '../lores'
 import { showPageHover, scheduleWikiHoverClose } from '../wikiLinkHover'
+import { getRecent, pruneRecent, subscribeRecents } from '../recents'
+import { getCollapsedGroups, toggleCollapsedGroup, RECENT_GROUP } from '../sidebarPrefs'
 
 // Stable empty array so the live queries don't hand `useMemo` a fresh `[]`
 // (and force a recompute) on every render while data is still loading.
 const NO_PAGES: LorePage[] = []
+
+function PageLink({ page, active }: { page: LorePage; active: boolean }) {
+  return (
+    <Link
+      to={`/page/${page.id}`}
+      className={active ? 'page-link active' : 'page-link'}
+      onMouseEnter={(e) => showPageHover(page.id, page.title, e.currentTarget.getBoundingClientRect())}
+      onMouseLeave={scheduleWikiHoverClose}
+    >
+      <span className="dot" style={{ background: categoryColor(page.category) }} />
+      <span className="page-link-title">{page.title}</span>
+      <span className="status-pip" title={pageStatus(page)} style={{ background: statusColor(pageStatus(page)) }} />
+    </Link>
+  )
+}
 
 export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) {
   const navigate = useNavigate()
@@ -17,6 +34,14 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) 
   const templates = useLiveQuery(() => db.templates.toArray(), []) ?? []
   const activeLore = useLiveQuery(() => getLore(currentLoreId()), [])
   const loreName = activeLore?.name ?? 'Lore Codex'
+
+  const [loreId] = useState(currentLoreId)
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(getCollapsedGroups(loreId)))
+  // Recent ids live in state, refreshed by the recents bus, so the list updates
+  // the moment a page is viewed (visiting a page doesn't touch the `pages` query).
+  const [recentIds, setRecentIds] = useState<string[]>(() => getRecent(loreId))
+  useEffect(() => subscribeRecents(() => setRecentIds(getRecent(loreId))), [loreId])
+  const toggle = (name: string) => setCollapsed(new Set(toggleCollapsedGroup(name, loreId)))
 
   // Group all pages by category.
   const grouped = useMemo(() => {
@@ -28,6 +53,17 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) 
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   }, [pages])
+
+  // Resolve per-world recent ids to live page records; drop any that were deleted.
+  const recentPages = useMemo(() => {
+    const byId = new Map(pages.map((p) => [p.id, p]))
+    return recentIds.filter((id) => byId.has(id)).map((id) => byId.get(id)!)
+  }, [pages, recentIds])
+
+  // Prune ids of deleted pages from storage (side-effect kept out of the memo).
+  useEffect(() => {
+    pruneRecent(new Set(pages.map((p) => p.id)), loreId)
+  }, [pages, loreId])
 
   async function handleNew() {
     const id = await createPage()
@@ -71,33 +107,48 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) 
       />
 
       <div className="page-list">
+        {recentPages.length > 0 && (
+          <div className="page-group">
+            <div className="group-head">
+              <button
+                className="group-toggle"
+                aria-expanded={!collapsed.has(RECENT_GROUP)}
+                onClick={() => toggle(RECENT_GROUP)}
+              >
+                {collapsed.has(RECENT_GROUP) ? '▸' : '▾'}
+              </button>
+              <span className="group-label group-label-static">Recent</span>
+            </div>
+            {!collapsed.has(RECENT_GROUP) &&
+              recentPages.map((p) => (
+                <PageLink key={p.id} page={p} active={p.id === currentId} />
+              ))}
+          </div>
+        )}
+
         {grouped.length === 0 && <p className="empty-hint">No pages yet. Create your first one!</p>}
         {grouped.map(([category, items]) => (
           <div key={category} className="page-group">
-            <Link
-              to={`/browse/${encodeURIComponent(category)}`}
-              className={`group-label${browseCategory === category ? ' active' : ''}`}
-              style={{ color: categoryColor(category) }}
-            >
-              {category} <span className="group-count">{items.length}</span>
-            </Link>
-            {items.map((p) => (
-              <Link
-                key={p.id}
-                to={`/page/${p.id}`}
-                className={p.id === currentId ? 'page-link active' : 'page-link'}
-                onMouseEnter={(e) => showPageHover(p.id, p.title, e.currentTarget.getBoundingClientRect())}
-                onMouseLeave={scheduleWikiHoverClose}
+            <div className="group-head">
+              <button
+                className="group-toggle"
+                aria-expanded={!collapsed.has(category)}
+                onClick={() => toggle(category)}
               >
-                <span className="dot" style={{ background: categoryColor(p.category) }} />
-                <span className="page-link-title">{p.title}</span>
-                <span
-                  className="status-pip"
-                  title={pageStatus(p)}
-                  style={{ background: statusColor(pageStatus(p)) }}
-                />
+                {collapsed.has(category) ? '▸' : '▾'}
+              </button>
+              <Link
+                to={`/browse/${encodeURIComponent(category)}`}
+                className={`group-label${browseCategory === category ? ' active' : ''}`}
+                style={{ color: categoryColor(category) }}
+              >
+                {category} <span className="group-count">{items.length}</span>
               </Link>
-            ))}
+            </div>
+            {!collapsed.has(category) &&
+              items.map((p) => (
+                <PageLink key={p.id} page={p} active={p.id === currentId} />
+              ))}
           </div>
         ))}
       </div>

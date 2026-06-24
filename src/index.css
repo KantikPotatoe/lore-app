@@ -126,6 +126,17 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
   font-family: var(--display); font-size: 12px; text-transform: uppercase;
   letter-spacing: 1px; padding: 8px 8px 4px; display: flex; gap: 6px; align-items: center;
 }
+.group-head { display: flex; align-items: center; gap: 2px; }
+.group-toggle {
+  background: none; border: none; color: var(--ink-faint);
+  font-size: 10px; line-height: 1; padding: 6px 2px 4px 4px; cursor: pointer; flex-shrink: 0;
+}
+.group-toggle:hover { color: var(--ink); }
+.group-head .group-label { flex: 1; min-width: 0; }
+.group-label-static {
+  font-family: var(--display); font-size: 12px; text-transform: uppercase;
+  letter-spacing: 1px; padding: 8px 8px 4px 2px; color: var(--ink-dim);
+}
 .group-count { color: var(--ink-faint); font-family: var(--sans); }
 .page-link {
   display: flex; align-items: center; gap: 9px; padding: 6px 9px; border-radius: 7px;
@@ -278,6 +289,18 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .page-view { max-width: 1120px; margin: 0 auto; padding: 36px 40px 100px; }
 .page-header { border-left: 3px solid var(--accent); padding-left: 18px; margin-bottom: 24px; }
 .page-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+
+.page-breadcrumb {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; margin-bottom: 12px; min-width: 0;
+}
+.page-crumb-link { font-weight: 600; }
+.page-crumb-link:hover { text-decoration: underline; }
+.page-crumb-sep { color: var(--ink-faint); }
+.page-crumb-current {
+  color: var(--ink-dim); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
 .page-title { font-family: var(--display); font-size: 36px; margin: 0; line-height: 1.1; }
 .title-input {
   font-family: var(--display); font-size: 36px; background: transparent; border: none;
@@ -1588,3 +1611,20 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .lightbox-prev { left: -56px; }
 .lightbox-next { right: -56px; }
 .lightbox-nav:hover { background: rgba(0,0,0,.7); }
+
+/* Route transition: content fades in and rises slightly on navigation. */
+.route-fade { height: 100%; animation: route-fade-in 120ms ease-out; }
+@keyframes route-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Floating back-to-top, bottom-right of the viewport (clear of the sidebar). */
+.back-to-top {
+  position: fixed; bottom: 22px; right: 22px; z-index: 50;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: linear-gradient(180deg, var(--accent-soft), var(--accent));
+  color: #2a210b; border: none; font-size: 18px; line-height: 1;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); cursor: pointer;
+}
+.back-to-top:hover { filter: brightness(1.07); }

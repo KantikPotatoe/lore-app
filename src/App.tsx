@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { liveQuery } from 'dexie'
 import Sidebar from './components/Sidebar'
@@ -24,6 +24,13 @@ import { installStorageErrorListener } from './storageError'
 export default function App() {
   const location = useLocation()
   const [searchOpen, setSearchOpen] = useState(false)
+  const contentRef = useRef<HTMLElement>(null)
+  const [showTop, setShowTop] = useState(false)
+
+  // Reset the scroll container to the top whenever the route path changes.
+  useEffect(() => {
+    contentRef.current?.scrollTo({ top: 0 })
+  }, [location.pathname])
 
   useEffect(() => {
     installStorageErrorListener() // surface IndexedDB quota/eviction write failures
@@ -59,17 +66,28 @@ export default function App() {
     <div className="app-shell">
       <StorageErrorBanner />
       <Sidebar onOpenSearch={() => setSearchOpen(true)} />
-      <main className="content">
+      <main className="content" ref={contentRef} onScroll={(e) => setShowTop(e.currentTarget.scrollTop > 600)}>
         <BackupBanner />
-        <Routes>
-          <Route path="/home" element={<HomeRoute />} />
-          <Route path="/page/:id" element={<PageRoute />} />
-          <Route path="/map" element={<MapRoute />} />
-          <Route path="/graph" element={<GraphRoute />} />
-          <Route path="/timeline" element={<TimelineRoute />} />
-          <Route path="/templates" element={<TemplatesRoute />} />
-          <Route path="/browse/:category" element={<CategoryRoute />} />
-        </Routes>
+        <div className="route-fade" key={location.pathname}>
+          <Routes>
+            <Route path="/home" element={<HomeRoute />} />
+            <Route path="/page/:id" element={<PageRoute />} />
+            <Route path="/map" element={<MapRoute />} />
+            <Route path="/graph" element={<GraphRoute />} />
+            <Route path="/timeline" element={<TimelineRoute />} />
+            <Route path="/templates" element={<TemplatesRoute />} />
+            <Route path="/browse/:category" element={<CategoryRoute />} />
+          </Routes>
+        </div>
+        {showTop && (
+          <button
+            className="back-to-top"
+            aria-label="Back to top"
+            onClick={() => contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+          >
+            ↑
+          </button>
+        )}
       </main>
       {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
       <WikiLinkPopover />
