@@ -14,8 +14,11 @@
   --ink-faint: #82785f;
   --accent: #c9a24b;     /* gold */
   --accent-soft: #e0a458;
+  --accent-glow: rgba(201, 162, 75, 0.18); /* faint gold ring (= --accent @ 18%) */
   --danger: #c8645a;
   --radius: 10px;
+  /* Greyscale fractal-noise grain layered under panel fills (moderate intensity). */
+  --parchment-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)' opacity='0.045'/%3E%3C/svg%3E");
   --serif: 'EB Garamond', Georgia, 'Times New Roman', serif;
   --display: 'Cinzel', Georgia, serif;
   --sans: 'Inter', system-ui, sans-serif;
@@ -79,6 +82,39 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
   }
 }
 
+/* --- Parchment grain ------------------------------------------------------ *
+   A faint greyscale noise layered over the (solid) panel fills so chrome reads
+   as material, not flat colour. The reading surface (.ProseMirror) is excluded
+   deliberately for legibility. Reusable via .parchment; also applied directly
+   to the standing chrome selectors so no markup changes are needed. */
+.parchment,
+.infobox,
+.lore-card,
+.ov-card,
+.browse-card,
+.modal-dialog,
+.sidebar {
+  background-image: var(--parchment-noise);
+}
+
+/* --- Layered elevation ---------------------------------------------------- *
+   Hairline border (already present) + soft drop shadow + a 1px inner top
+   highlight, so panels read as lit from above rather than as flat fills.
+   Deliberately scoped to floating content panels. Excluded: .browse-card and
+   .modal-dialog carry their own (hover / deep) shadows; .sidebar is structural
+   chrome, not a floating panel. Note: on an overflow:hidden panel whose child
+   paints over the top edge (e.g. .infobox's coloured title bar), the inner
+   highlight is occluded and the lit-from-above cue comes from the drop shadow. */
+.elevated,
+.lore-card,
+.infobox,
+.ov-card {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    0 6px 18px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
 /* --- Layout --------------------------------------------------------------- */
 .app-shell { display: flex; height: 100%; }
 .content { flex: 1; overflow-y: auto; }
@@ -100,7 +136,7 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .nav-item {
   flex: 1 1 auto; text-align: center; padding: 6px 8px; border-radius: 8px;
   color: var(--ink-dim); border: 1px solid transparent; font-size: 13px;
-  white-space: nowrap;
+  white-space: nowrap; transition: background 0.12s, color 0.12s, transform 0.12s;
 }
 .nav-item:hover { background: var(--panel); color: var(--ink); }
 .nav-item.active { background: var(--panel-2); color: var(--ink); border-color: var(--border); }
@@ -141,9 +177,13 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .page-link {
   display: flex; align-items: center; gap: 9px; padding: 6px 9px; border-radius: 7px;
   color: var(--ink-dim); font-size: 14px;
+  transition: background 0.12s, color 0.12s, transform 0.12s, box-shadow 0.12s;
 }
-.page-link:hover { background: var(--panel); color: var(--ink); }
-.page-link.active { background: var(--panel-2); color: var(--ink); }
+.page-link:hover { background: var(--panel); color: var(--ink); transform: translateX(2px); }
+.page-link.active {
+  background: var(--panel-2); color: var(--ink);
+  box-shadow: inset 2px 0 0 var(--accent), 0 0 0 1px var(--accent-glow);
+}
 .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .sidebar-footer { padding: 10px 16px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 12px; }
 
@@ -174,7 +214,7 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
   max-width: 460px;
   width: 100%;
   padding: 22px 24px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 .modal-title {
   font-family: var(--display);
@@ -222,7 +262,11 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .stat { color: var(--ink-dim); font-size: 15px; }
 .stat-num { font-family: var(--display); font-size: 28px; color: var(--accent); margin-right: 6px; }
 .home-section { margin-top: 40px; }
-.home-section h2 { font-family: var(--display); font-size: 20px; color: var(--ink); border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.home-section h2 {
+  font-family: var(--display); font-size: 20px; color: var(--ink);
+  border-bottom: 1px solid transparent; padding-bottom: 8px;
+  border-image: linear-gradient(to right, var(--accent) 0%, var(--border) 28%, var(--border) 100%) 1;
+}
 .muted { color: var(--ink-faint); }
 .ghost-btn.active { border-color: var(--accent); color: var(--accent); }
 
@@ -348,7 +392,18 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .ProseMirror h1, .ProseMirror h2, .ProseMirror h3 { font-family: var(--display); color: var(--ink); line-height: 1.2; }
 .ProseMirror h1 { font-size: 28px; } .ProseMirror h2 { font-size: 23px; } .ProseMirror h3 { font-size: 20px; }
 .ProseMirror blockquote { border-left: 3px solid var(--accent); margin: 1em 0; padding-left: 16px; color: var(--ink-dim); font-style: italic; }
-.ProseMirror hr { border: none; border-top: 1px solid var(--border); margin: 1.6em 0; }
+/* Ornamental divider: a gold fleuron centred on a hairline rule that gaps in
+   the middle to frame it. Reusable via .ornament-divider; also applied to the
+   article-body <hr> (same Tiptap render in view + edit mode). */
+.ornament-divider,
+.ProseMirror hr {
+  border: none;
+  height: 22px;
+  margin: 1.8em 0;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Cpath d='M11 4 L18 11 L11 18 L4 11 Z' fill='none' stroke='%23c9a24b' stroke-width='1.3'/%3E%3C/svg%3E") center / 22px 22px no-repeat,
+    linear-gradient(to right, transparent, var(--border) 20%, transparent 44%, transparent 56%, var(--border) 80%, transparent) center / 100% 1px no-repeat;
+}
 .ProseMirror ul, .ProseMirror ol { padding-left: 1.4em; }
 .ProseMirror img {
   max-width: 100%;
