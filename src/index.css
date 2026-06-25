@@ -355,6 +355,10 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
   text-overflow: ellipsis; white-space: nowrap;
 }
 .page-title { font-family: var(--display); font-size: 36px; margin: 0; line-height: 1.1; }
+/* Title + type glyph group, kept together as one flex child of .page-header-row. */
+.page-title-wrap { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+.page-title-wrap .title-input { flex: 1; }
+.page-type-glyph { font-size: 28px; line-height: 1; flex-shrink: 0; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5)); }
 .title-input {
   font-family: var(--display); font-size: 36px; background: transparent; border: none;
   border-bottom: 1px dashed var(--border); color: var(--ink); width: 100%; padding: 0 0 4px;

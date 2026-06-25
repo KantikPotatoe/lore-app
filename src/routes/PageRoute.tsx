@@ -127,20 +127,27 @@ export default function PageRoute() {
       <header className="page-header">
         <Breadcrumb category={page.category} title={page.title} color={categoryColor(page.category)} />
         <div className="page-header-row">
-          {editing ? (
-            <input
-              className="title-input"
-              value={titleDraft ?? page.title}
-              onChange={(e) => setTitleDraft(e.target.value)}
-              onBlur={commitTitle}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur()
-              }}
-              placeholder="Page title"
-            />
-          ) : (
-            <h1 className="page-title">{page.title}</h1>
-          )}
+          <div className="page-title-wrap">
+            {templates.find((t) => t.name === page.category)?.icon && (
+              <span className="page-type-glyph" aria-hidden="true">
+                {templates.find((t) => t.name === page.category)?.icon}
+              </span>
+            )}
+            {editing ? (
+              <input
+                className="title-input"
+                value={titleDraft ?? page.title}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur()
+                }}
+                placeholder="Page title"
+              />
+            ) : (
+              <h1 className="page-title">{page.title}</h1>
+            )}
+          </div>
           <div className="page-header-actions">
             <button
               className="ghost-btn"
