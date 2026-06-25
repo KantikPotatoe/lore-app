@@ -715,6 +715,28 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
   font-size: 12px; white-space: pre-wrap; word-break: break-word; color: var(--ink-dim);
 }
 
+/* --- Empty / first-run states --------------------------------------------- *
+   Shared designed empty state: a glyph in a faint gold-ringed circle, a warm
+   serif line, an optional message, and the screen's primary CTA. Reused across
+   the no-pages (first-run), empty-category, no-map, no-events, and empty-graph
+   screens. */
+.empty-state {
+  max-width: 460px; margin: 0 auto; padding: 64px 24px;
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px;
+}
+.empty-state-ornament {
+  width: 84px; height: 84px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 38px; line-height: 1;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.empty-state-title { font-family: var(--display); font-size: 24px; color: var(--ink); margin: 0; }
+.empty-state-msg { color: var(--ink-dim); font-family: var(--serif); font-size: 16px; margin: 0; line-height: 1.5; }
+.empty-state-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+.empty-state-actions .primary-btn { width: auto; }
+.empty-state-msg code { background: var(--panel-2); padding: 1px 6px; border-radius: 4px; font-size: 14px; color: var(--accent-soft); }
+
 .backup-status { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 18px; }
 .status-row {
   display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ink-dim);
