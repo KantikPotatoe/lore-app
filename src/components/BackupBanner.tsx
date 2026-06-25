@@ -10,6 +10,7 @@ import {
   downloadBackup,
   timeAgo,
 } from '../backup'
+import { getSettings } from '../settings'
 
 // A thin reminder bar shown across the app whenever there is data that hasn't
 // been backed up yet. Dismissible for the current session.
@@ -20,12 +21,13 @@ export default function BackupBanner() {
   const lastBackup = useLiveQuery(async () => (await db.meta.get(LAST_BACKUP_KEY))?.value as number | undefined, [])
   const latestChange = useLiveQuery(() => latestChangeTime(), []) ?? 0
   const count = useLiveQuery(() => unbackedChangeCount(lastBackup ?? null), [lastBackup, latestChange]) ?? 0
+  const overdueDays = useLiveQuery(async () => (await getSettings()).backupOverdueDays, []) ?? 7
 
   const needsBackup = hasUnbackedUpChanges(lastBackup ?? null, latestChange)
   if (dismissed || !needsBackup) return null
 
-  // Escalate styling when a backup is overdue: never taken, or older than a week.
-  const urgent = isBackupOverdue(lastBackup ?? null)
+  // Escalate styling when a backup is overdue: never taken, or older than the configured days.
+  const urgent = isBackupOverdue(lastBackup ?? null, overdueDays)
 
   async function backup() {
     setBusy(true)

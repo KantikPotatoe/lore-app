@@ -4,32 +4,15 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
   db,
   createPage,
-  importAll,
-  parseBackup,
   getMeta,
   setMeta,
   categoryColor,
   statusColor,
   pageStatus,
   STATUSES,
-  getSnapshots,
   type LorePage,
-  type BackupCounts,
 } from '../db'
-import {
-  LAST_BACKUP_KEY,
-  downloadBackup,
-  downloadPreImportBackup,
-  latestChangeTime,
-  hasUnbackedUpChanges,
-  unbackedChangeCount,
-  isStoragePersisted,
-  requestPersistentStorage,
-  timeAgo,
-} from '../backup'
-import ConfirmDialog from '../components/ConfirmDialog'
 import EmptyState from '../components/EmptyState'
-import { exportAsHtml } from '../htmlExport'
 import { getLore, renameLore, setLoreBanner, currentLoreId } from '../lores'
 import { compressImage } from '../imageUtils'
 
@@ -58,16 +41,7 @@ const DEFAULT_HOME: HomeConfig = {
 
 export default function HomeRoute() {
   const navigate = useNavigate()
-  const fileRef = useRef<HTMLInputElement>(null)
   const bannerFileRef = useRef<HTMLInputElement>(null)
-  const [persisted, setPersisted] = useState<boolean | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [exporting, setExporting] = useState(false)
-  const [pendingImport, setPendingImport] = useState<{
-    json: string
-    current: BackupCounts
-    incoming: BackupCounts
-  } | null>(null)
   const [customizing, setCustomizing] = useState(false)
   const [loreNameDraft, setLoreNameDraft] = useState<string | null>(null)
 
@@ -94,12 +68,6 @@ export default function HomeRoute() {
     [],
   ) ?? []
   const mapCount = useLiveQuery(() => db.maps.count(), []) ?? 0
-  const lastBackup = useLiveQuery(async () => (await db.meta.get(LAST_BACKUP_KEY))?.value as number | undefined, [])
-  const snapshots = useLiveQuery(() => getSnapshots(), []) ?? []
-  const latestChange = useLiveQuery(() => latestChangeTime(), []) ?? 0
-
-  const needsBackup = hasUnbackedUpChanges(lastBackup ?? null, latestChange)
-  const unbacked = useLiveQuery(() => unbackedChangeCount(lastBackup ?? null), [lastBackup, latestChange]) ?? 0
 
   // -- overview figures -----------------------------------------------------
   const total = pages.length
@@ -113,10 +81,6 @@ export default function HomeRoute() {
     [pages],
   )
   const completePct = total ? Math.round((byStatus.find((s) => s.name === 'Complete')!.count / total) * 100) : 0
-
-  useEffect(() => {
-    isStoragePersisted().then(setPersisted)
-  }, [])
 
   // Persist whenever the draft changes (functional update keeps merges correct
   // even across fast successive edits to different fields).
@@ -146,71 +110,6 @@ export default function HomeRoute() {
     const id = await createPage()
     navigate(`/page/${id}`)
   }
-
-  async function handleExportHtml() {
-    setExporting(true)
-    try {
-      await exportAsHtml()
-    } finally {
-      setExporting(false)
-    }
-  }
-
-  async function handleBackup() {
-    setBusy(true)
-    try {
-      await downloadBackup()
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function enablePersist() {
-    setPersisted(await requestPersistentStorage())
-  }
-
-  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const text = await file.text()
-    let incoming: BackupCounts
-    try {
-      incoming = parseBackup(text).counts
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'That file could not be read.')
-      e.target.value = ''
-      return
-    }
-    const [pages, maps, pins, regions, templates, calendars, events, images] = await Promise.all([
-      db.pages.count(),
-      db.maps.count(),
-      db.pins.count(),
-      db.regions.count(),
-      db.templates.count(),
-      db.calendars.count(),
-      db.events.count(),
-      db.images.count(),
-    ])
-    setPendingImport({ json: text, current: { pages, maps, pins, regions, templates, calendars, events, images }, incoming })
-    e.target.value = ''
-  }
-
-  async function confirmImport() {
-    if (!pendingImport) return
-    const { json } = pendingImport
-    setPendingImport(null)
-    setBusy(true)
-    try {
-      await downloadPreImportBackup()
-      await importAll(json)
-      alert('Backup restored.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const fmtCounts = (c: BackupCounts) =>
-    `${c.pages} pages · ${c.maps} maps · ${c.pins} pins · ${c.regions} regions · ${c.templates} page-types · ${c.calendars} calendars · ${c.events} events`
 
   return (
     <div className="home">
@@ -400,107 +299,6 @@ export default function HomeRoute() {
           )}
         </section>
       )}
-
-      {/* Snapshots */}
-      <section className="home-section">
-        <h2>Auto-snapshots</h2>
-        {snapshots.length === 0 ? (
-          <p className="empty-hint">No snapshots yet. Snapshots are taken automatically after 50 page edits or 24 hours of activity.</p>
-        ) : (
-          <div className="snapshot-list">
-            {snapshots.map((snap) => (
-              <div key={snap.id} className="snapshot-row">
-                <div className="snapshot-meta">
-                  <span className="snapshot-time">{new Date(snap.timestamp).toLocaleString()}</span>
-                  <span className="snapshot-count">{snap.editCount} pages changed</span>
-                </div>
-                <button
-                  className="ghost-btn"
-                  disabled={busy}
-                  onClick={async () => {
-                    const { counts: incoming } = parseBackup(snap.data)
-                    const [pages, maps, pins, regions, templates, calendars, events, images] = await Promise.all([
-                      db.pages.count(), db.maps.count(), db.pins.count(), db.regions.count(),
-                      db.templates.count(), db.calendars.count(), db.events.count(), db.images.count(),
-                    ])
-                    setPendingImport({ json: snap.data, current: { pages, maps, pins, regions, templates, calendars, events, images }, incoming })
-                  }}
-                >
-                  Restore
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="home-section backup">
-        <h2>Backup &amp; safety</h2>
-
-        <div className="backup-status">
-          <div className={`status-row ${needsBackup ? 'warn' : 'ok'}`}>
-            <span className="status-dot" />
-            {needsBackup
-              ? `${unbacked} change${unbacked === 1 ? '' : 's'} not backed up yet.`
-              : 'All changes are backed up.'}
-            <span className="status-sub">Last backup: {timeAgo(lastBackup ?? null)}</span>
-          </div>
-          <div className={`status-row ${persisted ? 'ok' : 'warn'}`}>
-            <span className="status-dot" />
-            {persisted === null
-              ? 'Checking browser storage…'
-              : persisted
-                ? 'Browser storage is persistent — Firefox won’t auto-clear your data.'
-                : 'Browser storage is best-effort (could be auto-cleared).'}
-            {persisted === false && <button className="mini-btn" onClick={enablePersist}>Make persistent</button>}
-          </div>
-        </div>
-
-        <div className="home-cta">
-          <button className="primary-btn" disabled={busy} onClick={handleBackup}>
-            {busy ? 'Backing up…' : '⭳ Back up now'}
-          </button>
-          <button className="ghost-btn" onClick={() => fileRef.current?.click()}>⭱ Restore from backup</button>
-          <input ref={fileRef} type="file" accept="application/json" hidden onChange={handleImport} />
-          <button className="ghost-btn" disabled={exporting} onClick={handleExportHtml}>
-            {exporting ? 'Exporting…' : 'Export as HTML'}
-          </button>
-        </div>
-
-        <ConfirmDialog
-          open={pendingImport !== null}
-          danger
-          title="Replace your codex?"
-          confirmLabel="Replace everything"
-          cancelLabel="Cancel"
-          onConfirm={confirmImport}
-          onCancel={() => setPendingImport(null)}
-        >
-          {pendingImport && (
-            <>
-              <p><strong>This replaces everything currently in your codex.</strong></p>
-              <p>
-                <strong>Current:</strong> {fmtCounts(pendingImport.current)}<br />
-                <strong>Incoming:</strong> {fmtCounts(pendingImport.incoming)}
-              </p>
-              <p>Your current data will be downloaded as a recovery file first. <strong>This cannot be undone.</strong></p>
-            </>
-          )}
-        </ConfirmDialog>
-
-        <div className="backup-tip">
-          <strong>💡 Make backups automatic & safe (recommended):</strong>
-          <p>
-            Your lore is saved inside Firefox. To keep a copy that survives even if the browser is
-            cleared, point Firefox’s downloads at a cloud-synced folder:
-          </p>
-          <ol>
-            <li>Make a folder inside <em>Dropbox</em>, <em>OneDrive</em>, or <em>Google Drive</em> (e.g. <code>Lore Backups</code>).</li>
-            <li>In Firefox: <em>Settings → General → Files and Applications → Downloads</em>, set “Save files to” to that folder.</li>
-            <li>Click <strong>Back up now</strong> whenever the warning appears — the file lands in your synced folder and is copied to the cloud automatically.</li>
-          </ol>
-        </div>
-      </section>
     </div>
   )
 }
