@@ -1,8 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { render, screen, cleanup } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { db } from '../db'
 import SettingsRoute from './SettingsRoute'
+
+afterEach(cleanup)
 
 describe('SettingsRoute', () => {
   beforeEach(async () => {
