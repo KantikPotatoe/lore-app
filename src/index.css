@@ -14,6 +14,7 @@
   --ink-faint: #82785f;
   --accent: #c9a24b;     /* gold */
   --accent-soft: #e0a458;
+  --accent-glow: rgba(201, 162, 75, 0.18); /* faint gold ring (= --accent @ 18%) */
   --danger: #c8645a;
   --radius: 10px;
   /* Greyscale fractal-noise grain layered under panel fills (moderate intensity). */
@@ -98,7 +99,12 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 
 /* --- Layered elevation ---------------------------------------------------- *
    Hairline border (already present) + soft drop shadow + a 1px inner top
-   highlight, so panels read as lit from above rather than as flat fills. */
+   highlight, so panels read as lit from above rather than as flat fills.
+   Deliberately scoped to floating content panels. Excluded: .browse-card and
+   .modal-dialog carry their own (hover / deep) shadows; .sidebar is structural
+   chrome, not a floating panel. Note: on an overflow:hidden panel whose child
+   paints over the top edge (e.g. .infobox's coloured title bar), the inner
+   highlight is occluded and the lit-from-above cue comes from the drop shadow. */
 .elevated,
 .lore-card,
 .infobox,
@@ -176,7 +182,7 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .page-link:hover { background: var(--panel); color: var(--ink); transform: translateX(2px); }
 .page-link.active {
   background: var(--panel-2); color: var(--ink);
-  box-shadow: inset 2px 0 0 var(--accent), 0 0 0 1px rgba(201, 162, 75, 0.18);
+  box-shadow: inset 2px 0 0 var(--accent), 0 0 0 1px var(--accent-glow);
 }
 .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .sidebar-footer { padding: 10px 16px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 12px; }
