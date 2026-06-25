@@ -1,94 +1,127 @@
-# Lore Codex
+<div align="center">
 
-A personal worldbuilding app to write, link, and map the lore of your fictional
-worlds — inspired by World Anvil and LoreKeeper. Everything is stored **locally
-in your browser** (no account, no server, works offline).
+# 📜 Lore Codex
 
-## Features
+**A local-first worldbuilding wiki that lives entirely in your browser.**
 
-- **Multiple worlds** — keep separate, fully isolated worlds and switch between
-  them from the world picker. Each world is its own local database, so nothing
-  bleeds across; create, rename, set a banner, or delete worlds at any time.
-- **Lore pages** — rich-text articles for characters, countries, places, factions,
-  items, events, and more, organized by category.
-- **Page types & templates** — every page has a type (a named, colour-coded
-  category with starter infobox rows). Use the built-in types or define your own
-  on the Templates screen; switching a page's type preserves the values you've
-  already filled in.
-- **Infoboxes** — a sidebar card per page with an image, caption, and typed fields
-  (text, numbers, and `[[reference]]` links to other pages), plus separator
-  headings to group them.
-- **Wiki links** — type `[[Page Name]]` while editing to create a clickable link to
-  another page. Clicking it navigates there (or asks before creating the page if it
-  doesn't exist yet). Renaming a page automatically rewrites every reference to it so
-  no links break; dead links are visually flagged.
-- **Backlinks & table of contents** — each page shows which other pages link to it,
-  plus an auto-generated table of contents built from the article's headings.
-- **External links** — select text and use the link toolbar button to attach an
-  external URL; opens in a new tab.
-- **Inline images & tables** — insert images (stored as data URLs, no upload) and
-  editable tables directly into article bodies for stat blocks and comparisons.
-- **Per-page image gallery** — attach a grid of images to a page, view them in a
-  lightbox, reorder them, and promote any one to the page's portrait.
-- **Interactive maps** — upload a map image of your world and drop pins, each
-  linkable to a lore page. Draw regions as polygons, nest maps inside one another,
-  and use the find panel to jump between maps and pins.
-- **Relationship graph** — a force-directed graph of every page and the wiki links
-  between them; node size reflects how connected a page is, and the view surfaces
-  hubs and orphans.
-- **Timeline & calendars** — define custom calendars (months, eras, year lengths)
-  and place events on a shared timeline, viewable as a list or a zoomable axis.
-  Different calendars share one absolute-day axis so their events line up.
-- **Full-text search** — click the sidebar search box to open a search modal that
-  searches across page titles, summaries, tags, and body content. Results appear
-  with highlighted snippets; navigate with the keyboard (↑↓ Enter) or click, close
-  with Escape.
-- **Wiki link hover previews** — hover a `[[wiki link]]` in view mode to see a
-  floating card showing the linked page's category, title, and summary (or "Page
-  not found" for broken links).
-- **Auto-snapshots** — the app automatically saves up to 10 local snapshots
-  (triggered after ~50 record changes or 24 hours of activity). Restore any
-  snapshot from the Home screen using the same safe confirm-before-import flow as a
-  manual backup restore.
-- **Export as HTML** — download a self-contained ZIP of your entire wiki as a
-  browsable static site: an index grouped by category, one page per article with
-  infobox, images, and resolved wiki links, and a stylesheet.
-- **Backup & safety** — export everything to a JSON file and re-import it anytime
-  (Home screen). Home and the top banner track how many edits have happened since
-  your last backup and highlight when one is overdue. Import validates the file,
-  shows a count of what will be replaced, requires confirmation, and automatically
-  writes a pre-import recovery backup before applying any changes. Older backups are
-  migrated forward to the current schema on import.
+Write, link, and map the lore of your fictional worlds — inspired by World Anvil
+and LoreKeeper. No account, no server, fully offline. Your world never leaves your machine.
 
-## Running it
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-c9a24b.svg?style=flat-square)](LICENSE.md)
+![React](https://img.shields.io/badge/React-19-1d1a14.svg?style=flat-square&logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-1d1a14.svg?style=flat-square&logo=typescript)
+![Local-first](https://img.shields.io/badge/Local--first-offline-c9a24b.svg?style=flat-square)
 
-You need [Node.js](https://nodejs.org) installed. First time only:
+</div>
+
+---
+
+## ✨ Why Lore Codex
+
+Everything you write is stored **locally in your browser** via IndexedDB — there's no
+sign-up, no cloud, and no network round-trip. It works on a plane, and your lore stays
+private by default. Each world is its own isolated database, so you can keep a dozen
+settings going at once without them bleeding together.
+
+---
+
+## 🌟 Features
+
+### ✍️ Writing & linking
+
+| | |
+|---|---|
+| **Rich-text pages** | Articles for characters, places, factions, items, events, and more — with headings, inline images (no upload), and editable tables for stat blocks. |
+| **Wiki links** | Type `[[Page Name]]` to link pages. Renaming a page rewrites every reference automatically; broken links are flagged. |
+| **Hover previews** | Hover a `[[wiki link]]` to peek at the linked page's category, title, and summary in a floating card. |
+| **Backlinks & TOC** | Every page shows what links to it, plus an auto-generated table of contents from its headings. |
+| **External links** | Attach a URL to selected text; opens in a new tab. |
+
+### 🗂️ Organizing
+
+| | |
+|---|---|
+| **Multiple worlds** | Fully isolated worlds you can create, rename, banner, delete, and switch between — each its own local database. |
+| **Page types & templates** | Colour-coded categories with starter infobox rows. Use the built-ins or define your own; switching a page's type keeps the values you filled in. |
+| **Infoboxes** | A per-page sidebar card with image, caption, and typed fields — text, numbers, and `[[reference]]` links — grouped under separator headings. |
+| **Image galleries** | Attach a grid of images to a page, view them in a lightbox, reorder them, and promote any one to the page's portrait. |
+
+### 🗺️ Visualizing your world
+
+| | |
+|---|---|
+| **Interactive maps** | Upload a map image and drop pins linked to lore pages. Draw regions as polygons and nest maps inside one another. |
+| **Relationship graph** | A force-directed graph of every page and the links between them — node size shows how connected a page is, surfacing hubs and orphans. |
+| **Timeline & calendars** | Define custom calendars (months, eras, year lengths) and place events on a shared timeline — list or zoomable axis. Calendars share one absolute-day axis so events line up. |
+
+### 🔍 Finding things
+
+| | |
+|---|---|
+| **Full-text search** | A keyboard-driven modal searching titles, summaries, tags, and body content, with highlighted snippets. |
+
+### 💾 Data & safety
+
+| | |
+|---|---|
+| **Backup & restore** | Export everything to a JSON file and re-import anytime. Import validates the file, shows what it'll replace, writes a recovery backup first, and migrates older backups forward. |
+| **Auto-snapshots** | Up to 10 local snapshots saved automatically (after ~50 changes or 24h of activity); restore any from the Home screen. |
+| **Export as HTML** | Download a self-contained ZIP of your wiki as a browsable static site — index by category, one page per article, with infoboxes, images, and resolved links. |
+| **Overdue nudges** | Home and the top banner track edits since your last backup and turn red when one is overdue. |
+
+---
+
+## 🚀 Getting started
+
+You need [Node.js](https://nodejs.org). **First time only:**
 
 ```bash
-npm install      # downloads dependencies
+npm install      # download dependencies
 ```
 
-After that, **double-click `start-lore-codex.cmd`** to launch. It opens
-Firefox at `http://localhost:5174` and starts the app. Tip: right-click the
-file → *Pin to Start* (or send a desktop shortcut) so it launches like an app.
+Then **double-click `start-lore-codex.cmd`** to launch — it opens Firefox at
+`http://localhost:5174` and starts the app. Tip: right-click → *Pin to Start* so it
+launches like a regular app.
 
-> **Always launch this way.** Your lore is stored in Firefox under the exact
-> address `localhost:5174`. Opening a *different* browser, or a different port,
-> shows a *different* (empty) database — your data isn't gone, it's just tied to
-> the original address. The launcher and the pinned port (`vite.config.ts`)
-> guarantee you always return to the same place.
+> ⚠️ **Always launch this way.** Your lore is stored in Firefox under the exact address
+> `localhost:5174`. Opening a *different* browser or port shows a *different* (empty)
+> database — your data isn't gone, it's just tied to the original address. The launcher and
+> the pinned port (`vite.config.ts`) guarantee you return to the same place.
 
-Other commands:
+<details>
+<summary><b>Other commands</b></summary>
 
 ```bash
-npm run dev      # start the app manually (also on port 5174)
-npm run build    # type-check and produce an optimized build in dist/
-npm run preview  # preview the production build locally (port 5174)
+npm run dev      # start manually (also port 5174, hot reload)
+npm run build    # type-check + optimized production build → dist/
+npm run preview  # preview the production build (port 5174)
 npm run lint     # ESLint
 npm run test:run # run the test suite once (Vitest)
 ```
 
-## Where things live
+</details>
+
+---
+
+## 🧰 Tech stack
+
+| Area | Built with |
+|---|---|
+| **Framework** | React 19 · TypeScript (strict) · Vite |
+| **Editor** | TipTap |
+| **Maps** | Leaflet + leaflet-draw |
+| **Graph** | react-force-graph-2d |
+| **Storage** | Dexie (IndexedDB) |
+| **Search** | FlexSearch |
+| **Safety** | DOMPurify (sanitization) · JSZip (HTML export) |
+| **Testing** | Vitest |
+
+---
+
+## 🗃️ Project structure
+
+<details>
+<summary><b>Where things live</b></summary>
 
 ```
 src/
@@ -147,21 +180,24 @@ src/
   index.css                The full theme (colors are CSS variables at the top)
 ```
 
-## Tech
+</details>
 
-React + TypeScript + Vite · TipTap (editor) · Leaflet + leaflet-draw (maps) ·
-react-force-graph-2d (graph) · Dexie (storage) · FlexSearch (full-text search) ·
-DOMPurify (sanitization) · JSZip (HTML export). Tested with Vitest.
+---
 
-## A note on backups
+## ⚠️ A note on backups
 
-Because your lore is stored in this browser under `localhost:5174`, clearing site
-data, switching browsers, or opening a different address shows an empty database.
-Always launch with `start-lore-codex.cmd`, and **use Export backup regularly** —
-keep the JSON files somewhere safe (or commit them to a private repo). Each world
-is a separate database, so back up each world you care about.
+Because your lore lives in this browser under `localhost:5174`, clearing site data,
+switching browsers, or opening a different address shows an empty database. So:
 
-The app tracks how many edits have occurred since your last backup and turns the
-banner red when a backup is overdue. Import is safe: it validates the file, shows
-you exactly how much you're replacing with what, downloads a recovery backup of the
-current state first, and only then applies the import.
+- **Always launch with `start-lore-codex.cmd`.**
+- **Use Export backup regularly** — keep the JSON files somewhere safe (or in a private repo).
+- **Back up each world you care about** — every world is a separate database.
+
+Import is safe by design: it validates the file, shows exactly what you're replacing,
+downloads a recovery backup of the current state first, and only then applies the import.
+
+---
+
+## 📄 License
+
+Released under the [GNU GPL v3](LICENSE.md).
