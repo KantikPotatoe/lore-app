@@ -757,9 +757,6 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .backup-tip em { color: var(--ink); font-style: normal; font-weight: 600; }
 
 /* --- Maps ----------------------------------------------------------------- */
-.map-empty { max-width: 600px; margin: 0 auto; padding: 80px 40px; text-align: center; }
-.map-empty h1 { font-family: var(--display); font-size: 34px; }
-.map-empty .primary-btn { width: auto; display: inline-block; margin-top: 14px; }
 
 .map-page { display: flex; flex-direction: column; height: 100%; }
 .map-toolbar {
@@ -893,14 +890,6 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
   font-size: 15px; font-family: var(--sans); color: var(--ink-faint); font-weight: 400;
 }
 .browse-header .primary-btn { margin-left: auto; }
-
-.browse-empty {
-  color: var(--ink-dim); font-style: italic; margin-top: 40px; text-align: center;
-}
-.browse-empty .link-btn {
-  background: none; border: none; color: var(--accent); cursor: pointer; font-style: italic;
-  font-size: inherit; padding: 0; text-decoration: underline;
-}
 
 .browse-grid {
   display: grid;
@@ -1110,7 +1099,6 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .graph-panel .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .graph-panel .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .graph-panel .deg { color: var(--ink-faint); font-size: 0.8rem; }
-.graph-empty { padding: 40px; }
 
 /* --- Reference picker (infobox edit mode) --------------------------------- */
 .ref-field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -1516,7 +1504,7 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .tl-view-toggle { display: flex; gap: 4px; }
 .timeline-body { flex: 1; overflow-y: auto; }
 
-.timeline-empty, .timeline-empty-inner {
+.timeline-empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   height: 100%; gap: 12px; color: var(--ink-dim); text-align: center; padding: 40px;
 }
