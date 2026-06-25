@@ -130,7 +130,7 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .nav-item {
   flex: 1 1 auto; text-align: center; padding: 6px 8px; border-radius: 8px;
   color: var(--ink-dim); border: 1px solid transparent; font-size: 13px;
-  white-space: nowrap;
+  white-space: nowrap; transition: background 0.12s, color 0.12s, transform 0.12s;
 }
 .nav-item:hover { background: var(--panel); color: var(--ink); }
 .nav-item.active { background: var(--panel-2); color: var(--ink); border-color: var(--border); }
@@ -171,9 +171,13 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .page-link {
   display: flex; align-items: center; gap: 9px; padding: 6px 9px; border-radius: 7px;
   color: var(--ink-dim); font-size: 14px;
+  transition: background 0.12s, color 0.12s, transform 0.12s, box-shadow 0.12s;
 }
-.page-link:hover { background: var(--panel); color: var(--ink); }
-.page-link.active { background: var(--panel-2); color: var(--ink); }
+.page-link:hover { background: var(--panel); color: var(--ink); transform: translateX(2px); }
+.page-link.active {
+  background: var(--panel-2); color: var(--ink);
+  box-shadow: inset 2px 0 0 var(--accent), 0 0 0 1px rgba(201, 162, 75, 0.18);
+}
 .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .sidebar-footer { padding: 10px 16px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 12px; }
 
