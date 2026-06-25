@@ -106,12 +106,12 @@ export async function unbackedChangeCount(lastBackup: number | null): Promise<nu
   return pages + maps + eventChanges + imageChanges
 }
 
-const BACKUP_OVERDUE_MS = 7 * 24 * 60 * 60 * 1000 // one week
+const DAY_MS = 24 * 60 * 60 * 1000
 
-/** True if a backup is overdue: never taken, or older than a week. */
-export function isBackupOverdue(lastBackup: number | null): boolean {
+/** True if a backup is overdue: never taken, or older than `overdueDays` (default 7). */
+export function isBackupOverdue(lastBackup: number | null, overdueDays = 7): boolean {
   if (lastBackup === null) return true
-  return Date.now() - lastBackup > BACKUP_OVERDUE_MS
+  return Date.now() - lastBackup > overdueDays * DAY_MS
 }
 
 // ---------------------------------------------------------------------------
