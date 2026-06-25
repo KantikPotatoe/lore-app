@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type TimelineEvent } from '../db'
 import CalendarEditor from '../components/CalendarEditor'
+import EmptyState from '../components/EmptyState'
 import EventEditor from '../components/EventEditor'
 import TimelineVertical from '../components/TimelineVertical'
 import TimelineHorizontal from '../components/TimelineHorizontal'
@@ -95,9 +96,9 @@ export default function TimelineRoute() {
 
       <div className="timeline-body">
         {visibleEvents.length === 0 ? (
-          <div className="timeline-empty-inner">
-            <p className="muted">No events yet. Click "Add event" to get started.</p>
-          </div>
+          <EmptyState icon="⏳" title="History hasn't been recorded yet" message="Add your first event to begin the timeline.">
+            <button className="primary-btn" style={{ width: 'auto' }} onClick={() => setAddingEvent(true)}>+ Add event</button>
+          </EmptyState>
         ) : view === 'vertical' ? (
           <TimelineVertical
             events={visibleEvents}

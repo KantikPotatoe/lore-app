@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, buildGraphData, categoryColor, type LorePage } from '../db'
 import GraphView from '../components/GraphView'
+import EmptyState from '../components/EmptyState'
 import HubsOrphansPanel from '../components/HubsOrphansPanel'
 
 const NO_PAGES: LorePage[] = []
@@ -77,10 +78,11 @@ export default function GraphRoute() {
 
   if (pages.length === 0) {
     return (
-      <div className="graph-empty">
-        <h1>Graph</h1>
-        <p className="muted">Create some pages and link them with [[wiki links]] to see your world take shape here.</p>
-      </div>
+      <EmptyState
+        icon="🕸️"
+        title="No connections to map yet"
+        message={<>Create some pages and link them with <code>[[wiki links]]</code> to see your world take shape here.</>}
+      />
     )
   }
 

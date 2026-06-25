@@ -28,6 +28,7 @@ import {
   timeAgo,
 } from '../backup'
 import ConfirmDialog from '../components/ConfirmDialog'
+import EmptyState from '../components/EmptyState'
 import { exportAsHtml } from '../htmlExport'
 import { getLore, renameLore, setLoreBanner, currentLoreId } from '../lores'
 import { compressImage } from '../imageUtils'
@@ -374,9 +375,15 @@ export default function HomeRoute() {
       {/* Recently edited */}
       {cfg.showRecent && (
         <section className="home-section">
-          <h2>Recently edited</h2>
+          {recent.length > 0 && <h2>Recently edited</h2>}
           {recent.length === 0 ? (
-            <p className="empty-hint">Nothing yet — create your first lore page to get started.</p>
+            <EmptyState
+              icon="📜"
+              title="Your world is unwritten"
+              message="Every world begins with a single page. Create your first one to start building."
+            >
+              <button className="primary-btn" onClick={handleNew}>+ Create your first page</button>
+            </EmptyState>
           ) : (
             <div className="card-grid">
               {recent.map((p) => (

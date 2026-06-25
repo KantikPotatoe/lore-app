@@ -1,6 +1,7 @@
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, createPage, categoryColor, statusColor, pageStatus } from '../db'
+import EmptyState from '../components/EmptyState'
 
 const NO_PAGES: import('../db').LorePage[] = []
 
@@ -34,13 +35,11 @@ export default function CategoryRoute() {
       </div>
 
       {pages.length === 0 ? (
-        <p className="browse-empty">
-          No {category} pages yet —{' '}
-          <button className="link-btn" onClick={handleNew}>
-            create the first one
-          </button>
-          !
-        </p>
+        <EmptyState
+          icon="📭"
+          title={`No ${category} pages yet`}
+          message={`Use “+ New ${category}” above to create the first one.`}
+        />
       ) : (
         <div className="browse-grid">
           {pages.map((page) => (

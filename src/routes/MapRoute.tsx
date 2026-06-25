@@ -7,6 +7,7 @@ import {
   TYPE_COLORS, type MapPin, type MapRegion, type InfoboxTemplate,
 } from '../db'
 import MapView, { type PinMarkerStyle, type FocusTarget } from '../components/MapView'
+import EmptyState from '../components/EmptyState'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { compressImage } from '../imageUtils'
 import { useEscapeKey } from '../useEscapeKey'
@@ -258,12 +259,14 @@ export default function MapRoute() {
   // ---- No maps yet -------------------------------------------------------
   if (maps.length === 0) {
     return (
-      <div className="map-empty">
-        <h1>Maps</h1>
-        <p className="muted">Upload an image of your world (PNG or JPG) to start dropping pins.</p>
+      <EmptyState
+        icon="🗺️"
+        title="No map yet"
+        message="Upload an image of your world (PNG or JPG) to start dropping pins."
+      >
         <button className="primary-btn" onClick={() => fileRef.current?.click()}>⭱ Upload a map image</button>
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleUpload} />
-      </div>
+      </EmptyState>
     )
   }
 
