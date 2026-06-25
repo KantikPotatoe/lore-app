@@ -252,7 +252,11 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .stat { color: var(--ink-dim); font-size: 15px; }
 .stat-num { font-family: var(--display); font-size: 28px; color: var(--accent); margin-right: 6px; }
 .home-section { margin-top: 40px; }
-.home-section h2 { font-family: var(--display); font-size: 20px; color: var(--ink); border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.home-section h2 {
+  font-family: var(--display); font-size: 20px; color: var(--ink);
+  border-bottom: 1px solid transparent; padding-bottom: 8px;
+  border-image: linear-gradient(to right, var(--accent) 0%, var(--border) 28%, var(--border) 100%) 1;
+}
 .muted { color: var(--ink-faint); }
 .ghost-btn.active { border-color: var(--accent); color: var(--accent); }
 
@@ -378,7 +382,18 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .ProseMirror h1, .ProseMirror h2, .ProseMirror h3 { font-family: var(--display); color: var(--ink); line-height: 1.2; }
 .ProseMirror h1 { font-size: 28px; } .ProseMirror h2 { font-size: 23px; } .ProseMirror h3 { font-size: 20px; }
 .ProseMirror blockquote { border-left: 3px solid var(--accent); margin: 1em 0; padding-left: 16px; color: var(--ink-dim); font-style: italic; }
-.ProseMirror hr { border: none; border-top: 1px solid var(--border); margin: 1.6em 0; }
+/* Ornamental divider: a gold fleuron centred on a hairline rule that gaps in
+   the middle to frame it. Reusable via .ornament-divider; also applied to the
+   article-body <hr> (same Tiptap render in view + edit mode). */
+.ornament-divider,
+.ProseMirror hr {
+  border: none;
+  height: 22px;
+  margin: 1.8em 0;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Cpath d='M11 4 L18 11 L11 18 L4 11 Z' fill='none' stroke='%23c9a24b' stroke-width='1.3'/%3E%3C/svg%3E") center / 22px 22px no-repeat,
+    linear-gradient(to right, transparent, var(--border) 20%, transparent 44%, transparent 56%, var(--border) 80%, transparent) center / 100% 1px no-repeat;
+}
 .ProseMirror ul, .ProseMirror ol { padding-left: 1.4em; }
 .ProseMirror img {
   max-width: 100%;
