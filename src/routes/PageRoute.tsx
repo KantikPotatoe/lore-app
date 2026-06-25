@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, createPage, updatePage, renamePage, deletePage, findPageIdByTitle, defaultInfobox, applyTemplate, STATUSES, categoryColor, statusColor, pageStatus, type Infobox as InfoboxType, type LorePage } from '../db'
@@ -123,8 +123,8 @@ export default function PageRoute() {
   }
 
   return (
-    <div className="page-view">
-      <header className="page-header" style={{ borderColor: categoryColor(page.category) }}>
+    <div className="page-view" style={{ '--type-color': categoryColor(page.category) } as CSSProperties}>
+      <header className="page-header">
         <Breadcrumb category={page.category} title={page.title} color={categoryColor(page.category)} />
         <div className="page-header-row">
           {editing ? (

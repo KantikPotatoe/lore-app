@@ -331,7 +331,16 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 
 /* --- Page view ------------------------------------------------------------ */
 .page-view { max-width: 1120px; margin: 0 auto; padding: 36px 40px 100px; }
-.page-header { border-left: 3px solid var(--accent); padding-left: 18px; margin-bottom: 24px; }
+/* Type identity: the left accent + a faint left-to-right wash derive from the
+   page's category colour, threaded in as --type-color on .page-view. Falls back
+   to gold when a page has no resolved type colour. The wash stays ~11% so --ink
+   title text keeps AA contrast over it. */
+.page-header {
+  border-left: 3px solid var(--type-color, var(--accent));
+  padding: 10px 16px 6px 18px; margin-bottom: 24px;
+  border-radius: 0 8px 8px 0;
+  background: linear-gradient(to right, color-mix(in srgb, var(--type-color, var(--accent)) 11%, transparent), transparent 62%);
+}
 .page-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 
 .page-breadcrumb {
