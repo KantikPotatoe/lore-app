@@ -332,9 +332,10 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 /* --- Page view ------------------------------------------------------------ */
 .page-view { max-width: 1120px; margin: 0 auto; padding: 36px 40px 100px; }
 /* Type identity: the left accent + a faint left-to-right wash derive from the
-   page's category colour, threaded in as --type-color on .page-view. Falls back
-   to gold when a page has no resolved type colour. The wash stays ~11% so --ink
-   title text keeps AA contrast over it. */
+   page's category colour, threaded in as --type-color on .page-view (untyped
+   pages resolve to categoryColor()'s grey default). The var() fallback to gold
+   is defensive for use outside .page-view. The wash stays ~11% so --ink title
+   text keeps AA contrast over it. */
 .page-header {
   border-left: 3px solid var(--type-color, var(--accent));
   padding: 10px 16px 6px 18px; margin-bottom: 24px;

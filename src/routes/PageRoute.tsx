@@ -122,15 +122,17 @@ export default function PageRoute() {
     navigate('/home')
   }
 
+  const typeIcon = templates.find((t) => t.name === page.category)?.icon
+
   return (
     <div className="page-view" style={{ '--type-color': categoryColor(page.category) } as CSSProperties}>
       <header className="page-header">
         <Breadcrumb category={page.category} title={page.title} color={categoryColor(page.category)} />
         <div className="page-header-row">
           <div className="page-title-wrap">
-            {templates.find((t) => t.name === page.category)?.icon && (
+            {typeIcon && (
               <span className="page-type-glyph" aria-hidden="true">
-                {templates.find((t) => t.name === page.category)?.icon}
+                {typeIcon}
               </span>
             )}
             {editing ? (
