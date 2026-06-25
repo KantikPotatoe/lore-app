@@ -331,7 +331,17 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 
 /* --- Page view ------------------------------------------------------------ */
 .page-view { max-width: 1120px; margin: 0 auto; padding: 36px 40px 100px; }
-.page-header { border-left: 3px solid var(--accent); padding-left: 18px; margin-bottom: 24px; }
+/* Type identity: the left accent + a faint left-to-right wash derive from the
+   page's category colour, threaded in as --type-color on .page-view (untyped
+   pages resolve to categoryColor()'s grey default). The var() fallback to gold
+   is defensive for use outside .page-view. The wash stays ~11% so --ink title
+   text keeps AA contrast over it. */
+.page-header {
+  border-left: 3px solid var(--type-color, var(--accent));
+  padding: 10px 16px 6px 18px; margin-bottom: 24px;
+  border-radius: 0 8px 8px 0;
+  background: linear-gradient(to right, color-mix(in srgb, var(--type-color, var(--accent)) 11%, transparent), transparent 62%);
+}
 .page-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 
 .page-breadcrumb {
@@ -346,6 +356,10 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
   text-overflow: ellipsis; white-space: nowrap;
 }
 .page-title { font-family: var(--display); font-size: 36px; margin: 0; line-height: 1.1; }
+/* Title + type glyph group, kept together as one flex child of .page-header-row. */
+.page-title-wrap { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+.page-title-wrap .title-input { flex: 1; }
+.page-type-glyph { font-size: 28px; line-height: 1; flex-shrink: 0; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5)); }
 .title-input {
   font-family: var(--display); font-size: 36px; background: transparent; border: none;
   border-bottom: 1px dashed var(--border); color: var(--ink); width: 100%; padding: 0 0 4px;

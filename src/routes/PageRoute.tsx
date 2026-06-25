@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, createPage, updatePage, renamePage, deletePage, findPageIdByTitle, defaultInfobox, applyTemplate, STATUSES, categoryColor, statusColor, pageStatus, type Infobox as InfoboxType, type LorePage } from '../db'
@@ -122,25 +122,34 @@ export default function PageRoute() {
     navigate('/home')
   }
 
+  const typeIcon = templates.find((t) => t.name === page.category)?.icon
+
   return (
-    <div className="page-view">
-      <header className="page-header" style={{ borderColor: categoryColor(page.category) }}>
+    <div className="page-view" style={{ '--type-color': categoryColor(page.category) } as CSSProperties}>
+      <header className="page-header">
         <Breadcrumb category={page.category} title={page.title} color={categoryColor(page.category)} />
         <div className="page-header-row">
-          {editing ? (
-            <input
-              className="title-input"
-              value={titleDraft ?? page.title}
-              onChange={(e) => setTitleDraft(e.target.value)}
-              onBlur={commitTitle}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur()
-              }}
-              placeholder="Page title"
-            />
-          ) : (
-            <h1 className="page-title">{page.title}</h1>
-          )}
+          <div className="page-title-wrap">
+            {typeIcon && (
+              <span className="page-type-glyph" aria-hidden="true">
+                {typeIcon}
+              </span>
+            )}
+            {editing ? (
+              <input
+                className="title-input"
+                value={titleDraft ?? page.title}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur()
+                }}
+                placeholder="Page title"
+              />
+            ) : (
+              <h1 className="page-title">{page.title}</h1>
+            )}
+          </div>
           <div className="page-header-actions">
             <button
               className="ghost-btn"
