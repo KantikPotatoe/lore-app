@@ -31,7 +31,7 @@ Plan: `docs/superpowers/plans/2026-06-17-typed-pins.md`
 
 ---
 
-## Phase 2 — Wiki integration
+## Phase 2 — Wiki integration ✅ *(shipped — PR #55)*
 
 Connect pins to the wiki-navigation features pages already enjoy.
 
@@ -42,7 +42,7 @@ Connect pins to the wiki-navigation features pages already enjoy.
 
 ---
 
-## Phase 3 — Regions
+## Phase 3 — Regions ✅ *(shipped — PR #63)*
 
 Areas, not just points.
 
@@ -51,7 +51,7 @@ Areas, not just points.
 
 ---
 
-## Phase 4 — Map management
+## Phase 4 — Map management ✅ *(shipped — PR #64)*
 
 Scale to many maps.
 
