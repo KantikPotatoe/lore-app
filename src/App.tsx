@@ -14,6 +14,7 @@ import CategoryRoute from './routes/CategoryRoute'
 import GraphRoute from './routes/GraphRoute'
 import TimelineRoute from './routes/TimelineRoute'
 import LoreSelectorRoute from './routes/LoreSelectorRoute'
+import SettingsRoute from './routes/SettingsRoute'
 import { requestPersistentStorage } from './backup'
 import { seedTemplates, seedDefaultCalendar, db } from './db'
 import { maybeTakeSnapshot } from './snapshots'
@@ -76,6 +77,7 @@ export default function App() {
             <Route path="/graph" element={<GraphRoute />} />
             <Route path="/timeline" element={<TimelineRoute />} />
             <Route path="/templates" element={<TemplatesRoute />} />
+            <Route path="/settings" element={<SettingsRoute />} />
             <Route path="/browse/:category" element={<CategoryRoute />} />
           </Routes>
         </div>
