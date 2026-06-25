@@ -35,9 +35,11 @@ export default function CategoryRoute() {
       </div>
 
       {pages.length === 0 ? (
-        <EmptyState icon="📭" title={`No ${category} pages yet`} message="This corner of your world is empty.">
-          <button className="primary-btn" onClick={handleNew}>+ New {category}</button>
-        </EmptyState>
+        <EmptyState
+          icon="📭"
+          title={`No ${category} pages yet`}
+          message={`Use “+ New ${category}” above to create the first one.`}
+        />
       ) : (
         <div className="browse-grid">
           {pages.map((page) => (
