@@ -96,6 +96,19 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
   background-image: var(--parchment-noise);
 }
 
+/* --- Layered elevation ---------------------------------------------------- *
+   Hairline border (already present) + soft drop shadow + a 1px inner top
+   highlight, so panels read as lit from above rather than as flat fills. */
+.elevated,
+.lore-card,
+.infobox,
+.ov-card {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    0 6px 18px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
 /* --- Layout --------------------------------------------------------------- */
 .app-shell { display: flex; height: 100%; }
 .content { flex: 1; overflow-y: auto; }
@@ -191,7 +204,7 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
   max-width: 460px;
   width: 100%;
   padding: 22px 24px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 .modal-title {
   font-family: var(--display);
