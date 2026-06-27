@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
+import { NodeSelection } from '@tiptap/pm/state'
 import { useLiveQuery } from 'dexie-react-hooks'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -29,6 +30,17 @@ function computeSuggest(editor: Editor): WikiSuggest | null {
   if (!found) return null
   const to = selection.from
   return { query: found.query, from: to - found.matchLength, to, index: 0 }
+}
+
+/** When the current selection is a single wiki-link node, return its document
+ *  position and attrs so the edit popover can target it. Otherwise null. */
+function selectedWikiLink(editor: Editor): { pos: number; title: string; display: string } | null {
+  if (!editor.isEditable) return null
+  const { selection } = editor.state
+  if (selection instanceof NodeSelection && selection.node.type.name === 'wikiLink') {
+    return { pos: selection.from, title: selection.node.attrs.title, display: selection.node.attrs.display || '' }
+  }
+  return null
 }
 
 interface Props {
@@ -66,6 +78,8 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
   // `index` is the highlighted row; it lives in the same object so a new query
   // (a fresh suggest) naturally resets it to 0 without a separate effect.
   const [suggest, setSuggest] = useState<WikiSuggest | null>(null)
+  // The wiki-link node currently being edited via the popover (edit mode only).
+  const [editLink, setEditLink] = useState<{ pos: number; title: string; display: string } | null>(null)
   // Titles of all pages, for the suggestion menu. Indexed by title in Dexie.
   const pageTitles = useLiveQuery(
     () => db.pages.orderBy('title').toArray().then((ps) => ps.map((p) => p.title)),
@@ -93,7 +107,7 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
     content,
     editable,
     onUpdate: ({ editor }) => { onChange(editor.getHTML()); setSuggest(computeSuggest(editor)) },
-    onSelectionUpdate: ({ editor }) => setSuggest(computeSuggest(editor)),
+    onSelectionUpdate: ({ editor }) => { setSuggest(computeSuggest(editor)); setEditLink(selectedWikiLink(editor)) },
     onBlur: () => setSuggest(null),
   })
 
@@ -106,6 +120,22 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
       .run()
     setSuggest(null)
   }, [editor, suggest])
+
+  // Write the popover's Target/Display back onto the selected wiki-link node.
+  const applyEditLink = useCallback(() => {
+    if (!editor || !editLink) return
+    const title = editLink.title.trim()
+    if (!title) { setEditLink(null); return }
+    const display = editLink.display.trim()
+    editor.chain().focus().command(({ tr }) => {
+      tr.setNodeMarkup(editLink.pos, undefined, {
+        title,
+        display: display && display !== title ? display : '',
+      })
+      return true
+    }).run()
+    setEditLink(null)
+  }, [editor, editLink])
 
   // Drive the menu from the keyboard. A capture-phase listener on the editor DOM
   // runs before ProseMirror's own keymap, so we can claim the nav keys (and stop
@@ -188,6 +218,14 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
       const c = editor.view.coordsAtPos(suggest.to)
       suggestPos = { left: c.left, top: c.bottom }
     } catch { suggestPos = null }
+  }
+
+  let editLinkPos: { left: number; top: number } | null = null
+  if (editable && editLink) {
+    try {
+      const c = editor.view.coordsAtPos(editLink.pos)
+      editLinkPos = { left: c.left, top: c.bottom }
+    } catch { editLinkPos = null }
   }
 
   // Route clicks: wiki links navigate in-app; external href links open a new
@@ -301,6 +339,37 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
               {title}
             </button>
           ))}
+        </div>
+      )}
+      {editLinkPos && editLink && (
+        <div className="wiki-link-edit" style={{ left: editLinkPos.left, top: editLinkPos.top }}>
+          <label>
+            Target
+            <input
+              autoFocus
+              type="text"
+              value={editLink.title}
+              onChange={(e) => setEditLink((s) => s && { ...s, title: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); applyEditLink() }
+                if (e.key === 'Escape') { e.preventDefault(); setEditLink(null) }
+              }}
+            />
+          </label>
+          <label>
+            Display
+            <input
+              type="text"
+              placeholder="(same as target)"
+              value={editLink.display}
+              onChange={(e) => setEditLink((s) => s && { ...s, display: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); applyEditLink() }
+                if (e.key === 'Escape') { e.preventDefault(); setEditLink(null) }
+              }}
+            />
+          </label>
+          <Btn title="Apply" onClick={applyEditLink}>Apply</Btn>
         </div>
       )}
     </div>

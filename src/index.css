@@ -486,6 +486,22 @@ a.tag:hover { border-color: var(--accent); color: var(--ink); }
 }
 .wiki-suggest-item:hover, .wiki-suggest-item.active { background: var(--panel-2); }
 
+/* Edit popover for an existing wiki link — anchored to the node (viewport-fixed). */
+.wiki-link-edit {
+  position: fixed; z-index: 1200; margin-top: 4px;
+  display: flex; gap: 8px; align-items: flex-end;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px; box-shadow: 0 8px 30px rgba(0,0,0,.55);
+}
+.wiki-link-edit label {
+  display: flex; flex-direction: column; gap: 3px;
+  font-size: 11px; color: var(--muted); letter-spacing: 0.3px;
+}
+.wiki-link-edit input {
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 9px; color: var(--ink); width: 170px;
+}
+
 /* --- Page body: content + infobox columns --------------------------------- */
 .page-body { display: flex; gap: 32px; align-items: flex-start; }
 .page-main { flex: 1; min-width: 0; max-width: 760px; }
