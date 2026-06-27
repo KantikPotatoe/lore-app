@@ -11,6 +11,7 @@ import PageRoute from './routes/PageRoute'
 import MapRoute from './routes/MapRoute'
 import TemplatesRoute from './routes/TemplatesRoute'
 import CategoryRoute from './routes/CategoryRoute'
+import TagRoute from './routes/TagRoute'
 import GraphRoute from './routes/GraphRoute'
 import TimelineRoute from './routes/TimelineRoute'
 import LoreSelectorRoute from './routes/LoreSelectorRoute'
@@ -79,6 +80,7 @@ export default function App() {
             <Route path="/templates" element={<TemplatesRoute />} />
             <Route path="/settings" element={<SettingsRoute />} />
             <Route path="/browse/:category" element={<CategoryRoute />} />
+            <Route path="/tag/:tag" element={<TagRoute />} />
           </Routes>
         </div>
         {showTop && (
