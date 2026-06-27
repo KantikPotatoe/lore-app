@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, createPage, updatePage, renamePage, deletePage, findPageIdByTitle, defaultInfobox, applyTemplate, STATUSES, categoryColor, statusColor, pageStatus, type Infobox as InfoboxType, type LorePage } from '../db'
 import LoreEditor from '../components/LoreEditor'
+import References from '../components/References'
 import Infobox from '../components/Infobox'
 import Backlinks from '../components/Backlinks'
 import ImageGallery from '../components/ImageGallery'
@@ -26,6 +27,16 @@ export default function PageRoute() {
   const [pendingLink, setPendingLink] = useState<string | null>(null)
   const [renameError, setRenameError] = useState<string | null>(null)
   const mainRef = useRef<HTMLDivElement>(null)
+
+  // Marker → reference: scroll the matching <li> into view (ids set in References).
+  function scrollToReference(index: number) {
+    document.getElementById(`cite-ref-${index}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+  // Reference → marker: scroll the nth citation marker in the body into view.
+  function scrollToMarker(index: number) {
+    const marks = mainRef.current?.querySelectorAll('sup[data-citation]')
+    marks?.[index]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
 
   // Lowercased titles of all existing pages — drives broken-link styling.
   const knownTitles = useLiveQuery(
@@ -261,11 +272,18 @@ export default function PageRoute() {
             editable={editing}
             onChange={(html) => updatePage(id, { content: html })}
             onWikiClick={followWikiLink}
+            onCitationClick={scrollToReference}
             knownTitles={knownTitles}
             autolinkTitles={autolinkTitles}
             autolinkEnabled={autolinkEnabled}
           />
           <ImageGallery page={page} editable={editing} />
+          <References
+            content={page.content}
+            knownTitles={knownTitles}
+            onWikiClick={followWikiLink}
+            onBackref={scrollToMarker}
+          />
         </div>
 
         <div className="page-aside">
