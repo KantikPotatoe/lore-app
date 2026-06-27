@@ -134,6 +134,9 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
       })
       return true
     }).run()
+    // .run() dispatches synchronously, so onSelectionUpdate re-sets editLink to the
+    // (now updated) node mid-call; this setEditLink(null) is batched after it and
+    // wins, closing the popover. Keep it last.
     setEditLink(null)
   }, [editor, editLink])
 
