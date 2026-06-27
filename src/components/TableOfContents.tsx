@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { slugifyHeadings, relativeDepths } from '../toc'
 
 interface TocEntry {
   id: string
   text: string
-  level: 2 | 3
+  depth: number
 }
 
 interface Props {
@@ -21,18 +22,14 @@ export default function TableOfContents({ containerRef, pageId }: Props) {
     const timer = setTimeout(() => {
       const el = containerRef.current
       if (!el) return
-      const headings = Array.from(el.querySelectorAll('h2, h3')) as HTMLElement[]
-      const seen = new Map<string, number>()
-      const toc: TocEntry[] = headings.map((h) => {
-        const level = Number(h.tagName[1]) as 2 | 3
-        const base =
-          h.textContent?.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') ||
-          'heading'
-        const count = seen.get(base) ?? 0
-        seen.set(base, count + 1)
-        const id = count === 0 ? base : `${base}-${count}`
-        h.id = id
-        return { id, text: h.textContent?.trim() || '', level }
+      const headings = Array.from(el.querySelectorAll('h1, h2, h3')) as HTMLElement[]
+      const texts = headings.map((h) => h.textContent?.trim() || '')
+      const levels = headings.map((h) => Number(h.tagName[1]))
+      const ids = slugifyHeadings(texts)
+      const depths = relativeDepths(levels)
+      const toc: TocEntry[] = headings.map((h, i) => {
+        h.id = ids[i]
+        return { id: ids[i], text: texts[i], depth: depths[i] }
       })
       setEntries(toc)
       setActiveId(toc[0]?.id ?? '')
@@ -69,7 +66,7 @@ export default function TableOfContents({ containerRef, pageId }: Props) {
         <a
           key={e.id}
           href={`#${e.id}`}
-          className={`toc-entry toc-h${e.level}${activeId === e.id ? ' active' : ''}`}
+          className={`toc-entry toc-depth-${e.depth}${activeId === e.id ? ' active' : ''}`}
           onClick={(ev) => {
             ev.preventDefault()
             const target = document.getElementById(e.id)

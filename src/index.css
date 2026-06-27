@@ -960,7 +960,8 @@ a.tag:hover { border-color: var(--accent); color: var(--ink); }
   transition: color 0.1s, border-color 0.1s;
 }
 .toc-entry:hover { color: var(--ink); }
-.toc-entry.toc-h3 { padding-left: 20px; }
+.toc-entry.toc-depth-1 { padding-left: 20px; }
+.toc-entry.toc-depth-2 { padding-left: 32px; }
 .toc-entry.active { color: var(--accent); border-left-color: var(--accent); }
 
 /* ---- Relationship graph -------------------------------------------------- */
