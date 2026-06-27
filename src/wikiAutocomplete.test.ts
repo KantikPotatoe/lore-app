@@ -29,6 +29,30 @@ describe('findOpenWikiQuery', () => {
   it('uses only the most recent open bracket', () => {
     expect(findOpenWikiQuery('[[Done]] then [[Ne')).toEqual({ query: 'Ne', matchLength: 4 })
   })
+
+  it('detects an open @ at the start of the text', () => {
+    expect(findOpenWikiQuery('@Gand')).toEqual({ query: 'Gand', matchLength: 5 })
+  })
+
+  it('detects an open @ after whitespace', () => {
+    expect(findOpenWikiQuery('see @Gand')).toEqual({ query: 'Gand', matchLength: 5 })
+  })
+
+  it('detects an open @ with nothing typed yet', () => {
+    expect(findOpenWikiQuery('intro @')).toEqual({ query: '', matchLength: 1 })
+  })
+
+  it('does not trigger @ mid-word (e.g. emails)', () => {
+    expect(findOpenWikiQuery('mail foo@bar')).toBeNull()
+  })
+
+  it('ends the @ query at the next whitespace', () => {
+    expect(findOpenWikiQuery('@Iron Gu')).toBeNull()
+  })
+
+  it('lets [[ take precedence over an inner @', () => {
+    expect(findOpenWikiQuery('[[@foo')).toEqual({ query: '@foo', matchLength: 6 })
+  })
 })
 
 describe('rankWikiTitles', () => {

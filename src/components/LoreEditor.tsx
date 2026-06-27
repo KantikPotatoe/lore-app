@@ -289,7 +289,7 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
             <Btn title="Delete table" onClick={() => editor.chain().focus().deleteTable().run()}>⌫ Tbl</Btn>
           </>)}
           <span className="tb-spacer" />
-          <span className="tb-hint">Type [[Name]] to link a page</span>
+          <span className="tb-hint">Type [[Name]] or @Name to link a page</span>
         </div>
       )}
       {editable && showLinkBox && (

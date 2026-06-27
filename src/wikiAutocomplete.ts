@@ -1,15 +1,22 @@
 // Helpers for the editor's [[wiki link]] autocomplete. Kept free of React/Tiptap
 // so the bracket detection and candidate ranking can be unit-tested directly.
 
-/** If the text immediately before the cursor contains an unclosed `[[` (with no
- *  intervening `[` or `]`), return the partial query typed after it and the
- *  length of the matched `[[query` slice (so the caller can map it back to a
- *  document range). Returns null when there's no open link to complete — e.g.
- *  the brackets are already closed (`[[Name]]`) or were never opened. */
+/** If the text immediately before the cursor has an open wiki-link trigger,
+ *  return the partial query typed after it and the length of the matched slice
+ *  (so the caller can map it back to a document range). Two triggers are
+ *  recognized:
+ *    - `[[query`  — an unclosed `[[` with no intervening `[` or `]`.
+ *    - `@query`   — an `@` at a word boundary (line start or after whitespace),
+ *                   query running until the next whitespace.
+ *  `[[` is checked first, so `[[@foo` reads as a `[[` query. Returns null when
+ *  there's no open trigger — e.g. brackets already closed (`[[Name]]`), or an
+ *  `@` mid-word (`foo@bar`). */
 export function findOpenWikiQuery(textBefore: string): { query: string; matchLength: number } | null {
-  const m = /\[\[([^[\]]*)$/.exec(textBefore)
-  if (!m) return null
-  return { query: m[1], matchLength: m[0].length }
+  const brackets = /\[\[([^[\]]*)$/.exec(textBefore)
+  if (brackets) return { query: brackets[1], matchLength: brackets[0].length }
+  const at = /(?:^|\s)@([^\s@]*)$/.exec(textBefore)
+  if (at) return { query: at[1], matchLength: at[1].length + 1 }
+  return null
 }
 
 /** Rank page titles for a partial query: case-insensitive, prefix matches before
