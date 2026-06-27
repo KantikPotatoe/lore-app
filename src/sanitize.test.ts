@@ -83,6 +83,15 @@ describe('sanitizeHtml', () => {
     expect(out).toContain('<blockquote>')
   })
 
+  it('keeps citation markers (sup data-citation + data-* attrs)', () => {
+    const html = '<sup data-citation data-target="Frodo" data-locator="p.2" data-quote="hi" class="citation"></sup>'
+    const out = sanitizeHtml(html)
+    expect(out).toContain('data-citation')
+    expect(out).toContain('data-target="Frodo"')
+    expect(out).toContain('data-locator="p.2"')
+    expect(out).toContain('citation')
+  })
+
   it('returns empty string for falsy input', () => {
     expect(sanitizeHtml('')).toBe('')
   })

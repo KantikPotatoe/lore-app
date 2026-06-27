@@ -99,6 +99,19 @@ describe('renamePage', () => {
 
     expect((await db.pages.get(bystander))!.updatedAt).toBe(beforeStamp)
   })
+
+  it('rewrites a citation marker that targeted the old title', async () => {
+    const target = await createPage({ title: 'Frodo' })
+    const cited = `<sup data-citation data-target="Frodo" data-locator="p.2" class="citation"></sup>`
+    const linker = await createPage({ title: 'Sam', content: `<p>knows him${cited}</p>` })
+
+    await renamePage(target, 'Frodo Baggins')
+
+    const body = (await db.pages.get(linker))!.content
+    expect(body).toContain('data-target="Frodo Baggins"')
+    expect(body).not.toContain('data-target="Frodo"')
+    expect(body).toContain('data-locator="p.2"') // other attrs untouched
+  })
 })
 
 describe('getBacklinks', () => {

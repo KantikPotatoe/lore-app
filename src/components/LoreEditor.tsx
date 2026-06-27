@@ -6,6 +6,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import { TableKit } from '@tiptap/extension-table'
 import { WikiLink } from '../extensions/WikiLink'
+import { Citation } from '../extensions/Citation'
 import { Autolink, autolinkKey } from '../extensions/Autolink'
 import { db } from '../db'
 import { compressImage } from '../imageUtils'
@@ -33,6 +34,38 @@ function computeSuggest(editor: Editor): WikiSuggest | null {
   return { query: found.query, from: to - found.matchLength, to, index: 0 }
 }
 
+/** State of the citation dialog. `pos` is the doc position of the node being
+ *  edited, or null when inserting a new citation. */
+interface CiteDraft {
+  pos: number | null
+  mode: 'page' | 'text'
+  target: string
+  text: string
+  locator: string
+  quote: string
+}
+
+/** When the selection is a single citation node, return its position + attrs. */
+function selectedCitation(editor: Editor): { pos: number; attrs: CiteDraft } | null {
+  if (!editor.isEditable) return null
+  const { selection } = editor.state
+  if (selection instanceof NodeSelection && selection.node.type.name === 'citation') {
+    const a = selection.node.attrs
+    return {
+      pos: selection.from,
+      attrs: {
+        pos: selection.from,
+        mode: a.text && !a.target ? 'text' : 'page',
+        target: a.target ?? '',
+        text: a.text ?? '',
+        locator: a.locator ?? '',
+        quote: a.quote ?? '',
+      },
+    }
+  }
+  return null
+}
+
 /** When the current selection is a single wiki-link node, return its document
  *  position and attrs so the edit popover can target it. Otherwise null. */
 function selectedWikiLink(editor: Editor): { pos: number; title: string; display: string } | null {
@@ -56,6 +89,8 @@ interface Props {
   autolinkTitles?: string[]
   /** Whether the autolinker is enabled for this world. */
   autolinkEnabled?: boolean
+  /** View-mode: a citation marker was clicked; arg is its 0-based order in the body. */
+  onCitationClick?: (index: number) => void
 }
 
 /** Toolbar button helper. */
@@ -78,13 +113,14 @@ function Btn({ active, onClick, title, children }: {
   )
 }
 
-export default function LoreEditor({ content, editable, onChange, onWikiClick, knownTitles, autolinkTitles, autolinkEnabled }: Props) {
+export default function LoreEditor({ content, editable, onChange, onWikiClick, knownTitles, autolinkTitles, autolinkEnabled, onCitationClick }: Props) {
   // --- [[wiki link]] autocomplete state ------------------------------------
   // `index` is the highlighted row; it lives in the same object so a new query
   // (a fresh suggest) naturally resets it to 0 without a separate effect.
   const [suggest, setSuggest] = useState<WikiSuggest | null>(null)
   // The wiki-link node currently being edited via the popover (edit mode only).
   const [editLink, setEditLink] = useState<{ pos: number; title: string; display: string } | null>(null)
+  const [cite, setCite] = useState<CiteDraft | null>(null)
   // Titles of all pages, for the suggestion menu. Indexed by title in Dexie.
   const pageTitles = useLiveQuery(
     () => db.pages.orderBy('title').toArray().then((ps) => ps.map((p) => p.title)),
@@ -106,6 +142,7 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
         },
       }),
       WikiLink,
+      Citation,
       Autolink,
       Image.configure({ inline: false, allowBase64: true }),
       TableKit.configure({ table: { resizable: true } }),
@@ -113,7 +150,11 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
     content,
     editable,
     onUpdate: ({ editor }) => { onChange(editor.getHTML()); setSuggest(computeSuggest(editor)) },
-    onSelectionUpdate: ({ editor }) => { setSuggest(computeSuggest(editor)); setEditLink(selectedWikiLink(editor)) },
+    onSelectionUpdate: ({ editor }) => {
+      setSuggest(computeSuggest(editor)); setEditLink(selectedWikiLink(editor))
+      const sc = selectedCitation(editor)
+      setCite(sc ? sc.attrs : null)
+    },
     onBlur: () => setSuggest(null),
   })
 
@@ -145,6 +186,30 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
     // wins, closing the popover. Keep it last.
     setEditLink(null)
   }, [editor, editLink])
+
+  // Open the dialog to insert a brand-new citation at the cursor.
+  const openCite = useCallback(() => {
+    setCite({ pos: null, mode: 'page', target: '', text: '', locator: '', quote: '' })
+  }, [])
+
+  // Write the dialog back to the document: update the selected node, or insert one.
+  const applyCite = useCallback(() => {
+    if (!editor || !cite) return
+    const attrs = {
+      target: cite.mode === 'page' ? cite.target.trim() : '',
+      text: cite.mode === 'text' ? cite.text.trim() : '',
+      locator: cite.locator.trim(),
+      quote: cite.quote.trim(),
+    }
+    if (!attrs.target && !attrs.text) { setCite(null); return } // nothing to cite
+    if (cite.pos === null) {
+      editor.chain().focus().insertContent({ type: 'citation', attrs }).run()
+    } else {
+      const pos = cite.pos
+      editor.chain().focus().command(({ tr }) => { tr.setNodeMarkup(pos, undefined, attrs); return true }).run()
+    }
+    setCite(null)
+  }, [editor, cite])
 
   // Drive the menu from the keyboard. A capture-phase listener on the editor DOM
   // runs before ProseMirror's own keymap, so we can claim the nav keys (and stop
@@ -263,6 +328,16 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
       return
     }
 
+    const citeEl = el.closest('sup[data-citation]')
+    if (citeEl) {
+      if (editable) return // edit mode: selection opens the dialog instead
+      e.preventDefault()
+      const all = Array.from(editor.view.dom.querySelectorAll('sup[data-citation]'))
+      const idx = all.indexOf(citeEl)
+      if (idx >= 0) onCitationClick?.(idx)
+      return
+    }
+
     const ext = el.closest('a[href]:not(.wiki-link)') as HTMLAnchorElement | null
     if (ext) {
       if (editable && !(e.metaKey || e.ctrlKey)) return
@@ -297,6 +372,7 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
             onChange={pickImage}
           />
           <Btn title="Link (external URL)" active={editor.isActive('link')} onClick={openLinkBox}>🔗</Btn>
+          <Btn title="Insert citation" active={!!cite} onClick={openCite}>❝¹</Btn>
           <span className="tb-sep" />
           <Btn title="Insert table" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>⊞</Btn>
           {editor.isActive('table') && (<>
@@ -327,6 +403,81 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
           {editor.isActive('link') && (
             <Btn title="Remove link" onClick={removeLink}>Remove</Btn>
           )}
+        </div>
+      )}
+      {editable && cite && (
+        <div className="cite-popover">
+          <div className="cite-mode">
+            <button
+              type="button"
+              className={`tb-btn${cite.mode === 'page' ? ' is-active' : ''}`}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setCite((c) => c && { ...c, mode: 'page' })}
+            >Page</button>
+            <button
+              type="button"
+              className={`tb-btn${cite.mode === 'text' ? ' is-active' : ''}`}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setCite((c) => c && { ...c, mode: 'text' })}
+            >Free text</button>
+          </div>
+          {cite.mode === 'page' ? (
+            <label>
+              Source page
+              <input
+                autoFocus
+                type="text"
+                placeholder="Page title…"
+                value={cite.target}
+                onChange={(e) => setCite((c) => c && { ...c, target: e.target.value })}
+              />
+              {cite.target.trim() && (
+                <div className="cite-suggest">
+                  {rankWikiTitles(pageTitles ?? [], cite.target).slice(0, 6).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      className="wiki-suggest-item"
+                      onMouseDown={(e) => { e.preventDefault(); setCite((c) => c && { ...c, target: t }) }}
+                    >{t}</button>
+                  ))}
+                </div>
+              )}
+            </label>
+          ) : (
+            <label>
+              Source
+              <input
+                autoFocus
+                type="text"
+                placeholder="e.g. The Oral Tradition of the Vale"
+                value={cite.text}
+                onChange={(e) => setCite((c) => c && { ...c, text: e.target.value })}
+              />
+            </label>
+          )}
+          <label>
+            Locator
+            <input
+              type="text"
+              placeholder="e.g. Ch. 3, p. 42"
+              value={cite.locator}
+              onChange={(e) => setCite((c) => c && { ...c, locator: e.target.value })}
+            />
+          </label>
+          <label>
+            Quote
+            <textarea
+              rows={2}
+              placeholder="optional excerpt"
+              value={cite.quote}
+              onChange={(e) => setCite((c) => c && { ...c, quote: e.target.value })}
+            />
+          </label>
+          <div className="cite-actions">
+            <Btn title="Apply citation" onClick={applyCite}>Apply</Btn>
+            <Btn title="Cancel" onClick={() => setCite(null)}>Cancel</Btn>
+          </div>
         </div>
       )}
       <div

@@ -452,6 +452,51 @@ a.tag:hover { border-color: var(--accent); color: var(--ink); }
 }
 .wiki-link.autolink { border-bottom-color: transparent; }
 .wiki-link.autolink:hover { border-bottom-color: var(--accent-soft); }
+
+/* ── Citations ───────────────────────────────────────────────────────────── */
+/* Numbering comes from a CSS counter over document order, so markers and the
+   References list (an <ol>) stay in sync without storing numbers. */
+.page-main { counter-reset: cite; }
+sup.citation { counter-increment: cite; cursor: pointer; color: var(--accent-soft); font-size: 0.7em; }
+sup.citation::before { content: "[" counter(cite) "]"; }
+sup.citation:hover { color: var(--accent); }
+
+.references {
+  margin-top: 32px; border-top: 1px solid var(--border); padding-top: 16px;
+}
+.references-head {
+  font-family: var(--display); font-size: 12px; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--ink-dim); margin-bottom: 8px;
+}
+.references-list { margin: 0; padding-left: 1.5em; }
+button.wiki-link { background: none; border-top: none; border-left: none; border-right: none; font: inherit; }
+.reference { color: var(--ink-dim); font-size: 14px; margin-bottom: 6px; }
+.reference-backref {
+  background: none; border: none; color: var(--accent-soft); cursor: pointer;
+  padding: 0 4px 0 0; font-size: 13px;
+}
+.reference-backref:hover { color: var(--accent); }
+.reference-locator { color: var(--ink-faint); }
+.reference-quote { color: var(--ink-faint); font-style: italic; margin-left: 4px; }
+
+/* Citation dialog (insert/edit) — mirrors .wiki-link-edit. */
+.cite-popover {
+  position: absolute; top: 58px; left: 5px; z-index: 10;
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px; width: 300px; max-width: calc(100% - 10px);
+  box-shadow: 0 8px 30px rgba(0,0,0,.55);
+}
+.cite-popover label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); letter-spacing: 0.3px; }
+.cite-popover input, .cite-popover textarea {
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 9px; color: var(--ink); width: 100%; box-sizing: border-box;
+  font-family: inherit; resize: vertical;
+}
+.cite-mode { display: flex; gap: 6px; }
+.cite-suggest { display: flex; flex-direction: column; margin-top: 4px; max-height: 160px; overflow-y: auto; }
+.cite-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
 .settings-field-check { flex-direction: row; align-items: center; gap: 8px; }
 .ext-link { color: var(--accent-soft); border-bottom: 1px solid var(--accent-soft); cursor: pointer; padding: 0 1px; }
 .ext-link:hover { color: var(--accent); background: rgba(201, 162, 75, 0.12); }

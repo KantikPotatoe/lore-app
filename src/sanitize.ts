@@ -12,6 +12,7 @@
 //     strong/em/s/code, etc.
 //   - external links: <a href target rel class="ext-link">
 //   - wiki links:     <a data-wikilink data-title class="wiki-link">
+//   - citations:      <sup data-citation data-target/data-text/data-locator/data-quote class="citation">
 //   - inline images embedded as data: URLs (allowBase64)
 //   - tables from TableKit: table/tr/th/td/colgroup/col with col/rowspan + widths
 //
