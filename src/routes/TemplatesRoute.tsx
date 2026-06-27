@@ -18,6 +18,7 @@ export default function TemplatesRoute() {
   const pages = useLiveQuery(() => db.pages.toArray(), []) ?? []
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [note, setNote] = useState('')
+  const [dirty, setDirty] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<InfoboxTemplate | null>(null)
 
   if (!templates) return <div className="content-pad">Loading…</div>
@@ -30,11 +31,13 @@ export default function TemplatesRoute() {
   function selectTemplate(id: string | null) {
     setSelectedId(id)
     setNote('')
+    setDirty(false)
   }
 
   async function applyToPages() {
     if (!selected) return
     const n = await applyTemplateToPages(selected)
+    setDirty(false)
     setNote(n === 0 ? 'No pages use this type yet.' : `Updated ${n} page${n === 1 ? '' : 's'}.`)
   }
 
@@ -52,7 +55,10 @@ export default function TemplatesRoute() {
 
   // -- item editing (operates on the selected template) ---------------------
   function commitItems(items: TemplateItem[]) {
-    if (selected) updateTemplate(selected.id, { items })
+    if (selected) {
+      updateTemplate(selected.id, { items })
+      setDirty(true)
+    }
   }
   function setItem(index: number, patch: Partial<TemplateItem>) {
     if (!selected) return
@@ -112,7 +118,7 @@ export default function TemplatesRoute() {
                 placeholder="Type name"
               />
               {selected.builtin ? (
-                <button className="mini-btn" onClick={() => resetTemplate(selected.id)} title="Restore shipped colour and rows">
+                <button className="mini-btn" onClick={() => { resetTemplate(selected.id); setDirty(true) }} title="Restore shipped colour and rows">
                   ↺ Reset
                 </button>
               ) : (
@@ -219,17 +225,23 @@ export default function TemplatesRoute() {
               <button className="mini-btn" onClick={() => addItem({ label: 'Section', separator: true })}>＋ Add separator</button>
             </div>
 
-            <div className="template-apply-row">
-              <button className="mini-btn" disabled={usedByCount === 0} onClick={applyToPages}>
-                Apply to existing pages
-              </button>
-              <span className="template-apply-hint">
-                {note || (
-                  usedByCount === 0
-                    ? 'No pages use this type yet.'
-                    : `Push these rows to ${usedByCount} page${usedByCount === 1 ? '' : 's'} using this type (values are kept).`
-                )}
-              </span>
+            <div className={`template-apply-row${dirty && usedByCount > 0 ? ' dirty' : ''}`}>
+              {dirty && usedByCount > 0 && (
+                <p className="template-apply-callout">
+                  ● You changed this type’s rows. Existing pages keep their old rows until you apply.
+                </p>
+              )}
+              <div className="template-apply-controls">
+                <button className="mini-btn" disabled={usedByCount === 0} onClick={applyToPages}>
+                  {usedByCount > 0
+                    ? `Apply to ${usedByCount} existing page${usedByCount === 1 ? '' : 's'}`
+                    : 'Apply to existing pages'}
+                </button>
+                <span className="template-apply-hint">
+                  {note ||
+                    (usedByCount === 0 ? 'No pages use this type yet.' : 'Filled-in values are kept.')}
+                </span>
+              </div>
             </div>
           </section>
         ) : (
