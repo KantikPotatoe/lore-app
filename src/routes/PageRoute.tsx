@@ -11,6 +11,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { maybeTakeSnapshot } from '../snapshots'
 import Breadcrumb from '../components/Breadcrumb'
 import { recordRecent } from '../recents'
+import { getSettings } from '../settings'
 
 export default function PageRoute() {
   const { id = '' } = useParams()
@@ -31,6 +32,16 @@ export default function PageRoute() {
     async () => new Set((await db.pages.toArray()).map((p) => p.title.trim().toLowerCase())),
     [],
   )
+
+  // Canonical titles of every OTHER page — the autolinker's vocabulary. Excluding
+  // this page's own title is the self-link skip.
+  const autolinkTitles = useLiveQuery(
+    async () => (await db.pages.toArray()).filter((p) => p.id !== id).map((p) => p.title),
+    [id],
+  )
+  // Global per-world toggle (default on when settings haven't loaded yet).
+  const settings = useLiveQuery(() => getSettings(), [])
+  const autolinkEnabled = settings?.autolinkEnabled ?? true
 
   // Pins that link to this page, with their map names — drives the "Location"
   // block. pageId is indexed, so the where() is cheap.
@@ -251,6 +262,8 @@ export default function PageRoute() {
             onChange={(html) => updatePage(id, { content: html })}
             onWikiClick={followWikiLink}
             knownTitles={knownTitles}
+            autolinkTitles={autolinkTitles}
+            autolinkEnabled={autolinkEnabled}
           />
           <ImageGallery page={page} editable={editing} />
         </div>

@@ -450,6 +450,9 @@ a.tag:hover { border-color: var(--accent); color: var(--ink); }
   color: var(--danger);
   background: rgba(200, 100, 90, 0.12);
 }
+.wiki-link.autolink { border-bottom-color: transparent; }
+.wiki-link.autolink:hover { border-bottom-color: var(--accent-soft); }
+.settings-field-check { flex-direction: row; align-items: center; gap: 8px; }
 .ext-link { color: var(--accent-soft); border-bottom: 1px solid var(--accent-soft); cursor: pointer; padding: 0 1px; }
 .ext-link:hover { color: var(--accent); background: rgba(201, 162, 75, 0.12); }
 /* ── Table styles (ProseMirror edit + view mode) ─────────────────────────── */

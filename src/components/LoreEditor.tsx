@@ -6,6 +6,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import { TableKit } from '@tiptap/extension-table'
 import { WikiLink } from '../extensions/WikiLink'
+import { Autolink, autolinkKey } from '../extensions/Autolink'
 import { db } from '../db'
 import { compressImage } from '../imageUtils'
 import { showWikiHover, scheduleWikiHoverClose } from '../wikiLinkHover'
@@ -51,6 +52,10 @@ interface Props {
   onWikiClick: (title: string) => void
   /** Lowercased titles of existing pages; missing ones render as broken (view mode). */
   knownTitles?: Set<string>
+  /** Canonical page titles (excluding the current page) for body autolinking. */
+  autolinkTitles?: string[]
+  /** Whether the autolinker is enabled for this world. */
+  autolinkEnabled?: boolean
 }
 
 /** Toolbar button helper. */
@@ -73,7 +78,7 @@ function Btn({ active, onClick, title, children }: {
   )
 }
 
-export default function LoreEditor({ content, editable, onChange, onWikiClick, knownTitles }: Props) {
+export default function LoreEditor({ content, editable, onChange, onWikiClick, knownTitles, autolinkTitles, autolinkEnabled }: Props) {
   // --- [[wiki link]] autocomplete state ------------------------------------
   // `index` is the highlighted row; it lives in the same object so a new query
   // (a fresh suggest) naturally resets it to 0 without a separate effect.
@@ -101,6 +106,7 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
         },
       }),
       WikiLink,
+      Autolink,
       Image.configure({ inline: false, allowBase64: true }),
       TableKit.configure({ table: { resizable: true } }),
     ],
@@ -200,6 +206,18 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
     editor?.setEditable(editable)
   }, [editable, editor])
 
+  // Feed the autolinker its title set + on/off state. Disabled while editing so
+  // authoring sees plain text; the plugin also self-gates on editor.isEditable.
+  useEffect(() => {
+    if (!editor) return
+    editor.view.dispatch(
+      editor.state.tr.setMeta(autolinkKey, {
+        enabled: !!autolinkEnabled && !editable,
+        titles: autolinkTitles ?? [],
+      }),
+    )
+  }, [editor, autolinkEnabled, autolinkTitles, editable])
+
   // In view mode, flag links whose target page no longer exists. Mirrors the
   // post-render DOM pass TableOfContents uses; edit mode is left untouched so
   // authoring isn't disrupted.
@@ -236,7 +254,7 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
   const handleClick = (e: React.MouseEvent) => {
     const el = e.target as HTMLElement
 
-    const wiki = el.closest('a.wiki-link')
+    const wiki = el.closest('.wiki-link')
     if (wiki) {
       if (editable && !(e.metaKey || e.ctrlKey)) return
       e.preventDefault()
@@ -315,14 +333,14 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
         onClick={handleClick}
         onMouseOver={(e) => {
           if (editable) return
-          const anchor = (e.target as Element).closest('a[data-wikilink]')
+          const anchor = (e.target as Element).closest('[data-wikilink]')
           if (!anchor) return
           const title = anchor.getAttribute('data-title')
           if (title) showWikiHover(title, anchor.getBoundingClientRect())
         }}
         onMouseOut={(e) => {
           if (editable) return
-          const anchor = (e.target as Element).closest('a[data-wikilink]')
+          const anchor = (e.target as Element).closest('[data-wikilink]')
           if (anchor) scheduleWikiHoverClose()
         }}
       >

@@ -36,4 +36,13 @@ describe('settings', () => {
     await updateSettings({ snapshotTimeHours: Number.NaN })
     expect((await getSettings()).snapshotTimeHours).toBe(12)
   })
+
+  it('defaults autolinkEnabled to true', async () => {
+    expect((await getSettings()).autolinkEnabled).toBe(true)
+  })
+
+  it('round-trips a boolean without clamping it to a number', async () => {
+    await updateSettings({ autolinkEnabled: false })
+    expect((await getSettings()).autolinkEnabled).toBe(false)
+  })
 })

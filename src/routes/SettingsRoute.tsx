@@ -167,6 +167,23 @@ export default function SettingsRoute() {
         )}
       </section>
 
+      {/* Linking */}
+      <section className="home-section">
+        <h2>Linking</h2>
+        <label className="settings-field settings-field-check">
+          <input
+            type="checkbox"
+            checked={s.autolinkEnabled}
+            onChange={(e) => setField({ autolinkEnabled: e.target.checked })}
+          />
+          <span>Auto-link page titles in body text</span>
+        </label>
+        <p className="empty-hint">
+          Links the first mention of another page's title in each page's body. Your own
+          [[links]] always take precedence.
+        </p>
+      </section>
+
       {/* Backup & data */}
       <section className="home-section backup">
         <h2>Backup &amp; data</h2>
