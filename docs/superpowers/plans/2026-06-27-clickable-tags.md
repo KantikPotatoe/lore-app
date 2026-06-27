@@ -4,7 +4,7 @@
 
 **Goal:** Make `#tag` pills on a page clickable, opening a dedicated `/tag/:tag` view that lists every page carrying that tag.
 
-**Architecture:** A new `TagRoute` component mirrors the existing `CategoryRoute` card-grid, querying pages with an in-memory `filter` (tags aren't indexed). View-mode tag pills in `PageRoute` become `<Link>`s to `/tag/<tag>`; edit-mode pills stay as removable spans.
+**Architecture:** Extract the shared `browse-card` markup into a `BrowseCard` component used by both `CategoryRoute` and the new `TagRoute`. `TagRoute` mirrors the `CategoryRoute` card-grid, querying pages with an in-memory `filter` (tags aren't indexed). View-mode tag pills in `PageRoute` become `<Link>`s to `/tag/<tag>`; edit-mode pills stay as removable spans.
 
 **Tech Stack:** React, react-router-dom (`<Routes>`, `<Link>`, `useParams`), Dexie + `useLiveQuery`, Vitest + @testing-library/react + MemoryRouter.
 
@@ -18,7 +18,134 @@
 
 ---
 
-### Task 1: TagRoute component, route, and tests
+### Task 1: Extract a shared `BrowseCard` component
+
+Pull the page-card markup currently inline in `CategoryRoute` into a reusable
+`BrowseCard`, and refactor `CategoryRoute` to use it. Pure refactor — no
+behavior change. Each card computes its own category color from `page.category`
+(equivalent for `CategoryRoute`, where every page shares the route's category,
+and correct for the mixed-category `TagRoute` to come).
+
+**Files:**
+- Create: `src/components/BrowseCard.tsx`
+- Create: `src/components/BrowseCard.test.tsx`
+- Modify: `src/routes/CategoryRoute.tsx` (replace inline card with `<BrowseCard>`)
+
+**Interfaces:**
+- Consumes: `categoryColor`, `statusColor`, `pageStatus`, `type LorePage` from `'../db'`; `Link` from `'react-router-dom'`.
+- Produces: `export default function BrowseCard({ page }: { page: LorePage })` — renders a `<Link to={`/page/${page.id}`} className="browse-card">…`.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `src/components/BrowseCard.test.tsx`:
+
+```tsx
+import { describe, it, expect, afterEach } from 'vitest'
+import { render, screen, cleanup } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import BrowseCard from './BrowseCard'
+import type { LorePage } from '../db'
+
+afterEach(cleanup)
+
+function makePage(over: Partial<LorePage> = {}): LorePage {
+  return {
+    id: 'p1', title: 'Fireball', category: 'Spell', content: '', summary: 'A fiery blast',
+    status: 'Draft', tags: [], infobox: undefined, createdAt: 0, updatedAt: 0, ...over,
+  }
+}
+
+describe('BrowseCard', () => {
+  it('links to the page and shows its name, summary, and status', () => {
+    render(<MemoryRouter><BrowseCard page={makePage()} /></MemoryRouter>)
+    const link = screen.getByRole('link')
+    expect(link.getAttribute('href')).toBe('/page/p1')
+    expect(screen.getByText('Fireball')).toBeTruthy()
+    expect(screen.getByText('A fiery blast')).toBeTruthy()
+    expect(screen.getByText('Draft')).toBeTruthy()
+  })
+
+  it('falls back to a placeholder initial when there is no infobox image', () => {
+    render(<MemoryRouter><BrowseCard page={makePage({ title: 'Zephyr' })} /></MemoryRouter>)
+    expect(screen.getByText('Z')).toBeTruthy()
+  })
+})
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npm run test:run -- src/components/BrowseCard.test.tsx`
+Expected: FAIL — `Cannot find module './BrowseCard'`.
+
+- [ ] **Step 3: Create the BrowseCard component**
+
+Create `src/components/BrowseCard.tsx`:
+
+```tsx
+import { Link } from 'react-router-dom'
+import { categoryColor, statusColor, pageStatus, type LorePage } from '../db'
+
+export default function BrowseCard({ page }: { page: LorePage }) {
+  const color = categoryColor(page.category)
+  return (
+    <Link to={`/page/${page.id}`} className="browse-card">
+      <div className="browse-card-img">
+        {page.infobox?.image ? (
+          <img src={page.infobox.image} alt={page.title} />
+        ) : (
+          <div className="browse-card-placeholder" style={{ background: color + '33' }}>
+            <span style={{ color }}>{page.title.charAt(0).toUpperCase()}</span>
+          </div>
+        )}
+      </div>
+      <div className="browse-card-body">
+        <div className="browse-card-name">{page.title}</div>
+        {page.summary && <div className="browse-card-summary">{page.summary}</div>}
+        <span
+          className="browse-card-status"
+          style={{ borderColor: statusColor(pageStatus(page)), color: statusColor(pageStatus(page)) }}
+        >
+          {pageStatus(page)}
+        </span>
+      </div>
+    </Link>
+  )
+}
+```
+
+- [ ] **Step 4: Refactor `CategoryRoute` to use `BrowseCard`**
+
+In `src/routes/CategoryRoute.tsx`, add the import:
+
+```tsx
+import BrowseCard from '../components/BrowseCard'
+```
+
+Replace the entire `pages.map(...)` block (the `<Link key={page.id} … className="browse-card">…</Link>` JSX) with:
+
+```tsx
+          {pages.map((page) => (
+            <BrowseCard key={page.id} page={page} />
+          ))}
+```
+
+Then remove now-unused imports from `CategoryRoute.tsx`: `Link` (from react-router-dom — keep `useNavigate`, `useParams`), and `statusColor`/`pageStatus` (from `'../db'`). Keep `categoryColor` (still used for the header color) and `createPage`/`db`.
+
+- [ ] **Step 5: Run tests, lint, and build**
+
+Run: `npm run test:run -- src/components/BrowseCard.test.tsx && npm run lint && npm run build`
+Expected: BrowseCard tests PASS; lint clean (no unused-import errors); build succeeds.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/components/BrowseCard.tsx src/components/BrowseCard.test.tsx src/routes/CategoryRoute.tsx
+git commit -m "refactor: extract shared BrowseCard from CategoryRoute (#80)"
+```
+
+---
+
+### Task 2: TagRoute component, route, and tests
 
 **Files:**
 - Create: `src/routes/TagRoute.tsx`
@@ -26,7 +153,7 @@
 - Modify: `src/App.tsx` (add the route + import)
 
 **Interfaces:**
-- Consumes: `db`, `createPage`, `categoryColor`, `statusColor`, `pageStatus` from `'../db'`; `EmptyState` from `'../components/EmptyState'`.
+- Consumes: `BrowseCard` from `'../components/BrowseCard'` (Task 1); `db` from `'../db'`; `EmptyState` from `'../components/EmptyState'`.
 - Produces: `export default function TagRoute()` mounted at `path="/tag/:tag"`.
 
 - [ ] **Step 1: Write the failing test**
@@ -89,9 +216,10 @@ Expected: FAIL — `Cannot find module './TagRoute'` (component doesn't exist ye
 Create `src/routes/TagRoute.tsx`:
 
 ```tsx
-import { useParams, Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, categoryColor, statusColor, pageStatus } from '../db'
+import { db } from '../db'
+import BrowseCard from '../components/BrowseCard'
 import EmptyState from '../components/EmptyState'
 
 const NO_PAGES: import('../db').LorePage[] = []
@@ -122,37 +250,9 @@ export default function TagRoute() {
         />
       ) : (
         <div className="browse-grid">
-          {pages.map((page) => {
-            const color = categoryColor(page.category)
-            return (
-              <Link key={page.id} to={`/page/${page.id}`} className="browse-card">
-                <div className="browse-card-img">
-                  {page.infobox?.image ? (
-                    <img src={page.infobox.image} alt={page.title} />
-                  ) : (
-                    <div
-                      className="browse-card-placeholder"
-                      style={{ background: color + '33' }}
-                    >
-                      <span style={{ color }}>{page.title.charAt(0).toUpperCase()}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="browse-card-body">
-                  <div className="browse-card-name">{page.title}</div>
-                  {page.summary && (
-                    <div className="browse-card-summary">{page.summary}</div>
-                  )}
-                  <span
-                    className="browse-card-status"
-                    style={{ borderColor: statusColor(pageStatus(page)), color: statusColor(pageStatus(page)) }}
-                  >
-                    {pageStatus(page)}
-                  </span>
-                </div>
-              </Link>
-            )
-          })}
+          {pages.map((page) => (
+            <BrowseCard key={page.id} page={page} />
+          ))}
         </div>
       )}
     </div>
@@ -188,7 +288,7 @@ git commit -m "feat: add /tag/:tag route listing pages by tag (#80)"
 
 ---
 
-### Task 2: Make view-mode tag pills clickable
+### Task 3: Make view-mode tag pills clickable
 
 **Files:**
 - Modify: `src/routes/PageRoute.tsx` (import `Link`; change the tags `.map`)
