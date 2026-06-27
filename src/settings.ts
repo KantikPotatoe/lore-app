@@ -7,6 +7,7 @@ export interface LoreSettings {
   snapshotTimeHours: number
   snapshotRetention: number
   backupOverdueDays: number
+  autolinkEnabled: boolean
 }
 
 export const DEFAULT_SETTINGS: LoreSettings = {
@@ -14,6 +15,7 @@ export const DEFAULT_SETTINGS: LoreSettings = {
   snapshotTimeHours: 24,
   snapshotRetention: 10,
   backupOverdueDays: 7,
+  autolinkEnabled: true,
 }
 
 export const SETTINGS_KEY = 'lore-settings'
@@ -37,8 +39,13 @@ export async function updateSettings(patch: Partial<LoreSettings>): Promise<void
   const current = await getSettings()
   const next: LoreSettings = { ...current }
   for (const key of Object.keys(patch) as (keyof LoreSettings)[]) {
-    const clamped = clamp(patch[key])
-    if (clamped !== null) next[key] = clamped
+    const value = patch[key]
+    if (typeof value === 'boolean') {
+      next[key] = value as never
+    } else {
+      const clamped = clamp(value)
+      if (clamped !== null) next[key] = clamped as never
+    }
   }
   await setMeta(SETTINGS_KEY, next)
 }
