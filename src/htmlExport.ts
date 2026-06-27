@@ -1,6 +1,7 @@
 import JSZip from 'jszip'
 import { db } from './db'
 import type { LorePage, PageImage } from './db'
+import { parseCitations } from './citations'
 
 function rewriteWikiLinks(html: string, titleToId: Map<string, string>): string {
   return html.replace(
@@ -43,7 +44,22 @@ function renderGallery(images: PageImage[]): string {
   return `<section class="gallery"><h2>Images</h2><div class="gallery-grid">${items}</div></section>`
 }
 
-function pageHtml(page: LorePage, body: string, backlinks: LorePage[], images: PageImage[]): string {
+function renderReferences(page: LorePage, titleToId: Map<string, string>): string {
+  const citations = parseCitations(page.content)
+  if (citations.length === 0) return ''
+  const items = citations.map((c) => {
+    const id = c.target ? titleToId.get(c.target) : undefined
+    const source = c.target
+      ? (id ? `<a href="./${id}.html">${c.target}</a>` : `<span class="broken-link">${c.target}</span>`)
+      : c.text
+    const loc = c.locator ? `, ${c.locator}` : ''
+    const quote = c.quote ? ` — "${c.quote}"` : ''
+    return `<li>${source}${loc}${quote}</li>`
+  }).join('\n')
+  return `<section class="references"><h2>References</h2><ol>${items}</ol></section>`
+}
+
+function pageHtml(page: LorePage, body: string, backlinks: LorePage[], images: PageImage[], titleToId: Map<string, string>): string {
   const bl = backlinks.length
     ? `<section class="backlinks"><h2>What links here</h2><ul>${backlinks.map(b => `<li><a href="./${b.id}.html">${b.title}</a></li>`).join('')}</ul></section>`
     : ''
@@ -64,6 +80,7 @@ function pageHtml(page: LorePage, body: string, backlinks: LorePage[], images: P
   ${renderInfobox(page)}
   <div class="page-body">${body}</div>
   ${renderGallery(images)}
+  ${renderReferences(page, titleToId)}
   ${bl}
 </article>
 </body>
@@ -121,6 +138,10 @@ h1 { margin: 0 0 8px; }
 .index { max-width: 900px; margin: 0 auto; }
 .index section { margin-bottom: 24px; }
 .index ul { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 16px; }
+sup[data-citation] { counter-increment: cite; font-size: 0.7em; }
+sup[data-citation]::before { content: "[" counter(cite) "]"; }
+.page-body { counter-reset: cite; }
+.references { clear: both; margin-top: 32px; border-top: 1px solid var(--border); padding-top: 16px; }
 `
 
 /** Build the static export site as a path→content map (no DB, no download), so
@@ -156,7 +177,7 @@ export function buildHtmlSite(pages: LorePage[], images: PageImage[]): Record<st
   for (const page of pages) {
     const body = rewriteWikiLinks(page.content, titleToId)
     const backlinks = backlinkMap.get(page.title) ?? []
-    files[`pages/${page.id}.html`] = pageHtml(page, body, backlinks, imagesByPage.get(page.id) ?? [])
+    files[`pages/${page.id}.html`] = pageHtml(page, body, backlinks, imagesByPage.get(page.id) ?? [], titleToId)
   }
   return files
 }

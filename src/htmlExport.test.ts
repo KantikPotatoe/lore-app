@@ -99,4 +99,20 @@ describe('buildHtmlSite', () => {
     expect(bPage).toContain('What links here')
     expect(bPage).toContain('<a href="./a.html">A</a>')
   })
+
+  it('renders a References section with page links and free text', () => {
+    const cite = (a: Record<string, string>) =>
+      `<sup data-citation ${Object.entries(a).map(([k, v]) => `data-${k}="${v}"`).join(' ')}></sup>`
+    const pages = [
+      page('a', 'A', { content: `<p>x${cite({ target: 'B', locator: 'Ch.1' })} y${cite({ text: 'Ledger' })}</p>` }),
+      page('b', 'B'),
+    ]
+    const files = buildHtmlSite(pages, [])
+    const html = files['pages/a.html']
+    expect(html).toContain('<section class="references">')
+    expect(html).toContain('href="./b.html"') // page source linked
+    expect(html).toContain('Ch.1')
+    expect(html).toContain('Ledger')
+    expect(files['style.css']).toContain('counter-increment: cite')
+  })
 })
