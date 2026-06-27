@@ -124,6 +124,17 @@ describe('seedTemplates', () => {
     expect((await db.templates.get(a.id))!.icon).toBe(BUILTIN_ICONS[a.name])
     expect((await db.templates.get(b.id))!.icon).toBe('🎯')
   })
+
+  // React StrictMode invokes the startup effect twice in dev, so seedTemplates()
+  // can run concurrently against a fresh DB. The read-then-bulkAdd must not race
+  // into a duplicate-key BulkError, and must not create duplicate rows.
+  it('is safe under concurrent invocation (no BulkError, no duplicates)', async () => {
+    await Promise.all([seedTemplates(), seedTemplates()])
+    const all = await db.templates.toArray()
+    const ids = all.map((t) => t.id)
+    expect(new Set(ids).size).toBe(ids.length) // no duplicate rows
+    expect(all.length).toBe(BUILTIN_TEMPLATES.length) // exactly the built-ins, once
+  })
 })
 
 describe('BUILTIN_TEMPLATES structure', () => {

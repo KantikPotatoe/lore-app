@@ -72,7 +72,20 @@ export async function deleteLore(id: string): Promise<void> {
   }
 }
 
-export async function bootstrapDefaultLore(): Promise<void> {
+// In-flight guard: React StrictMode double-invokes the startup effect in dev, so
+// bootstrapDefaultLore() can be called twice at once. The localStorage flag is
+// only set after the async add, so both calls would pass the guard and both add
+// id:'default', and the loser would reject with a duplicate-key ConstraintError.
+// Sharing one in-flight promise makes the second caller await the first instead.
+// (A transaction won't work here — the body reads a second DB via getMeta and a
+// dynamic import, which a registry transaction can't span.)
+let bootstrapping: Promise<void> | null = null
+
+export function bootstrapDefaultLore(): Promise<void> {
+  return (bootstrapping ??= doBootstrapDefaultLore().finally(() => { bootstrapping = null }))
+}
+
+async function doBootstrapDefaultLore(): Promise<void> {
   // Seed exactly once. An empty registry after this flag is set means the user
   // deliberately deleted all their worlds — leave it empty so the lore selector
   // can show its empty state instead of silently recreating a world.

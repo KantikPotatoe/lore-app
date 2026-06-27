@@ -33,4 +33,13 @@ describe('bootstrapDefaultLore', () => {
     await bootstrapDefaultLore()
     expect(await listLores()).toHaveLength(1)
   })
+
+  // React StrictMode invokes the startup effect twice in dev, so this runs
+  // concurrently on a fresh install. The localStorage flag is only set after the
+  // async add, so both calls pass the guard and both add id:'default' — the loser
+  // hits a duplicate-key ConstraintError unless concurrent calls are serialized.
+  it('is safe under concurrent invocation (no duplicate-key error)', async () => {
+    await Promise.all([bootstrapDefaultLore(), bootstrapDefaultLore()])
+    expect(await listLores()).toHaveLength(1)
+  })
 })
