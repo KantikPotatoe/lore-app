@@ -50,3 +50,27 @@ export function findAutolinkMatches(text: string, matcher: TitleMatcher): Autoli
   }
   return out
 }
+
+/** Plan body autolinks for a whole document. `segments` are the linkable text
+ *  runs in document order, each tagged with its absolute start position `pos`.
+ *  `preSeen` lists titles already handled (existing wiki links, the page's own
+ *  title) so they are never auto-linked. Returns the first unseen match per
+ *  title, with absolute [from, to) positions. */
+export function planAutolinks(
+  segments: { text: string; pos: number }[],
+  preSeen: Iterable<string>,
+  matcher: TitleMatcher,
+): AutolinkMatch[] {
+  const seen = new Set<string>()
+  for (const t of preSeen) seen.add(t.toLowerCase())
+  const out: AutolinkMatch[] = []
+  for (const seg of segments) {
+    for (const m of findAutolinkMatches(seg.text, matcher)) {
+      const lc = m.title.toLowerCase()
+      if (seen.has(lc)) continue
+      seen.add(lc)
+      out.push({ from: seg.pos + m.from, to: seg.pos + m.to, title: m.title })
+    }
+  }
+  return out
+}
