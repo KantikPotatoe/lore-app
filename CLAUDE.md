@@ -20,6 +20,7 @@ npm run test:run   # Vitest (CI, one-shot)
 - **Port pinned to 5174** (`strictPort` in `vite.config.ts`; `start-lore-codex.cmd` opens Firefox there). IndexedDB is origin-keyed, so a drifting port shows an empty DB that looks like lost data — change it in **both** places or neither.
 - TS `strict`. CI (`.github/workflows/ci.yml`) runs lint + build + test on PRs/pushes to `main`; run all three before claiming done.
 - Tests: Vitest + happy-dom + fake-indexeddb (`*.test.{ts,tsx}`). **DOMPurify tests need jsdom** — add `// @vitest-environment jsdom` (happy-dom's parser lets `<script>` survive).
+- **Version labels on every PR.** `.github/workflows/version-bump.yml` bumps `package.json` + tags `vX.Y.Z` on merge to `main`, driven by the PR's label. **Always add one** when opening a PR: `version:minor` for a new feature, `version:patch` for a bug fix or chore, `version:major` for a breaking change. No label ⇒ patch. (If PR checks ever fail to start, suspect a transient GitHub event-delivery incident — check githubstatus.com — not the config; an empty-commit push re-triggers once it recovers.)
 
 ## Architecture
 
