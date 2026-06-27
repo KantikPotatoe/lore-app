@@ -70,7 +70,6 @@ export function categoryColor(name: string): string {
 export const STATUSES = [
   { name: 'Stub', color: '#8a8175' },
   { name: 'Draft', color: '#c98f5a' },
-  { name: 'WIP', color: '#5a9bc9' },
   { name: 'Complete', color: '#5aa86b' },
 ] as const
 
@@ -80,9 +79,15 @@ export function statusColor(name: string): string {
   return STATUSES.find((s) => s.name === name)?.color ?? '#8a8175'
 }
 
-/** A page's status, falling back to the default for older pages without one. */
+/**
+ * A page's status, falling back to the default for older pages without one or
+ * with a status that's no longer recognised (e.g. the retired 'WIP' before its
+ * data migration has run). Keeps badges from rendering stale labels.
+ */
 export function pageStatus(page: Pick<LorePage, 'status'>): string {
-  return page.status ?? DEFAULT_STATUS
+  const s = page.status
+  if (s && STATUSES.some((x) => x.name === s)) return s
+  return DEFAULT_STATUS
 }
 
 // ---------------------------------------------------------------------------
@@ -183,6 +188,16 @@ export class LoreDB extends Dexie {
       events: 'id, calendarId, startAbsolute, pageId',
       images: 'id, pageId, order',
     })
+    // v9 retires the 'WIP' page status (merged into 'Draft'). No store change —
+    // only a data migration remapping any page still tagged 'WIP'.
+    this.version(9).upgrade((tx) =>
+      tx
+        .table('pages')
+        .toCollection()
+        .modify((p: LorePage) => {
+          if (p.status === 'WIP') p.status = 'Draft'
+        }),
+    )
   }
 }
 

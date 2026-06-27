@@ -24,7 +24,7 @@ import type {
  * changes, and add a MIGRATIONS step (below) for the new version so older
  * backups keep importing.
  */
-export const CURRENT_SCHEMA_VERSION = 8
+export const CURRENT_SCHEMA_VERSION = 9
 
 /** The shape produced by exportAll() and accepted by importAll().
  *  `schemaVersion`/`appVersion` were added in schema v5's tooling; legacy
@@ -82,6 +82,13 @@ const MIGRATIONS: Record<number, (d: BackupData) => BackupData> = {
   // lack it ⇒ no portal). The version still bumps to mirror the Dexie store version.
   // v8 added the per-page image gallery table; fill it in for older backups.
   7: (d) => ({ ...d, images: asArray(d.images) }),
+  // v9 retired the 'WIP' page status — remap it to 'Draft' on import.
+  8: (d) => ({
+    ...d,
+    pages: asArray(d.pages).map((p) =>
+      p.status === 'WIP' ? { ...p, status: 'Draft' } : p,
+    ),
+  }),
 }
 
 /**

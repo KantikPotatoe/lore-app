@@ -219,13 +219,13 @@ describe('importAll — round-trips', () => {
 })
 
 describe('schema version', () => {
-  it('is at 8 for the image gallery', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(8)
+  it('is at 9 for the retired WIP status', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(9)
   })
 
   it('stamps an older backup up to current with no data loss', () => {
     const out = migrateBackup({ schemaVersion: 6, pages: [], regions: [] })
-    expect(out.schemaVersion).toBe(8)
+    expect(out.schemaVersion).toBe(9)
     expect(out.regions).toEqual([])
   })
 })
@@ -234,5 +234,25 @@ describe('images migration', () => {
   it('MIGRATIONS step normalizes a missing images table to an empty array', () => {
     const out = migrateBackup({ schemaVersion: 7, pages: [] })
     expect(out.images).toEqual([])
+  })
+})
+
+describe('WIP status migration', () => {
+  it('remaps pages tagged WIP to Draft and leaves other statuses alone', () => {
+    const out = migrateBackup({
+      schemaVersion: 8,
+      pages: [
+        { id: 'a', status: 'WIP' },
+        { id: 'b', status: 'Draft' },
+        { id: 'c', status: 'Complete' },
+        { id: 'd' },
+      ],
+    } as never)
+    expect((out.pages as Array<{ id: string; status?: string }>).map((p) => p.status)).toEqual([
+      'Draft',
+      'Draft',
+      'Complete',
+      undefined,
+    ])
   })
 })
