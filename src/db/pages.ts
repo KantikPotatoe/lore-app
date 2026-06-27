@@ -59,14 +59,21 @@ function rewriteLinksInPage(
   const out: Partial<LorePage> = {}
   let changed = false
 
-  // Body: <a data-wikilink data-title="Old">Old</a> — rewrite attribute + text.
-  if (page.content && page.content.includes('data-wikilink')) {
+  // Body: rewrite <a data-wikilink data-title="Old"> (attribute + text) AND
+  // <sup data-citation data-target="Old"> citation markers.
+  if (page.content && (page.content.includes('data-wikilink') || page.content.includes('data-citation'))) {
     const doc = parseHtml(page.content)
     let bodyChanged = false
     doc.querySelectorAll('a[data-wikilink]').forEach((a) => {
       if (a.getAttribute('data-title')?.trim().toLowerCase() === oldLc) {
         a.setAttribute('data-title', newTitle)
         a.textContent = newTitle
+        bodyChanged = true
+      }
+    })
+    doc.querySelectorAll('sup[data-citation]').forEach((s) => {
+      if (s.getAttribute('data-target')?.trim().toLowerCase() === oldLc) {
+        s.setAttribute('data-target', newTitle)
         bodyChanged = true
       }
     })
