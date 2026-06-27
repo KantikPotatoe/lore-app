@@ -383,6 +383,8 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .tag-x { background: none; border: none; color: var(--ink-faint); font-size: 15px; line-height: 1; padding: 0; }
 .tag-x:hover { color: var(--danger); }
 .tag-input { background: var(--panel); border: 1px dashed var(--border); border-radius: 20px; padding: 3px 11px; color: var(--ink); width: 110px; }
+a.tag { text-decoration: none; cursor: pointer; transition: border-color 0.12s, color 0.12s; }
+a.tag:hover { border-color: var(--accent); color: var(--ink); }
 
 /* --- Editor --------------------------------------------------------------- */
 .lore-editor { position: relative; } /* popover anchor */

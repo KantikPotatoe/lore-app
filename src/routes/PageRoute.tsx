@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, createPage, updatePage, renamePage, deletePage, findPageIdByTitle, defaultInfobox, applyTemplate, STATUSES, categoryColor, statusColor, pageStatus, type Infobox as InfoboxType, type LorePage } from '../db'
 import LoreEditor from '../components/LoreEditor'
@@ -217,12 +217,18 @@ export default function PageRoute() {
         </div>
 
         <div className="tags-row">
-          {page.tags.map((t) => (
-            <span key={t} className="tag">
-              #{t}
-              {editing && <button className="tag-x" onClick={() => removeTag(t)}>×</button>}
-            </span>
-          ))}
+          {page.tags.map((t) =>
+            editing ? (
+              <span key={t} className="tag">
+                #{t}
+                <button className="tag-x" onClick={() => removeTag(t)}>×</button>
+              </span>
+            ) : (
+              <Link key={t} to={`/tag/${encodeURIComponent(t)}`} className="tag">
+                #{t}
+              </Link>
+            ),
+          )}
           {editing && (
             <input
               className="tag-input"
