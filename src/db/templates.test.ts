@@ -125,3 +125,60 @@ describe('seedTemplates', () => {
     expect((await db.templates.get(b.id))!.icon).toBe('🎯')
   })
 })
+
+describe('BUILTIN_TEMPLATES structure', () => {
+  const typeNames = new Set(BUILTIN_TEMPLATES.map((t) => t.name))
+
+  it('ships exactly the 19 expected built-in types, in order, with stable ids', () => {
+    const expected = [
+      ['builtin-character', 'Character'], ['builtin-country', 'Country'],
+      ['builtin-deity', 'Deity'], ['builtin-geography', 'Geography'],
+      ['builtin-item', 'Item'], ['builtin-organization', 'Organization'],
+      ['builtin-religion', 'Religion'], ['builtin-species', 'Species'],
+      ['builtin-settlement', 'Settlement'], ['builtin-condition', 'Condition'],
+      ['builtin-conflict', 'Conflict'], ['builtin-document', 'Document'],
+      ['builtin-culture', 'Culture'], ['builtin-language', 'Language'],
+      ['builtin-material', 'Material'], ['builtin-myth', 'Myth'],
+      ['builtin-technology', 'Technology'], ['builtin-tradition', 'Tradition'],
+      ['builtin-spell', 'Spell'],
+    ]
+    expect(BUILTIN_TEMPLATES.map((t) => [t.id, t.name])).toEqual(expected)
+    expect(BUILTIN_TEMPLATES.every((t) => t.builtin === true)).toBe(true)
+  })
+
+  it('every ref row targets an existing built-in type name', () => {
+    for (const t of BUILTIN_TEMPLATES) {
+      for (const item of t.items) {
+        if (!item.separator && item.fieldType === 'ref') {
+          expect(item.refType, `${t.name} → ${item.label}`).toBeTruthy()
+          expect(
+            typeNames.has(item.refType as string),
+            `${t.name} → ${item.label} (refType "${item.refType}")`,
+          ).toBe(true)
+        }
+      }
+    }
+  })
+
+  it('groups by length: ≥6 field rows ⇒ has a separator; ≤5 ⇒ none', () => {
+    for (const t of BUILTIN_TEMPLATES) {
+      const fieldCount = t.items.filter((it) => !it.separator).length
+      const hasSep = t.items.some((it) => it.separator)
+      if (fieldCount >= 6) {
+        expect(hasSep, `${t.name} has ${fieldCount} fields but no separator`).toBe(true)
+      } else {
+        expect(hasSep, `${t.name} has ${fieldCount} fields but a separator`).toBe(false)
+      }
+    }
+  })
+
+  it('every non-separator row has a non-empty label', () => {
+    for (const t of BUILTIN_TEMPLATES) {
+      for (const item of t.items) {
+        if (!item.separator) {
+          expect(item.label.trim().length, `${t.name}`).toBeGreaterThan(0)
+        }
+      }
+    }
+  })
+})

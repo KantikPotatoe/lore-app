@@ -41,7 +41,7 @@ export const BUILTIN_ICONS: Record<string, string> = {
 export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
   {
     id: 'builtin-character', name: 'Character', color: hue('Character'), builtin: true, items: [
-      f('Epithet'), ref('Species', 'Species'), f('Gender'), num('Age'),
+      f('Epithet'), ref('Species', 'Species'), f('Gender'), num('Age'), ref('Homeland', 'Country'),
       sep('Allegiance'), f('Status'), ref('Affiliation', 'Organization'), f('Occupation'),
       sep('Life'), f('Born'), f('Died'),
     ],
@@ -49,30 +49,31 @@ export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
   {
     id: 'builtin-country', name: 'Country', color: hue('Country'), builtin: true, items: [
       ref('Capital', 'Settlement'), f('Government'), ref('Ruler', 'Character'),
-      sep('People'), num('Population'), ref('Languages', 'Language'),
+      sep('People'), num('Population'), ref('Languages', 'Language'), ref('Religion', 'Religion'),
       sep('Economy'), f('Currency'), f('Formed'),
     ],
   },
   {
     id: 'builtin-deity', name: 'Deity', color: hue('Deity'), builtin: true, items: [
       f('Domain'), ref('Pantheon', 'Religion'), f('Symbol'), f('Gender'), f('Alignment'),
-      sep('Worship'), f('Followers'), f('Holy day'), f('Temples'),
+      sep('Worship'), ref('Worshippers', 'Culture'), f('Holy days'), f('Temples'),
     ],
   },
   {
     id: 'builtin-geography', name: 'Geography', color: hue('Geography'), builtin: true, items: [
-      f('Type'), f('Region'), f('Climate'), f('Area'),
+      f('Type'), ref('Region', 'Geography'), f('Climate'), f('Area'),
       sep('Features'), f('Terrain'), f('Flora & fauna'), f('Notable for'),
     ],
   },
   {
     id: 'builtin-item', name: 'Item', color: hue('Item'), builtin: true, items: [
-      f('Type'), ref('Owner', 'Character'), ref('Creator', 'Character'), f('Origin'), ref('Material', 'Material'), f('Powers'),
+      f('Type'), ref('Material', 'Material'), f('Powers'),
+      sep('Provenance'), f('Origin'), ref('Creator', 'Character'), ref('Owner', 'Character'),
     ],
   },
   {
     id: 'builtin-organization', name: 'Organization', color: hue('Organization'), builtin: true, items: [
-      f('Type'), ref('Leader', 'Character'), f('Headquarters'), f('Founded'), num('Members'),
+      f('Type'), ref('Leader', 'Character'), ref('Headquarters', 'Settlement'), f('Founded'), num('Members'),
       sep('Relations'), ref('Allies', 'Organization'), ref('Rivals', 'Organization'),
     ],
   },
@@ -84,56 +85,61 @@ export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
   },
   {
     id: 'builtin-species', name: 'Species', color: hue('Species'), builtin: true, items: [
-      f('Classification'), f('Habitat'), f('Diet'), num('Lifespan'),
+      f('Classification'), ref('Native to', 'Geography'), f('Habitat'), f('Diet'), num('Lifespan'),
       sep('Traits'), f('Intelligence'), f('Size'), f('Distinctive features'),
     ],
   },
   {
     id: 'builtin-settlement', name: 'Settlement', color: hue('Settlement'), builtin: true, items: [
-      f('Type'), ref('Region', 'Geography'), num('Population'), f('Government'), ref('Ruler', 'Character'), f('Founded'), f('Notable for'),
+      f('Type'), ref('Country', 'Country'), ref('Region', 'Geography'), num('Population'),
+      sep('Governance'), f('Government'), ref('Ruler', 'Character'),
+      sep('History'), f('Founded'), f('Notable for'),
     ],
   },
   {
     id: 'builtin-condition', name: 'Condition', color: hue('Condition'), builtin: true, items: [
-      f('Type'), f('Cause'), f('Symptoms'), f('Transmission'), f('Cure'), f('Notable cases'),
+      f('Type'), f('Cause'), f('Transmission'),
+      sep('Effects'), f('Symptoms'), f('Cure'), f('Notable cases'),
     ],
   },
   {
     id: 'builtin-conflict', name: 'Conflict', color: hue('Conflict'), builtin: true, items: [
-      f('Type'), f('Date'), f('Location'),
+      f('Type'), f('Date'), ref('Location', 'Geography'),
       sep('Sides'), ref('Belligerents', 'Organization'), ref('Commanders', 'Character'),
       sep('Result'), f('Outcome'), f('Casualties'),
     ],
   },
   {
     id: 'builtin-document', name: 'Document', color: hue('Document'), builtin: true, items: [
-      f('Type'), ref('Author', 'Character'), f('Date written'), ref('Language', 'Language'), f('Location'), f('Contents'),
+      f('Type'), ref('Author', 'Character'), ref('Language', 'Language'),
+      sep('Details'), f('Date written'), f('Location'), f('Contents'),
     ],
   },
   {
     id: 'builtin-culture', name: 'Culture', color: hue('Culture'), builtin: true, items: [
-      f('Region'), f('People'), ref('Language', 'Language'), ref('Religion', 'Religion'),
+      ref('Region', 'Geography'), f('People'), ref('Language', 'Language'), ref('Religion', 'Religion'),
       sep('Ways'), f('Values'), f('Customs'), f('Arts'),
     ],
   },
   {
     id: 'builtin-language', name: 'Language', color: hue('Language'), builtin: true, items: [
-      f('Family'), f('Spoken by'), f('Region'), f('Writing system'), f('Status'),
+      f('Family'), ref('Spoken by', 'Culture'), ref('Region', 'Geography'), f('Writing system'), f('Status'),
     ],
   },
   {
     id: 'builtin-material', name: 'Material', color: hue('Material'), builtin: true, items: [
-      f('Type'), f('Source'), f('Properties'), f('Rarity'), f('Uses'),
+      f('Type'), ref('Source', 'Geography'), f('Properties'), f('Rarity'), f('Uses'),
     ],
   },
   {
     id: 'builtin-myth', name: 'Myth', color: hue('Myth'), builtin: true, items: [
-      f('Type'), f('Origin culture'), f('Figures'), f('Themes'), f('Related to'),
+      f('Type'), ref('Origin culture', 'Culture'), f('Figures'), f('Themes'), f('Related to'),
     ],
   },
   {
     id: 'builtin-technology', name: 'Technology', color: hue('Technology'), builtin: true, items: [
-      f('Type'), ref('Inventor', 'Character'), f('Invented'), f('Function'), f('Materials'), f('Users'),
+      f('Type'), ref('Inventor', 'Character'), f('Invented'),
+      sep('Use'), f('Function'), f('Materials'), f('Users'),
     ],
   },
   {
