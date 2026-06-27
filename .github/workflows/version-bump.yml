@@ -1,0 +1,75 @@
+name: Version Bump
+
+# When a PR is merged into main, bump the version in package.json according to
+# the PR's label (version:major / version:minor / version:patch, defaulting to
+# patch), commit the change back to main, and push a matching git tag.
+on:
+  pull_request:
+    types: [closed]
+
+# Needs write access to push the bump commit and tag back to the repo.
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    # Only run for PRs that were actually merged into main (not just closed).
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          # Full history so the tag lands on a real commit, not a shallow stub.
+          fetch-depth: 0
+          # Default GITHUB_TOKEN: pushes made with it do NOT retrigger workflows,
+          # which is exactly what we want here (no bump-on-bump loop).
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Determine bump level from PR labels
+        id: level
+        env:
+          # Comma-separated list of the merged PR's label names.
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          # Split on commas so we can match a label name exactly.
+          if echo "$LABELS" | tr ',' '\n' | grep -qx 'version:major'; then
+            level=major
+          elif echo "$LABELS" | tr ',' '\n' | grep -qx 'version:minor'; then
+            level=minor
+          else
+            # version:patch or no version label -> patch.
+            level=patch
+          fi
+          echo "level=$level" >> "$GITHUB_OUTPUT"
+          echo "Bump level: $level"
+
+      - name: Bump version
+        id: bump
+        run: |
+          # --no-git-tag-version: update files only; we commit + tag by hand
+          # below so we control the message and can add [skip ci].
+          new_version="$(npm version "${{ steps.level.outputs.level }}" --no-git-tag-version)"
+          echo "version=$new_version" >> "$GITHUB_OUTPUT"
+          echo "New version: $new_version"
+
+      - name: Commit and tag
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to ${VERSION} [skip ci]"
+          git tag -a "${VERSION}" -m "${VERSION}"
+          git push origin main
+          git push origin "${VERSION}"
