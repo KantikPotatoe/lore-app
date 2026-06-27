@@ -22,16 +22,23 @@ const DEFAULT_CALENDAR_MONTHS: CalendarMonth[] = [
  * Safe to call repeatedly (checks count first). Modeled on seedTemplates().
  */
 export async function seedDefaultCalendar(): Promise<void> {
-  const count = await db.calendars.count()
-  if (count > 0) return
-  await db.calendars.add({
-    id: uid(),
-    name: 'Standard Calendar',
-    anchor: 0,
-    months: DEFAULT_CALENDAR_MONTHS,
-    weekdays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-    eras: [{ id: uid(), name: 'Common Era', startYear: 0 }],
-    createdAt: now(),
+  // Wrap the count-then-add in one rw transaction so concurrent invocations
+  // serialize. React StrictMode double-invokes the startup effect in dev; without
+  // the transaction both calls see count 0 and each add a calendar, leaving two
+  // "Standard Calendar"s. Inside a transaction the second call runs only after
+  // the first commits and the count guard short-circuits it.
+  await db.transaction('rw', db.calendars, async () => {
+    const count = await db.calendars.count()
+    if (count > 0) return
+    await db.calendars.add({
+      id: uid(),
+      name: 'Standard Calendar',
+      anchor: 0,
+      months: DEFAULT_CALENDAR_MONTHS,
+      weekdays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+      eras: [{ id: uid(), name: 'Common Era', startYear: 0 }],
+      createdAt: now(),
+    })
   })
 }
 

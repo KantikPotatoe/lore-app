@@ -169,29 +169,37 @@ function itemsToFields(items: TemplateItem[]): InfoboxField[] {
  *  rows. Never touches a template you created or a colour/rows you edited on a
  *  still-shipped built-in. Call once on app start. */
 export async function seedTemplates(): Promise<void> {
-  const current = await db.templates.toArray()
-  const existing = new Set(current.map((t) => t.id))
-  const shippedIds = new Set(BUILTIN_TEMPLATES.map((t) => t.id))
+  // Run the whole read-modify-write inside one rw transaction so concurrent
+  // invocations serialize. React StrictMode double-invokes the startup effect in
+  // dev, calling this twice at once; without the transaction both reads see an
+  // empty table and both bulkAdd the same built-ins, and the loser rejects with
+  // a duplicate-key BulkError. Inside a transaction the second call runs only
+  // after the first commits, finds the built-ins present, and becomes a no-op.
+  await db.transaction('rw', db.templates, async () => {
+    const current = await db.templates.toArray()
+    const existing = new Set(current.map((t) => t.id))
+    const shippedIds = new Set(BUILTIN_TEMPLATES.map((t) => t.id))
 
-  const missing = BUILTIN_TEMPLATES.filter((t) => !existing.has(t.id))
-  if (missing.length) await db.templates.bulkAdd(missing)
+    const missing = BUILTIN_TEMPLATES.filter((t) => !existing.has(t.id))
+    if (missing.length) await db.templates.bulkAdd(missing)
 
-  // Remove built-ins that are no longer part of the shipped set (your own
-  // custom types, builtin === false, are always left alone).
-  const obsolete = current.filter((t) => t.builtin && !shippedIds.has(t.id))
-  await Promise.all(obsolete.map((t) => db.templates.delete(t.id)))
+    // Remove built-ins that are no longer part of the shipped set (your own
+    // custom types, builtin === false, are always left alone).
+    const obsolete = current.filter((t) => t.builtin && !shippedIds.has(t.id))
+    await Promise.all(obsolete.map((t) => db.templates.delete(t.id)))
 
-  const builtinById = new Map(BUILTIN_TEMPLATES.map((t) => [t.id, t.color]))
-  const needColor = current.filter((t) => !t.color && !obsolete.includes(t))
-  await Promise.all(
-    needColor.map((t) => db.templates.update(t.id, { color: builtinById.get(t.id) ?? '#a0a0a0' })),
-  )
+    const builtinById = new Map(BUILTIN_TEMPLATES.map((t) => [t.id, t.color]))
+    const needColor = current.filter((t) => !t.color && !obsolete.includes(t))
+    await Promise.all(
+      needColor.map((t) => db.templates.update(t.id, { color: builtinById.get(t.id) ?? '#a0a0a0' })),
+    )
 
-  // Backfill default icons onto built-ins that don't have one yet (never
-  // overwrites a user's icon). Re-read so freshly-added built-ins are included.
-  const afterSeed = await db.templates.toArray()
-  const needIcon = afterSeed.filter((t) => t.builtin && !t.icon && BUILTIN_ICONS[t.name])
-  await Promise.all(needIcon.map((t) => db.templates.update(t.id, { icon: BUILTIN_ICONS[t.name] })))
+    // Backfill default icons onto built-ins that don't have one yet (never
+    // overwrites a user's icon). Re-read so freshly-added built-ins are included.
+    const afterSeed = await db.templates.toArray()
+    const needIcon = afterSeed.filter((t) => t.builtin && !t.icon && BUILTIN_ICONS[t.name])
+    await Promise.all(needIcon.map((t) => db.templates.update(t.id, { icon: BUILTIN_ICONS[t.name] })))
+  })
 }
 
 /** All templates, alphabetical by name. Falls back to the built-ins if the
