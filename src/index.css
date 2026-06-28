@@ -184,6 +184,17 @@ select:focus-visible, textarea:focus-visible, summary:focus-visible,
   background: var(--panel-2); color: var(--ink);
   box-shadow: inset 2px 0 0 var(--accent), 0 0 0 1px var(--accent-glow);
 }
+.tag-link {
+  display: flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 7px;
+  color: var(--ink-dim); font-size: 13px;
+  transition: background 0.12s, color 0.12s, transform 0.12s;
+}
+.tag-link:hover { background: var(--panel); color: var(--ink); transform: translateX(2px); }
+.tag-link.active {
+  background: var(--panel-2); color: var(--ink);
+  box-shadow: inset 2px 0 0 var(--accent), 0 0 0 1px var(--accent-glow);
+}
+.tag-link-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .sidebar-footer { padding: 10px 16px; border-top: 1px solid var(--border); color: var(--ink-faint); font-size: 12px; }
 

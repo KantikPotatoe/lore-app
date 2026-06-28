@@ -1,6 +1,7 @@
 import { currentLoreId } from './lores'
 
 export const RECENT_GROUP = '__recent__'
+export const TAGS_GROUP = '__tags__'
 
 const keyFor = (loreId: string) => `lore:${loreId}:collapsedGroups`
 
