@@ -65,4 +65,16 @@ describe('Autolink extension (view mode)', () => {
     setTitles(editor, ['Iron Guard'], true)
     expect(editor.view.dom.querySelectorAll('.autolink').length).toBe(0)
   })
+
+  it('skips building the matcher while disabled (no wasted regex work)', () => {
+    const editor = track(makeEditor('<p>The Iron Guard marched.</p>', false))
+    setTitles(editor, ['Iron Guard'], false)
+    expect(autolinkKey.getState(editor.state)!.matcher).toBeNull()
+  })
+
+  it('builds the matcher when enabled', () => {
+    const editor = track(makeEditor('<p>The Iron Guard marched.</p>', false))
+    setTitles(editor, ['Iron Guard'], true)
+    expect(autolinkKey.getState(editor.state)!.matcher).not.toBeNull()
+  })
 })

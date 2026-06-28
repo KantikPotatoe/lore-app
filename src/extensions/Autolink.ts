@@ -65,9 +65,13 @@ export const Autolink = Extension.create({
           apply(tr, value) {
             const meta = tr.getMeta(autolinkKey) as AutolinkMeta | undefined
             if (!meta) return value
+            // Only build the matcher when the autolinker is on. Disabled (e.g.
+            // edit mode) renders no decorations anyway, so building a large
+            // alternation regex on every meta dispatch — which fires on each
+            // save while editing, as the title set re-emits — is wasted work.
             return {
               enabled: meta.enabled,
-              matcher: meta.titles.length ? buildTitleMatcher(meta.titles) : null,
+              matcher: meta.enabled && meta.titles.length ? buildTitleMatcher(meta.titles) : null,
             }
           },
         },
