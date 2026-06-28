@@ -12,6 +12,7 @@ import { db } from '../db'
 import { compressImage } from '../imageUtils'
 import { showWikiHover, scheduleWikiHoverClose } from '../wikiLinkHover'
 import { findOpenWikiQuery, rankWikiTitles } from '../wikiAutocomplete'
+import { sectionNodes } from '../sectionNodes'
 
 /** State of the open [[autocomplete]] menu: the partial query, the document
  *  range (`from`..`to`) covering the `[[query` text to be replaced on accept,
@@ -91,6 +92,8 @@ interface Props {
   autolinkEnabled?: boolean
   /** View-mode: a citation marker was clicked; arg is its 0-based order in the body. */
   onCitationClick?: (index: number) => void
+  /** Starter body-section names for this page's type; drives the "＋ Sections" button. */
+  starterSections?: string[]
 }
 
 /** Toolbar button helper. */
@@ -113,7 +116,7 @@ function Btn({ active, onClick, title, children }: {
   )
 }
 
-export default function LoreEditor({ content, editable, onChange, onWikiClick, knownTitles, autolinkTitles, autolinkEnabled, onCitationClick }: Props) {
+export default function LoreEditor({ content, editable, onChange, onWikiClick, knownTitles, autolinkTitles, autolinkEnabled, onCitationClick, starterSections }: Props) {
   // --- [[wiki link]] autocomplete state ------------------------------------
   // `index` is the highlighted row; it lives in the same object so a new query
   // (a fresh suggest) naturally resets it to 0 without a separate effect.
@@ -373,6 +376,12 @@ export default function LoreEditor({ content, editable, onChange, onWikiClick, k
           />
           <Btn title="Link (external URL)" active={editor.isActive('link')} onClick={openLinkBox}>🔗</Btn>
           <Btn title="Insert citation" active={!!cite} onClick={openCite}>❝¹</Btn>
+          {!!starterSections?.length && (
+            <Btn
+              title="Insert this page type's starter sections"
+              onClick={() => editor.chain().focus().insertContent(sectionNodes(starterSections)).run()}
+            >＋ Sections</Btn>
+          )}
           <span className="tb-sep" />
           <Btn title="Insert table" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>⊞</Btn>
           {editor.isActive('table') && (<>

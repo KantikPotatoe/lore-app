@@ -276,6 +276,7 @@ export default function PageRoute() {
             knownTitles={knownTitles}
             autolinkTitles={autolinkTitles}
             autolinkEnabled={autolinkEnabled}
+            starterSections={templates.find((t) => t.name === page.category)?.sections}
           />
           <ImageGallery page={page} editable={editing} />
           <References
