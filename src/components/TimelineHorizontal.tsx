@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { dateToAbsolute, yearLength, eraForYear } from '../calendar'
+import { dateToAbsolute, yearLength } from '../calendar'
 import type { Calendar, TimelineEvent, LorePage, CalendarEra } from '../db'
+import { fitView, visibleYearRange } from './timelineHorizontalUtils'
 
 interface Props {
   events: TimelineEvent[]
@@ -10,9 +11,9 @@ interface Props {
   onEdit: (event: TimelineEvent) => void
 }
 
-const LANE_H = 30
-const HEADER_H = 48
-const LANE_GAP = 4
+const LANE_H = 40
+const HEADER_H = 56
+const LANE_GAP = 6
 
 function luminance(hex: string): number {
   return parseInt(hex.slice(1, 3), 16) * 0.299
@@ -38,12 +39,9 @@ export default function TimelineHorizontal({
 
   useEffect(() => {
     if (!events.length || !containerRef.current || ready) return
-    const minAbs = Math.min(...events.map((e) => e.startAbsolute))
-    const maxAbs = Math.max(...events.map((e) => e.endAbsolute ?? e.startAbsolute))
-    const range = Math.max(maxAbs - minAbs, displayCal ? yearLength(displayCal) * 10 : 3650)
-    const w = Math.max(containerRef.current.clientWidth - 80, 200)
-    setScale(w / range)
-    setOffsetAbs(minAbs - range * 0.05)
+    const { scale: s, offsetAbs: o } = fitView(events, containerRef.current.clientWidth, displayCal)
+    setScale(s)
+    setOffsetAbs(o)
     setReady(true)
   }, [events, ready, displayCal])
 
@@ -58,11 +56,7 @@ export default function TimelineHorizontal({
     return () => ro.disconnect()
   }, [])
 
-  function handleWheel(e: React.WheelEvent) {
-    e.preventDefault()
-    const factor = e.deltaY < 0 ? 1.2 : 0.833
-    const rect = containerRef.current?.getBoundingClientRect()
-    const cursorX = rect ? e.clientX - rect.left : 0
+  function zoomAt(factor: number, cursorX: number) {
     const cursorAbs = offsetAbs + cursorX / scale
     setScale((s) => {
       const ns = Math.max(1e-6, Math.min(1, s * factor))
@@ -71,9 +65,17 @@ export default function TimelineHorizontal({
     })
   }
 
+  function handleWheel(e: React.WheelEvent) {
+    e.preventDefault()
+    const factor = e.deltaY < 0 ? 1.2 : 0.833
+    const rect = containerRef.current?.getBoundingClientRect()
+    const cursorX = rect ? e.clientX - rect.left : 0
+    zoomAt(factor, cursorX)
+  }
+
   const dragRef = useRef<{ startX: number; startOffset: number } | null>(null)
   function handlePointerDown(e: React.PointerEvent) {
-    if ((e.target as HTMLElement).closest('.horiz-event')) return
+    if ((e.target as HTMLElement).closest('.horiz-event, .horiz-controls')) return
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
     dragRef.current = { startX: e.clientX, startOffset: offsetAbs }
   }
@@ -83,6 +85,13 @@ export default function TimelineHorizontal({
     setOffsetAbs(dragRef.current.startOffset - dx / scale)
   }
   function handlePointerUp() { dragRef.current = null }
+
+  function handleFitAll() {
+    if (!containerRef.current) return
+    const { scale: s, offsetAbs: o } = fitView(events, containerRef.current.clientWidth, displayCal)
+    setScale(s)
+    setOffsetAbs(o)
+  }
 
   const laid: { event: TimelineEvent; lane: number; x: number; w: number }[] = []
   const laneEnds: number[] = []
@@ -128,10 +137,9 @@ export default function TimelineHorizontal({
         const abs = dateToAbsolute(displayCal, yr, 0, 1)
         const x = (abs - offsetAbs) * scale
         if (x >= 0 && x <= viewWidth) {
-          const eraName = eraForYear(displayCal, yr)?.name
           tickYears.push({
             abs,
-            label: `Year ${yr}${eraName ? ` (${eraName})` : ''}`,
+            label: `${yr}`,
             major: eraStartYears.has(yr),
           })
         }
@@ -210,15 +218,29 @@ export default function TimelineHorizontal({
             title={linkedPage ? `${event.title} → ${linkedPage.title}` : event.title}
             onClick={() => onEdit(event)}
           >
-            {w > 40 && event.icon && (
+            {w > 32 && event.icon && (
               <span className="horiz-event-icon">{event.icon}</span>
             )}
-            {w > 50 && (
+            {w > 44 && (
               <span className="horiz-event-label">{event.title}</span>
             )}
           </div>
         )
       })}
+
+      <div className="horiz-controls">
+        <button className="horiz-ctl-btn" onClick={() => zoomAt(0.833, viewWidth / 2)} title="Zoom out" aria-label="Zoom out">−</button>
+        <button className="horiz-ctl-btn" onClick={() => zoomAt(1.2, viewWidth / 2)} title="Zoom in" aria-label="Zoom in">+</button>
+        <button className="horiz-ctl-btn horiz-ctl-fit" onClick={handleFitAll} title="Fit all events" aria-label="Fit all events">⤢ Fit all</button>
+        {displayCal && ready && scale > 0 && (() => {
+          const { startYear, endYear } = visibleYearRange(offsetAbs, scale, viewWidth, displayCal)
+          return (
+            <span className="horiz-ctl-readout">
+              {startYear === endYear ? `Year ${startYear}` : `Years ${startYear}–${endYear}`}
+            </span>
+          )
+        })()}
+      </div>
 
       <div className="horiz-hint">Scroll to zoom · drag to pan</div>
     </div>

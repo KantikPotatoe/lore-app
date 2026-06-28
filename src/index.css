@@ -1712,7 +1712,7 @@ button.wiki-link { background: none; border-top: none; border-left: none; border
 .horiz-era-band { position: absolute; top: 0; }
 .horiz-era-label {
   position: sticky; left: 8px; top: 6px; display: inline-block;
-  font-family: var(--display); font-size: 10px; color: var(--ink-faint);
+  font-family: var(--display); font-size: 11px; color: var(--ink-faint);
   letter-spacing: 1.2px; text-transform: uppercase;
   opacity: 0.45; pointer-events: none;
 }
@@ -1737,25 +1737,42 @@ button.wiki-link { background: none; border-top: none; border-left: none; border
 }
 .horiz-tick-major { border-left-color: rgba(201,162,75,0.55); }
 .horiz-tick-label {
-  font-size: 10px; color: var(--ink-faint); white-space: nowrap;
+  font-size: 12px; color: var(--ink-faint); white-space: nowrap;
   position: absolute; top: 50%; transform: translateY(-50%);
   font-family: var(--display); letter-spacing: 0.4px;
 }
-.horiz-tick-label-major { color: rgba(201,162,75,0.8); }
+.horiz-tick-label-major { color: rgba(201,162,75,0.8); font-size: 13px; font-weight: 600; }
 
 .horiz-event {
   border-radius: 6px; cursor: pointer; overflow: hidden;
-  display: flex; align-items: center; padding: 0 6px; gap: 4px;
-  transition: filter 0.1s; font-size: 11px; font-weight: 600; color: #1c160a;
+  display: flex; align-items: center; padding: 0 8px; gap: 4px;
+  transition: filter 0.1s; font-size: 13px; font-weight: 600; color: #1c160a;
   border-top: 1px solid rgba(255,255,255,0.18);
 }
 .horiz-event:hover { filter: brightness(1.15); }
-.horiz-event-icon { font-size: 13px; line-height: 1; flex-shrink: 0; }
+.horiz-event-icon { font-size: 15px; line-height: 1; flex-shrink: 0; }
 .horiz-event-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .horiz-hint {
   position: absolute; bottom: 8px; right: 12px;
   font-size: 11px; color: var(--ink-faint); pointer-events: none;
+}
+.horiz-controls {
+  position: absolute; top: 8px; left: 12px; z-index: 3;
+  display: flex; align-items: center; gap: 6px;
+  pointer-events: auto;
+}
+.horiz-ctl-btn {
+  font-family: var(--display); font-size: 13px; line-height: 1;
+  color: var(--ink); background: var(--bg-2);
+  border: 1px solid var(--border); border-radius: 5px;
+  padding: 4px 9px; cursor: pointer;
+}
+.horiz-ctl-btn:hover { background: var(--bg); border-color: #5a4e35; }
+.horiz-ctl-fit { letter-spacing: 0.3px; }
+.horiz-ctl-readout {
+  font-family: var(--display); font-size: 12px; color: var(--ink-faint);
+  margin-left: 4px; white-space: nowrap;
 }
 
 /* Per-page image gallery (#19) */
