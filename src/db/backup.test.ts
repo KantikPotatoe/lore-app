@@ -203,6 +203,24 @@ describe('importAll — round-trips', () => {
     expect(await db.images.get('img1')).toMatchObject({ id: 'img1', pageId: 'p1', caption: 'cape', order: 0 })
   })
 
+  it('round-trips a custom template with sections intact', async () => {
+    await db.templates.add({
+      id: 'tmpl-sections-test',
+      name: 'SectionsTemplate',
+      color: '#123456',
+      items: [],
+      sections: ['Alpha', 'Beta'],
+      builtin: false,
+    })
+
+    const json = await exportAll()
+    await clearAll()
+    await importAll(json)
+
+    const restored = await db.templates.get('tmpl-sections-test')
+    expect(restored).toMatchObject({ id: 'tmpl-sections-test', sections: ['Alpha', 'Beta'] })
+  })
+
   it('drops imported images whose dataUrl is not a data:image URL', async () => {
     const json = JSON.stringify({
       schemaVersion: 8,
