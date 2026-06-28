@@ -61,6 +61,7 @@ describe('db barrel', () => {
     expect(db.DEFAULT_CATEGORY).toBe('Character')
     expect(db.DEFAULT_STATUS).toBe('Draft')
     expect(typeof db.BUILTIN_ICONS).toBe('object')
+    expect(typeof db.BUILTIN_SECTIONS).toBe('object')
     expect(typeof db.CURRENT_SCHEMA_VERSION).toBe('number')
   })
 })
