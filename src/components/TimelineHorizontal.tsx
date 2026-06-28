@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { dateToAbsolute, yearLength, eraForYear } from '../calendar'
+import { dateToAbsolute, yearLength } from '../calendar'
 import type { Calendar, TimelineEvent, LorePage, CalendarEra } from '../db'
 import { fitView, visibleYearRange } from './timelineHorizontalUtils'
 
@@ -11,9 +11,9 @@ interface Props {
   onEdit: (event: TimelineEvent) => void
 }
 
-const LANE_H = 30
-const HEADER_H = 48
-const LANE_GAP = 4
+const LANE_H = 40
+const HEADER_H = 56
+const LANE_GAP = 6
 
 function luminance(hex: string): number {
   return parseInt(hex.slice(1, 3), 16) * 0.299
@@ -137,10 +137,9 @@ export default function TimelineHorizontal({
         const abs = dateToAbsolute(displayCal, yr, 0, 1)
         const x = (abs - offsetAbs) * scale
         if (x >= 0 && x <= viewWidth) {
-          const eraName = eraForYear(displayCal, yr)?.name
           tickYears.push({
             abs,
-            label: `Year ${yr}${eraName ? ` (${eraName})` : ''}`,
+            label: `${yr}`,
             major: eraStartYears.has(yr),
           })
         }
@@ -219,10 +218,10 @@ export default function TimelineHorizontal({
             title={linkedPage ? `${event.title} → ${linkedPage.title}` : event.title}
             onClick={() => onEdit(event)}
           >
-            {w > 40 && event.icon && (
+            {w > 32 && event.icon && (
               <span className="horiz-event-icon">{event.icon}</span>
             )}
-            {w > 50 && (
+            {w > 44 && (
               <span className="horiz-event-label">{event.title}</span>
             )}
           </div>
