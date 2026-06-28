@@ -1279,6 +1279,15 @@ button.wiki-link { background: none; border-top: none; border-left: none; border
 .popover-broken { font-size: 0.75rem; color: var(--ink-faint); font-style: italic; display: block; margin-bottom: 3px; }
 .popover-loading { color: var(--ink-faint); font-size: 0.85rem; }
 
+/* ── Map preview card (click-to-preview) ─────────────────────────────── */
+.map-preview-anchor { position: absolute; left: 0; top: 0; z-index: 1000; pointer-events: none; }
+.map-preview-card {
+  position: absolute; transform: translate(-50%, calc(-100% - 14px)); pointer-events: auto;
+}
+.map-preview-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.map-preview-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--ink-faint); }
+.map-preview-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+
 /* ── Lore Selector ───────────────────────────────────────────────────── */
 .lore-selector {
   min-height: 100vh;
