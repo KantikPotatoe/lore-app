@@ -166,6 +166,7 @@ export interface InfoboxTemplate {
   color: string // accent colour for this type's badges/dots
   icon?: string // optional emoji shown on map pins for this type
   items: TemplateItem[]
+  sections?: string[] // ordered starter body-section names; absent ⇒ none set yet
   builtin: boolean // true for the shipped starter templates
 }
 

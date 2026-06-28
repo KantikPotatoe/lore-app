@@ -36,6 +36,32 @@ export const BUILTIN_ICONS: Record<string, string> = {
   Tradition: '🎎', Spell: '🔮',
 }
 
+// Default starter body-sections for the shipped page types. Backfilled onto
+// built-ins by seedTemplates() without overwriting a user's edits (mirrors the
+// icon/colour backfill). A section becomes an <h2> heading in the page body when
+// the author clicks "＋ Sections" in the editor.
+export const BUILTIN_SECTIONS: Record<string, string[]> = {
+  Character: ['Appearance', 'Personality', 'Background', 'History', 'Relationships'],
+  Country: ['History', 'Geography', 'Government', 'Culture', 'Economy'],
+  Deity: ['Description', 'Domains', 'Worship', 'Mythology'],
+  Geography: ['Description', 'Climate', 'Flora & Fauna', 'History'],
+  Item: ['Description', 'History', 'Powers'],
+  Organization: ['History', 'Structure', 'Activities', 'Members'],
+  Religion: ['Beliefs', 'Practices', 'History', 'Organization'],
+  Species: ['Biology', 'Behaviour', 'Habitat', 'Culture'],
+  Settlement: ['History', 'Geography', 'Government', 'Economy', 'Culture'],
+  Condition: ['Symptoms', 'Causes', 'Treatment', 'History'],
+  Conflict: ['Background', 'Course', 'Aftermath'],
+  Document: ['Summary', 'Contents', 'History'],
+  Culture: ['Overview', 'Customs', 'Beliefs', 'Arts', 'History'],
+  Language: ['Overview', 'Phonology', 'Grammar', 'Writing system', 'History'],
+  Material: ['Description', 'Properties', 'Sources', 'Uses'],
+  Myth: ['Summary', 'Origins', 'Interpretations'],
+  Technology: ['Description', 'History', 'Applications'],
+  Tradition: ['Overview', 'Practice', 'Origins', 'Significance'],
+  Spell: ['Description', 'Effects', 'Casting', 'History'],
+}
+
 // The starter types. Each has a colour and a set of infobox rows; several ship
 // with separators already in place to show how they group related fields.
 export const BUILTIN_TEMPLATES: InfoboxTemplate[] = [
@@ -199,6 +225,13 @@ export async function seedTemplates(): Promise<void> {
     const afterSeed = await db.templates.toArray()
     const needIcon = afterSeed.filter((t) => t.builtin && !t.icon && BUILTIN_ICONS[t.name])
     await Promise.all(needIcon.map((t) => db.templates.update(t.id, { icon: BUILTIN_ICONS[t.name] })))
+
+    const needSections = afterSeed.filter(
+      (t) => t.builtin && t.sections === undefined && BUILTIN_SECTIONS[t.name],
+    )
+    await Promise.all(
+      needSections.map((t) => db.templates.update(t.id, { sections: BUILTIN_SECTIONS[t.name] })),
+    )
   })
 }
 
@@ -293,7 +326,13 @@ export async function deleteTemplate(id: string): Promise<void> {
 /** Restore a built-in template's rows to their shipped defaults. */
 export async function resetTemplate(id: string): Promise<void> {
   const original = BUILTIN_TEMPLATES.find((t) => t.id === id)
-  if (original) await db.templates.put({ ...original, icon: BUILTIN_ICONS[original.name] })
+  if (original) {
+    await db.templates.put({
+      ...original,
+      icon: BUILTIN_ICONS[original.name],
+      sections: BUILTIN_SECTIONS[original.name] ?? [],
+    })
+  }
 }
 
 /** Pages whose infobox was built from the template of this name. */

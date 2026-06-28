@@ -79,6 +79,30 @@ export default function TemplatesRoute() {
     commitItems(next)
   }
 
+  // -- body-section editing (operates on the selected template) --------------
+  function commitSections(sections: string[]) {
+    if (selected) updateTemplate(selected.id, { sections })
+  }
+  function setSection(index: number, value: string) {
+    if (!selected) return
+    commitSections((selected.sections ?? []).map((s, i) => (i === index ? value : s)))
+  }
+  function addSection() {
+    if (selected) commitSections([...(selected.sections ?? []), 'New section'])
+  }
+  function removeSection(index: number) {
+    if (selected) commitSections((selected.sections ?? []).filter((_, i) => i !== index))
+  }
+  function moveSection(index: number, dir: -1 | 1) {
+    if (!selected) return
+    const list = selected.sections ?? []
+    const target = index + dir
+    if (target < 0 || target >= list.length) return
+    const next = [...list]
+    ;[next[index], next[target]] = [next[target], next[index]]
+    commitSections(next)
+  }
+
   return (
     <div className="templates-view content-pad">
       <header className="templates-header">
@@ -86,7 +110,8 @@ export default function TemplatesRoute() {
         <p className="templates-intro">
           Each type (Character, Country, Deity…) is a coloured category plus the starter rows for
           its infobox. Edit them here or add your own — new types appear in the type picker on every
-          page, and choosing a type fills in its infobox rows.
+          page, and choosing a type fills in its infobox rows. A type can also define starter body
+          sections an author can insert into a page with one click.
         </p>
       </header>
 
@@ -223,6 +248,41 @@ export default function TemplatesRoute() {
             <div className="template-editor-actions">
               <button className="mini-btn" onClick={() => addItem({ label: 'New field' })}>＋ Add field</button>
               <button className="mini-btn" onClick={() => addItem({ label: 'Section', separator: true })}>＋ Add separator</button>
+            </div>
+
+            <div className="template-sections">
+              <h3 className="template-sections-head">Body sections</h3>
+              <p className="template-sections-intro">
+                Starter headings an author can drop into a page's body with the "＋ Sections"
+                button in the editor. Inserted on demand per page — never added automatically or
+                pushed to existing pages.
+              </p>
+              {(selected.sections ?? []).length === 0 && (
+                <p className="empty-hint">No starter sections yet. Add some below.</p>
+              )}
+              {(selected.sections ?? []).map((s, i) => (
+                <div key={i} className="template-item">
+                  <div className="template-item-move">
+                    <button className="tag-x" title="Move up" disabled={i === 0} onClick={() => moveSection(i, -1)}>▲</button>
+                    <button
+                      className="tag-x"
+                      title="Move down"
+                      disabled={i === (selected.sections ?? []).length - 1}
+                      onClick={() => moveSection(i, 1)}
+                    >▼</button>
+                  </div>
+                  <input
+                    className="template-item-label"
+                    value={s}
+                    placeholder="Section heading…"
+                    onChange={(e) => setSection(i, e.target.value)}
+                  />
+                  <button className="tag-x" title="Remove section" onClick={() => removeSection(i)}>×</button>
+                </div>
+              ))}
+              <div className="template-editor-actions">
+                <button className="mini-btn" onClick={addSection}>＋ Add section</button>
+              </div>
             </div>
 
             <div className={`template-apply-row${dirty && usedByCount > 0 ? ' dirty' : ''}`}>

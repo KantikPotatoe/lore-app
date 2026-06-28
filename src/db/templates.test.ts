@@ -5,8 +5,10 @@ import {
   parseRefTitles,
   serializeRefTitles,
   seedTemplates,
+  resetTemplate,
   BUILTIN_TEMPLATES,
   BUILTIN_ICONS,
+  BUILTIN_SECTIONS,
   type Infobox,
   type InfoboxTemplate,
 } from '../db'
@@ -135,6 +137,25 @@ describe('seedTemplates', () => {
     expect(new Set(ids).size).toBe(ids.length) // no duplicate rows
     expect(all.length).toBe(BUILTIN_TEMPLATES.length) // exactly the built-ins, once
   })
+
+  it('backfills default sections on a built-in that has none, leaving a cleared [] alone', async () => {
+    const a = BUILTIN_TEMPLATES.find((t) => BUILTIN_SECTIONS[t.name])!
+    await db.templates.add({ ...a, sections: undefined })
+    const b = BUILTIN_TEMPLATES.find((t) => t.id !== a.id && BUILTIN_SECTIONS[t.name])!
+    await db.templates.add({ ...b, sections: [] }) // user deliberately cleared
+
+    await seedTemplates()
+
+    expect((await db.templates.get(a.id))!.sections).toEqual(BUILTIN_SECTIONS[a.name])
+    expect((await db.templates.get(b.id))!.sections).toEqual([]) // untouched
+  })
+
+  it('resetTemplate restores the shipped sections', async () => {
+    const a = BUILTIN_TEMPLATES.find((t) => BUILTIN_SECTIONS[t.name])!
+    await db.templates.add({ ...a, sections: ['Junk'] })
+    await resetTemplate(a.id)
+    expect((await db.templates.get(a.id))!.sections).toEqual(BUILTIN_SECTIONS[a.name])
+  })
 })
 
 describe('BUILTIN_TEMPLATES structure', () => {
@@ -190,6 +211,24 @@ describe('BUILTIN_TEMPLATES structure', () => {
           expect(item.label.trim().length, `${t.name}`).toBeGreaterThan(0)
         }
       }
+    }
+  })
+})
+
+describe('BUILTIN_SECTIONS structure', () => {
+  const typeNames = new Set(BUILTIN_TEMPLATES.map((t) => t.name))
+
+  it('keys are all shipped built-in type names', () => {
+    for (const name of Object.keys(BUILTIN_SECTIONS)) {
+      expect(typeNames.has(name), `unknown type "${name}"`).toBe(true)
+    }
+  })
+
+  it('every section name is non-empty and unique within its type', () => {
+    for (const [name, secs] of Object.entries(BUILTIN_SECTIONS)) {
+      expect(secs.length, `${name} has no sections`).toBeGreaterThan(0)
+      for (const s of secs) expect(s.trim().length, `${name}`).toBeGreaterThan(0)
+      expect(new Set(secs).size, `${name} has duplicate sections`).toBe(secs.length)
     }
   })
 })
