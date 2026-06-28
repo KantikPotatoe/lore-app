@@ -1,4 +1,4 @@
-import { yearLength } from '../calendar'
+import { absoluteToDate, yearLength } from '../calendar'
 import type { Calendar, TimelineEvent } from '../db'
 
 export function fitView(
@@ -12,4 +12,15 @@ export function fitView(
   const range = Math.max(maxAbs - minAbs, displayCal ? yearLength(displayCal) * 10 : 3650)
   const w = Math.max(width - 80, 200)
   return { scale: w / range, offsetAbs: minAbs - range * 0.05 }
+}
+
+export function visibleYearRange(
+  offsetAbs: number,
+  scale: number,
+  viewWidth: number,
+  displayCal: Calendar,
+): { startYear: number; endYear: number } {
+  const startYear = absoluteToDate(displayCal, offsetAbs).year
+  const endYear = absoluteToDate(displayCal, offsetAbs + viewWidth / scale).year
+  return { startYear, endYear }
 }

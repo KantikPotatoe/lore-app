@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Calendar, TimelineEvent } from '../db'
-import { fitView } from './timelineHorizontalUtils'
+import { fitView, visibleYearRange } from './timelineHorizontalUtils'
 
 function makeCalendar(overrides: Partial<Calendar> = {}): Calendar {
   return {
@@ -61,5 +61,28 @@ describe('fitView', () => {
     expect(scale).toBeGreaterThan(0)
     expect(Number.isFinite(scale)).toBe(true)
     expect(Number.isFinite(offsetAbs)).toBe(true)
+  })
+})
+
+describe('visibleYearRange', () => {
+  const cal = makeCalendar() // 60-day year, anchor 0
+
+  it('maps a viewport spanning ~2 years to start/end years', () => {
+    // left edge at absolute 0 (year 0), width/scale = 120 abs days (2 years)
+    const r = visibleYearRange(0, 1, 120, cal)
+    expect(r.startYear).toBe(0)
+    expect(r.endYear).toBe(2)
+  })
+
+  it('keeps startYear <= endYear', () => {
+    const r = visibleYearRange(0, 1, 120, cal)
+    expect(r.startYear).toBeLessThanOrEqual(r.endYear)
+  })
+
+  it('yields equal start/end for a sub-year viewport', () => {
+    // 30 abs days < one 60-day year, both edges in year 0
+    const r = visibleYearRange(0, 1, 30, cal)
+    expect(r.startYear).toBe(0)
+    expect(r.endYear).toBe(0)
   })
 })
