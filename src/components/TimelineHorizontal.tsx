@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { dateToAbsolute, yearLength, eraForYear } from '../calendar'
 import type { Calendar, TimelineEvent, LorePage, CalendarEra } from '../db'
+import { fitView } from './timelineHorizontalUtils'
 
 interface Props {
   events: TimelineEvent[]
@@ -38,12 +39,9 @@ export default function TimelineHorizontal({
 
   useEffect(() => {
     if (!events.length || !containerRef.current || ready) return
-    const minAbs = Math.min(...events.map((e) => e.startAbsolute))
-    const maxAbs = Math.max(...events.map((e) => e.endAbsolute ?? e.startAbsolute))
-    const range = Math.max(maxAbs - minAbs, displayCal ? yearLength(displayCal) * 10 : 3650)
-    const w = Math.max(containerRef.current.clientWidth - 80, 200)
-    setScale(w / range)
-    setOffsetAbs(minAbs - range * 0.05)
+    const { scale: s, offsetAbs: o } = fitView(events, containerRef.current.clientWidth, displayCal)
+    setScale(s)
+    setOffsetAbs(o)
     setReady(true)
   }, [events, ready, displayCal])
 
