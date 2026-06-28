@@ -25,9 +25,14 @@ jobs:
           ref: main
           # Full history so the tag lands on a real commit, not a shallow stub.
           fetch-depth: 0
-          # Default GITHUB_TOKEN: pushes made with it do NOT retrigger workflows,
-          # which is exactly what we want here (no bump-on-bump loop).
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # An admin PAT (not the default GITHUB_TOKEN) is required to push to
+          # main: branch protection requires a PR + the "verify" check, which the
+          # default token cannot satisfy or bypass. As an admin (enforce_admins
+          # is off and the admin role is an "always" bypass on the ruleset), this
+          # token bypasses both. The bump commit carries [skip ci] so the push it
+          # makes doesn't run CI, and this workflow only triggers on PR close, so
+          # there is no bump-on-bump loop.
+          token: ${{ secrets.BUMP_PAT }}
 
       - name: Set up Node
         uses: actions/setup-node@v5
