@@ -231,8 +231,8 @@ export default function TimelineHorizontal({
       <div className="horiz-controls">
         <button className="horiz-ctl-btn" onClick={() => zoomAt(0.833, viewWidth / 2)} title="Zoom out" aria-label="Zoom out">−</button>
         <button className="horiz-ctl-btn" onClick={() => zoomAt(1.2, viewWidth / 2)} title="Zoom in" aria-label="Zoom in">+</button>
-        <button className="horiz-ctl-btn horiz-ctl-fit" onClick={handleFitAll} title="Fit all events">⤢ Fit all</button>
-        {displayCal && scale > 0 && (() => {
+        <button className="horiz-ctl-btn horiz-ctl-fit" onClick={handleFitAll} title="Fit all events" aria-label="Fit all events">⤢ Fit all</button>
+        {displayCal && ready && scale > 0 && (() => {
           const { startYear, endYear } = visibleYearRange(offsetAbs, scale, viewWidth, displayCal)
           return (
             <span className="horiz-ctl-readout">
