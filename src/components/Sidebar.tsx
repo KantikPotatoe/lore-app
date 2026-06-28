@@ -5,7 +5,8 @@ import { db, createPage, categoryColor, statusColor, pageStatus, type LorePage }
 import { getLore, currentLoreId } from '../lores'
 import { showPageHover, scheduleWikiHoverClose } from '../wikiLinkHover'
 import { getRecent, pruneRecent, subscribeRecents } from '../recents'
-import { getCollapsedGroups, toggleCollapsedGroup, RECENT_GROUP } from '../sidebarPrefs'
+import { getCollapsedGroups, toggleCollapsedGroup, RECENT_GROUP, TAGS_GROUP } from '../sidebarPrefs'
+import { tagCounts } from '../tags'
 
 // Stable empty array so the live queries don't hand `useMemo` a fresh `[]`
 // (and force a recompute) on every render while data is still loading.
@@ -54,6 +55,8 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) 
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   }, [pages])
 
+  const tags = useMemo(() => tagCounts(pages), [pages])
+
   // Resolve per-world recent ids to live page records; drop any that were deleted.
   const recentPages = useMemo(() => {
     const byId = new Map(pages.map((p) => [p.id, p]))
@@ -76,6 +79,10 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) 
 
   const browseCategory = location.pathname.startsWith('/browse/')
     ? decodeURIComponent(location.pathname.split('/browse/')[1])
+    : null
+
+  const currentTag = location.pathname.startsWith('/tag/')
+    ? decodeURIComponent(location.pathname.split('/tag/')[1])
     : null
 
   return (
@@ -152,6 +159,32 @@ export default function Sidebar({ onOpenSearch }: { onOpenSearch: () => void }) 
               ))}
           </div>
         ))}
+
+        {tags.length > 0 && (
+          <div className="page-group">
+            <div className="group-head">
+              <button
+                className="group-toggle"
+                aria-expanded={!collapsed.has(TAGS_GROUP)}
+                onClick={() => toggle(TAGS_GROUP)}
+              >
+                {collapsed.has(TAGS_GROUP) ? '▸' : '▾'}
+              </button>
+              <span className="group-label group-label-static">Tags</span>
+            </div>
+            {!collapsed.has(TAGS_GROUP) &&
+              tags.map(({ tag, count }) => (
+                <Link
+                  key={tag}
+                  to={`/tag/${encodeURIComponent(tag)}`}
+                  className={currentTag === tag ? 'tag-link active' : 'tag-link'}
+                >
+                  <span className="tag-link-name">#{tag}</span>
+                  <span className="group-count">{count}</span>
+                </Link>
+              ))}
+          </div>
+        )}
       </div>
 
       <div className="sidebar-footer">
