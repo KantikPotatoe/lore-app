@@ -235,6 +235,10 @@ export default function MapView({
         const p = L.polygon(region.points, style).addTo(lmap)
         p.bindTooltip(labelText, { permanent: true, direction: 'center', className: 'region-label' })
         p.on('click', (e) => {
+          // While placing a pin or drawing a region, let the click reach the
+          // map beneath so it can drop a pin / feed the drawer instead of
+          // selecting this region.
+          if (addModeRef.current || drawModeRef.current) return
           L.DomEvent.stopPropagation(e) // don't also fire a map click
           cbRef.current.onRegionClick(region.id)
         })
