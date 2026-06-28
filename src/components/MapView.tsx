@@ -45,6 +45,8 @@ interface Props {
   onRegionCreate: (points: [number, number][]) => void
   onRegionEdit: (id: string, points: [number, number][]) => void
   focusTarget?: FocusTarget | null
+  previewTarget?: { kind: 'pin' | 'region'; id: string } | null
+  previewCard?: React.ReactNode
 }
 
 // We use a "Simple" coordinate system so the map is just the flat image, with
@@ -53,6 +55,7 @@ export default function MapView({
   map, pins, styles, addMode, selectedPinId, onMapClick, onPinClick, onPinMove, focusPinId,
   regions, regionStyles, selectedRegionId, drawMode, onRegionClick, onRegionCreate, onRegionEdit,
   focusTarget,
+  previewTarget, previewCard,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -73,11 +76,19 @@ export default function MapView({
   const drawModeRef = useRef(drawMode)
   // True between a pin's dragstart and dragend, to suppress hover previews.
   const draggingRef = useRef(false)
+  // Overlay wrapper that holds the preview card, positioned over the marker.
+  const overlayRef = useRef<HTMLDivElement>(null)
+  // Latest selection ids, read by the delegated hover handler to skip the
+  // marker whose preview card is already open (avoids a double card).
+  const selectedPinIdRef = useRef(selectedPinId)
+  const selectedRegionIdRef = useRef(selectedRegionId)
   useEffect(() => {
     pinsRef.current = pins
     addModeRef.current = addMode
     regionsRef.current = regions
     drawModeRef.current = drawMode
+    selectedPinIdRef.current = selectedPinId
+    selectedRegionIdRef.current = selectedRegionId
   })
 
   // Create the Leaflet map once per world-map image.
@@ -132,6 +143,7 @@ export default function MapView({
       if (addModeRef.current || draggingRef.current) return
       const icon = (e.target as HTMLElement).closest('.pin-icon[data-pin-id]') as HTMLElement | null
       if (!icon) return
+      if (icon.dataset.pinId === selectedPinIdRef.current) return
       const pin = pinsRef.current.find((p) => p.id === icon.dataset.pinId)
       if (!pin?.pageId) return
       showPageHover(pin.pageId, pin.label, icon.getBoundingClientRect())
@@ -244,6 +256,7 @@ export default function MapView({
         })
         p.on('mouseover', () => {
           if (drawModeRef.current || editingRef.current) return
+          if (region.id === selectedRegionIdRef.current) return
           const r = regionsRef.current.find((x) => x.id === region.id)
           if (!r?.pageId) return
           const el = p.getElement() as HTMLElement | null
@@ -335,7 +348,40 @@ export default function MapView({
     }
   }, [focusTarget])
 
-  return <div ref={containerRef} className="map-canvas" />
+  // Position the preview overlay over its marker and keep it there as the map
+  // pans/zooms. Coordinates are container points; the overlay is a sibling of
+  // the map canvas inside the position:relative .map-body, so they align.
+  useEffect(() => {
+    const lmap = mapRef.current
+    const el = overlayRef.current
+    if (!lmap || !el || !previewTarget) return
+    const update = () => {
+      let latlng: L.LatLng | null = null
+      if (previewTarget.kind === 'pin') {
+        const pin = pinsRef.current.find((p) => p.id === previewTarget.id)
+        if (pin) latlng = L.latLng(pin.lat, pin.lng)
+      } else {
+        const poly = polygonsRef.current.get(previewTarget.id)
+        if (poly) latlng = poly.getBounds().getCenter()
+      }
+      if (!latlng) return
+      const pt = lmap.latLngToContainerPoint(latlng)
+      el.style.left = `${pt.x}px`
+      el.style.top = `${pt.y}px`
+    }
+    update()
+    lmap.on('move zoom zoomanim resize', update)
+    return () => { lmap.off('move zoom zoomanim resize', update) }
+  }, [previewTarget, pins, regions])
+
+  return (
+    <>
+      <div ref={containerRef} className="map-canvas" />
+      {previewCard && (
+        <div ref={overlayRef} className="map-preview-anchor">{previewCard}</div>
+      )}
+    </>
+  )
 }
 
 // A small teardrop pin rendered as an HTML element, tinted by its type colour
