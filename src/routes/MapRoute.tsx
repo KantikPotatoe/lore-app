@@ -7,6 +7,7 @@ import {
   TYPE_COLORS, type MapPin, type MapRegion, type InfoboxTemplate,
 } from '../db'
 import MapView, { type PinMarkerStyle, type FocusTarget } from '../components/MapView'
+import MapPreviewCard from '../components/MapPreviewCard'
 import EmptyState from '../components/EmptyState'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { compressImage } from '../imageUtils'
@@ -24,6 +25,8 @@ export default function MapRoute() {
   const [confirmDeleteMap, setConfirmDeleteMap] = useState(false)
   const [drawMode, setDrawMode] = useState(false)
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null)
+  // Click selects + previews; the preview's Edit button flips to the edit panel.
+  const [panelMode, setPanelMode] = useState<'preview' | 'edit'>('preview')
   const [focusTarget, setFocusTarget] = useState<FocusTarget | null>(null)
   const [showFind, setShowFind] = useState(false)
   const [findQuery, setFindQuery] = useState('')
@@ -40,6 +43,7 @@ export default function MapRoute() {
       if (cancelled || !pin) return
       setActiveId(pin.mapId)
       setSelectedPinId(pin.id)
+      setPanelMode('preview')
     })
     return () => { cancelled = true }
   }, [focusPinId])
@@ -180,6 +184,7 @@ export default function MapRoute() {
     setFindQuery('')
     setShowFind(false)
     setFocusTarget(null)
+    setPanelMode('preview')
   }
 
   // Select + centre on a pin/region. Bumping nonce re-pans even if it was already
@@ -187,11 +192,13 @@ export default function MapRoute() {
   function focusPin(id: string) {
     setSelectedPinId(id)
     setSelectedRegionId(null)
+    setPanelMode('preview')
     setFocusTarget((t) => ({ kind: 'pin', id, nonce: (t?.nonce ?? 0) + 1 }))
   }
   function focusRegion(id: string) {
     setSelectedRegionId(id)
     setSelectedPinId(null)
+    setPanelMode('preview')
     setFocusTarget((t) => ({ kind: 'region', id, nonce: (t?.nonce ?? 0) + 1 }))
   }
 
@@ -199,6 +206,7 @@ export default function MapRoute() {
   // the delete-map confirmation owns it.
   useEscapeKey(() => {
     if (showFind) { setShowFind(false); setFindQuery('') }
+    else if ((selectedPinId || selectedRegionId) && panelMode === 'edit') setPanelMode('preview')
     else if (selectedPinId) setSelectedPinId(null)
     else if (selectedRegionId) setSelectedRegionId(null)
     else if (addMode) setAddMode(false)
@@ -208,6 +216,32 @@ export default function MapRoute() {
   // Read from visiblePins so the pin panel closes when its type is filtered out.
   const selectedPin = visiblePins.find((p) => p.id === selectedPinId) ?? null
   const selectedRegion = visibleRegions.find((r) => r.id === selectedRegionId) ?? null
+
+  // What MapView should anchor the overlay to (stable while the selection holds).
+  const previewTarget = useMemo<{ kind: 'pin' | 'region'; id: string } | null>(() => {
+    if (panelMode !== 'preview') return null
+    if (selectedPinId && selectedPin) return { kind: 'pin', id: selectedPinId }
+    if (selectedRegionId && selectedRegion) return { kind: 'region', id: selectedRegionId }
+    return null
+  }, [panelMode, selectedPinId, selectedRegionId, selectedPin, selectedRegion])
+
+  // The card React node, built from already-loaded page data (no new query).
+  const previewItem = selectedPin ?? selectedRegion
+  const previewCard = panelMode === 'preview' && previewItem ? (() => {
+    const page = previewItem.pageId ? pagesById.get(previewItem.pageId) ?? null : null
+    const isPortal = !!previewItem.childMapId && mapsById.has(previewItem.childMapId)
+    return (
+      <MapPreviewCard
+        label={previewItem.label}
+        page={page}
+        isPortal={isPortal}
+        onEdit={() => setPanelMode('edit')}
+        onOpenPage={previewItem.pageId ? () => navigate(`/page/${previewItem.pageId}`) : undefined}
+        onEnterMap={isPortal ? () => switchToMap(previewItem.childMapId!) : undefined}
+        onClose={() => { setSelectedPinId(null); setSelectedRegionId(null) }}
+      />
+    )
+  })() : null
 
   // Find panel: current-map pins + regions matching the query, respecting the
   // legend filter (so the list matches what's visible on the map).
@@ -234,10 +268,18 @@ export default function MapRoute() {
   }
 
   async function handleMapClick(lat: number, lng: number) {
-    if (!addMode || !currentMap) return
-    const id = await addPin(currentMap.id, lat, lng)
-    setSelectedPinId(id)
-    setAddMode(false)
+    if (addMode && currentMap) {
+      const id = await addPin(currentMap.id, lat, lng)
+      setSelectedPinId(id)
+      setPanelMode('preview')
+      setAddMode(false)
+      return
+    }
+    // Idle background click closes any open preview/edit panel. (Draw mode feeds
+    // the drawer, so leave selection alone there.)
+    if (drawMode) return
+    setSelectedPinId(null)
+    setSelectedRegionId(null)
   }
 
   // Create a fresh page named after the marker's label and link it. Lets you
@@ -254,6 +296,7 @@ export default function MapRoute() {
     setDrawMode(false)
     setSelectedPinId(null)
     setSelectedRegionId(id)
+    setPanelMode('preview')
   }
 
   // ---- No maps yet -------------------------------------------------------
@@ -330,17 +373,19 @@ export default function MapRoute() {
             addMode={addMode}
             selectedPinId={selectedPinId}
             onMapClick={handleMapClick}
-            onPinClick={(id) => { setSelectedPinId(id); setSelectedRegionId(null) }}
+            onPinClick={(id) => { setSelectedPinId(id); setSelectedRegionId(null); setPanelMode('preview') }}
             onPinMove={(id, lat, lng) => db.pins.update(id, { lat, lng })}
             focusPinId={focusPinId}
             regions={visibleRegions}
             regionStyles={regionFills}
             selectedRegionId={selectedRegionId}
             drawMode={drawMode}
-            onRegionClick={(id) => { setSelectedRegionId(id); setSelectedPinId(null) }}
+            onRegionClick={(id) => { setSelectedRegionId(id); setSelectedPinId(null); setPanelMode('preview') }}
             onRegionCreate={handleRegionCreate}
             onRegionEdit={(id, points) => db.regions.update(id, { points })}
             focusTarget={focusTarget}
+            previewTarget={previewTarget}
+            previewCard={previewCard}
           />
         )}
 
@@ -391,7 +436,7 @@ export default function MapRoute() {
           </div>
         )}
 
-        {selectedPin && (
+        {selectedPin && panelMode === 'edit' && (
           <div className="pin-panel">
             <div className="pin-panel-head">
               <h3>Pin</h3>
@@ -450,7 +495,7 @@ export default function MapRoute() {
           </div>
         )}
 
-        {selectedRegion && (
+        {selectedRegion && panelMode === 'edit' && (
           <div className="pin-panel">
             <div className="pin-panel-head">
               <h3>Region</h3>
