@@ -40,14 +40,14 @@ Single source of truth (types, schema, CRUD, templates, backlinks, graph, export
 | `images.ts` | image gallery CRUD |
 | `graph.ts` | `buildGraphData` |
 | `calendar.ts` | timeline calendar/event CRUD (distinct from pure `src/calendar.ts`) |
-| `backup.ts` | `exportAll`/`importAll`/`parseBackup` + versioning + import sanitization |
+| `backup.ts` | `exportAll`/`importAll`/`parseBackup` + versioning + import sanitization (`CURRENT_SCHEMA_VERSION` mirrors Dexie store version) |
 | `snapshots.ts` | snapshot CRUD |
 
 **Per-lore DB:** `db = new LoreDB(dbNameFor(currentLoreId()))` binds at module load, so the active world is fixed for the page's lifetime. `switchLore()` and deleting the active world call `window.location.reload()` to rebind.
 
-**Key types:** `LorePage` (HTML `content`, `summary`, `tags`, `status`, optional `Infobox`) · `Infobox`/`InfoboxField` (`kind:'separator'`=heading; `fieldType:'text'|'ref'|'number'`, `'ref'` stores `[[Title]]` tokens bound to `refType`) · `InfoboxTemplate`/`TemplateItem` (a **page type**: named coloured category + starter rows) · `WorldMap`/`MapPin` · `Calendar`/`CalendarMonth`/`CalendarEra` · `TimelineEvent` (in-world date + cached `startAbsolute`/`endAbsolute`) · `Snapshot` · `MetaEntry` (Dexie schema **v5**) · `Lore` (in `src/lores.ts`, separate `lore-registry` DB).
+**Key types:** `LorePage` (HTML `content`, `summary`, `tags`, `status`, optional `Infobox`) · `Infobox`/`InfoboxField` (`kind:'separator'`=heading; `fieldType:'text'|'ref'|'number'`, `'ref'` stores `[[Title]]` tokens bound to `refType`) · `InfoboxTemplate`/`TemplateItem` (a **page type**: named coloured category + starter rows + optional `sections` starter body headings) · `WorldMap`/`MapPin`/`MapRegion` · `Calendar`/`CalendarMonth`/`CalendarEra` · `TimelineEvent` (in-world date + cached `startAbsolute`/`endAbsolute`) · `Snapshot` · `MetaEntry` (Dexie schema **v9**) · `Lore` (in `src/lores.ts`, separate `lore-registry` DB).
 
-**Helpers:** `BUILTIN_TEMPLATES`, `DEFAULT_CATEGORY`, `TYPE_COLORS`, `STATUSES`+`pageStatus()`/`statusColor()`. Page types are DB-backed: `seedTemplates()` (on start) reconciles built-ins (adds missing, removes dropped built-ins, backfills colours; leaves custom types alone); CRUD `getTemplates`/`createTemplate`/`updateTemplate`/`deleteTemplate`/`resetTemplate`; `applyTemplate()` swaps rows preserving values. `categoryColor()` reads a `liveQuery`-synced cache. `getBacklinks()`/`linkedTitles()` scan body `<a data-wikilink>` + infobox `[[…]]` (via `src/html.ts`). `renamePage(id, title)` atomically rewrites all references, throws on title clash. `findPageIdByTitle()` is **resolve-only** (callers confirm before creating). Calendar/event mutations recompute cached absolute days and cascade-delete on calendar removal.
+**Helpers:** `BUILTIN_TEMPLATES`, `DEFAULT_CATEGORY`, `TYPE_COLORS`, `STATUSES`+`pageStatus()`/`statusColor()`. Page types are DB-backed: `seedTemplates()` (on start) reconciles built-ins (adds missing, removes dropped built-ins, backfills colours + `sections` from `BUILTIN_SECTIONS`; leaves custom types alone); CRUD `getTemplates`/`createTemplate`/`updateTemplate`/`deleteTemplate`/`resetTemplate`; `applyTemplate()` swaps rows preserving values. A type also carries optional `sections` (starter `<h2>` body headings); `sectionNodes()` (`src/sectionNodes.ts`) turns them into editor nodes for the editor's "+ Sections" button. `categoryColor()` reads a `liveQuery`-synced cache. `getBacklinks()`/`linkedTitles()` scan body `<a data-wikilink>` + infobox `[[…]]` (via `src/html.ts`). `renamePage(id, title)` atomically rewrites all references, throws on title clash. `findPageIdByTitle()` is **resolve-only** (callers confirm before creating). Calendar/event mutations recompute cached absolute days and cascade-delete on calendar removal.
 
 ### Routing — `src/App.tsx` (hash routing)
 
@@ -56,13 +56,15 @@ Single source of truth (types, schema, CRUD, templates, backlinks, graph, export
 | Path | Component | Purpose |
 |---|---|---|
 | `/` | `LoreSelectorRoute` | world picker (create/rename/banner/delete/switch), no shell |
-| `/home` | `HomeRoute` | editable overview: hero/about, stats, recent, snapshots, backup |
+| `/home` | `HomeRoute` | editable overview: hero/about, stats, recently edited |
 | `/page/:id` | `PageRoute` | view/edit: header, editor, infobox, backlinks |
-| `/browse/:category` | `CategoryRoute` | image grid for a category |
-| `/map` | `MapRoute` | Leaflet map with pins |
+| `/browse/:category` | `CategoryRoute` | page-card grid for a category (`BrowseCard`s) |
+| `/tag/:tag` | `TagRoute` | page-card grid for a tag |
+| `/map` | `MapRoute` | Leaflet map with pins/regions |
 | `/graph` | `GraphRoute` | force-directed relationship graph |
 | `/timeline` | `TimelineRoute` | timeline (list or axis view) |
 | `/templates` | `TemplatesRoute` | manage page-type templates |
+| `/settings` | `SettingsRoute` | per-lore settings, backup/import, HTML export, snapshots, delete world |
 
 Sidebar groups pages by category (headers link to `/browse/:category`); its search box is read-only and opens `SearchModal` on focus.
 
@@ -72,7 +74,10 @@ Each world is its own IndexedDB. `loreId.ts`: `currentLoreId()` (from `localStor
 
 ### Rich text — `src/components/LoreEditor.tsx` + `src/extensions/WikiLink.ts`
 
-Tiptap with `StarterKit` (Link → external `ext-link`, new tab), `WikiLink` (`[[Page Title]]` inline node, `data-wikilink`/`data-title`), `Image` (data-URL), `TableKit` (resizable). View mode: clicking a wiki link resolves via `findPageIdByTitle()`, **confirms before creating** a missing stub (broken targets get `.is-broken`). Edit mode: Ctrl/Cmd-click follows links; hover → `wikiLinkHover.ts` bus (suppressed in edit mode). `wikiAutocomplete.ts` powers `[[`-typing suggestions.
+Tiptap with `StarterKit` (Link → external `ext-link`, new tab), `WikiLink` (`[[Page Title]]` inline node, `data-wikilink`/`data-title`), `Citation` (in-line `<sup data-citation>` marker — page-ref or free-text source + locator/quote), `Autolink` (decoration-only, see below), `Image` (data-URL, compressed on insert via `imageUtils.compressImage`), `TableKit` (resizable). View mode: clicking a wiki link resolves via `findPageIdByTitle()`, **confirms before creating** a missing stub (broken targets get `.is-broken`). Edit mode: Ctrl/Cmd-click follows links; hover → `wikiLinkHover.ts` bus (suppressed in edit mode). `wikiAutocomplete.ts` powers `[[`-typing suggestions.
+
+- **Autolinker (`src/autolink.ts` + `extensions/Autolink.ts`):** pure core compiles known titles into one longest-match-wins matcher (`buildTitleMatcher`) and plans the **first unseen** occurrence per title (`planAutolinks`, skipping existing links + the page's own title); the extension renders those as ProseMirror decorations (not stored markup). Toggled by `settings.autolinkEnabled`.
+- **Citations (`src/citations.ts` + `components/References.tsx`):** pure `parseCitations(html)` reads markers from a body (like `html.ts`); `References.tsx` renders the numbered list, included in HTML export.
 
 ### Timeline & calendars — `src/calendar.ts` + `TimelineRoute`
 
@@ -98,7 +103,7 @@ FlexSearch `Index` (tokenize `'forward'`, res 5), synced on every `db.pages` cha
 
 ### Backup & data safety — `src/db/backup.ts` + `src/backup.ts`
 
-`exportAll()`/`importAll()` serialise the whole DB to/from JSON. **Import replaces all data** (no merge), guarded by `parseBackup()` (validates + returns `counts` *before* any `clear()`); older backups re-seed built-ins after import. Home import shows counts, writes `downloadPreImportBackup()` first, then imports.
+`exportAll()`/`importAll()` serialise the whole DB to/from JSON. **Import replaces all data** (no merge), guarded by `parseBackup()` (validates + returns `counts` *before* any `clear()`); older backups re-seed built-ins after import. Import (on the **Settings** route) shows counts, writes `downloadPreImportBackup()` first, then imports.
 
 **Versioned exports:** payload stamps `schemaVersion` (`CURRENT_SCHEMA_VERSION`, mirrors Dexie store version) + `appVersion`. `parseBackup()` runs `migrateBackup()` (a `MIGRATIONS` ladder); no version ⇒ legacy v1. **When the exported shape changes, bump `CURRENT_SCHEMA_VERSION` and add a `MIGRATIONS` step.** `importAll()` coerces tables to arrays defensively.
 

@@ -33,6 +33,8 @@ settings going at once without them bleeding together.
 |---|---|
 | **Rich-text pages** | Articles for characters, places, factions, items, events, and more — with headings, inline images (no upload), and editable tables for stat blocks. |
 | **Wiki links** | Type `[[Page Name]]` to link pages. Renaming a page rewrites every reference automatically; broken links are flagged. |
+| **Autolinker** | The first mention of any page's title in your prose links itself automatically — no `[[brackets]]` needed. Toggle it off in Settings. |
+| **Citations** | Mark a claim with an in-world source — another page or free text, with an optional locator and quote — and a numbered References list builds itself at the foot of the page. |
 | **Hover previews** | Hover a `[[wiki link]]` to peek at the linked page's category, title, and summary in a floating card. |
 | **Backlinks & TOC** | Every page shows what links to it, plus an auto-generated table of contents from its headings. |
 | **External links** | Attach a URL to selected text; opens in a new tab. |
@@ -42,7 +44,8 @@ settings going at once without them bleeding together.
 | | |
 |---|---|
 | **Multiple worlds** | Fully isolated worlds you can create, rename, banner, delete, and switch between — each its own local database. |
-| **Page types & templates** | Colour-coded categories with starter infobox rows. Use the built-ins or define your own; switching a page's type keeps the values you filled in. |
+| **Page types & templates** | Colour-coded categories with starter infobox rows and optional starter body sections you can drop into a page in one click. Use the built-ins or define your own; switching a page's type keeps the values you filled in. |
+| **Tags** | Tag pages freely and open a tag to see every page that shares it. |
 | **Infoboxes** | A per-page sidebar card with image, caption, and typed fields — text, numbers, and `[[reference]]` links — grouped under separator headings. |
 | **Image galleries** | Attach a grid of images to a page, view them in a lightbox, reorder them, and promote any one to the page's portrait. |
 
@@ -65,9 +68,10 @@ settings going at once without them bleeding together.
 | | |
 |---|---|
 | **Backup & restore** | Export everything to a JSON file and re-import anytime. Import validates the file, shows what it'll replace, writes a recovery backup first, and migrates older backups forward. |
-| **Auto-snapshots** | Up to 10 local snapshots saved automatically (after ~50 changes or 24h of activity); restore any from the Home screen. |
-| **Export as HTML** | Download a self-contained ZIP of your wiki as a browsable static site — index by category, one page per article, with infoboxes, images, and resolved links. |
-| **Overdue nudges** | Home and the top banner track edits since your last backup and turn red when one is overdue. |
+| **Auto-snapshots** | Local snapshots saved automatically (after ~50 changes or 24h of activity); restore any from Settings. |
+| **Export as HTML** | Download a self-contained ZIP of your wiki as a browsable static site — index by category, one page per article, with infoboxes, images, citations, and resolved links. |
+| **Settings** | Per-world controls for snapshot frequency and retention, the backup-overdue window, and the autolinker — plus backup, import, HTML export, and deleting the world. |
+| **Overdue nudges** | The Home screen and the top banner track edits since your last backup and turn red when one is overdue. |
 
 ---
 
@@ -138,8 +142,14 @@ src/
     backup.ts            Export / import + versioned migrations + sanitization
   loreId.ts              Active-world id + per-world database naming
   lores.ts               World registry + create/rename/delete/switch
+  settings.ts            Per-world settings (snapshots, backup window, autolink)
   calendar.ts            Pure date math (absolute-day axis, eras, formatting)
   search.ts              FlexSearch full-text index + incremental sync
+  autolink.ts            Title matcher + first-mention planner for the autolinker
+  citations.ts           Reads citation markers from a page body
+  toc.ts                 Heading slug / nesting helpers for the table of contents
+  sectionNodes.ts        Turns a page type's starter sections into editor nodes
+  imageUtils.ts          Client-side image resize / compression
   htmlExport.ts          HTML static-site export (JSZip)
   sanitize.ts            DOMPurify whitelist for imported / raw-rendered HTML
   html.ts                Shared HTML parsing helpers
@@ -151,32 +161,44 @@ src/
   App.tsx                Hash routing, layout shell, global overlays + wiring
   routes/
     LoreSelectorRoute.tsx  World picker (no shell)
-    HomeRoute.tsx          Dashboard + snapshots + backup
+    HomeRoute.tsx          Dashboard: hero, stats, recently edited
     PageRoute.tsx          View / edit a lore page
-    CategoryRoute.tsx      Image grid for a category
+    CategoryRoute.tsx      Page-card grid for a category
+    TagRoute.tsx           Page-card grid for a tag
     MapRoute.tsx           Maps, pins, regions
     GraphRoute.tsx         Relationship graph
     TimelineRoute.tsx      Timeline (list / axis)
     TemplatesRoute.tsx     Manage page-type templates
+    SettingsRoute.tsx      Settings, backup / import, HTML export, snapshots
   components/
     Sidebar.tsx            Navigation, page list, search trigger
     LoreEditor.tsx         Rich-text editor (TipTap) with toolbar
     Infobox.tsx            Page sidebar card with typed fields
     Backlinks.tsx          "What links here" panel
+    References.tsx         Numbered citation list for a page
     TableOfContents.tsx    Auto TOC from page headings
+    BrowseCard.tsx         Page card used by the category / tag grids
+    EmptyState.tsx         Reusable empty-state placeholder
+    Breadcrumb.tsx         Nested-map / page breadcrumb trail
+    ConfirmDialog.tsx      Reusable confirm modal
     ImageGallery.tsx       Per-page image grid
     Lightbox.tsx           Fullscreen image viewer
     MapView.tsx            Leaflet map rendering + pins + regions
+    MapPreviewCard.tsx     Click-to-preview card before editing a pin / region
     GraphView.tsx          Force-directed graph rendering
+    HubsOrphansPanel.tsx   Most-linked / unlinked pages beside the graph
     TimelineVertical.tsx   Timeline list view
     TimelineHorizontal.tsx Timeline zoomable axis
     CalendarEditor.tsx     Calendar definition modal
     EventEditor.tsx        Timeline event modal
     SearchModal.tsx        Full-text search overlay with keyboard navigation
     WikiLinkPopover.tsx    Hover preview card for wiki links
+    StorageErrorBanner.tsx IndexedDB quota / write-failure notice
     ErrorBoundary.tsx      Top-level crash recovery screen
   extensions/
     WikiLink.ts            The [[wiki link]] editor feature
+    Autolink.ts            Decorates first mentions of page titles as links
+    Citation.ts            The citation marker editor feature
   index.css                The full theme (colors are CSS variables at the top)
 ```
 
