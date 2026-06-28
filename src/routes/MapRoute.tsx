@@ -43,6 +43,7 @@ export default function MapRoute() {
       if (cancelled || !pin) return
       setActiveId(pin.mapId)
       setSelectedPinId(pin.id)
+      setPanelMode('preview')
     })
     return () => { cancelled = true }
   }, [focusPinId])
