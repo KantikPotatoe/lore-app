@@ -168,6 +168,8 @@ export default function GraphRoute() {
             showArrows={showArrows}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            onGhostClick={() => {/* Task 4 */}}
+            onPinNode={() => {/* Task 4 */}}
           />
         </div>
         {panelOpen && (

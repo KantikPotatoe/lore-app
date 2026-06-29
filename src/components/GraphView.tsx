@@ -46,11 +46,15 @@ export default function GraphView({
   showArrows,
   selectedId,
   onSelect,
+  onGhostClick,
+  onPinNode,
 }: {
   data: GraphData
   showArrows: boolean
   selectedId: string | null
   onSelect: (id: string | null) => void
+  onGhostClick: (title: string) => void
+  onPinNode: (id: string, x: number, y: number) => void
 }) {
   const navigate = useNavigate()
   const [hoverId, setHoverId] = useState<string | null>(null)
@@ -133,8 +137,17 @@ export default function GraphView({
       ctx.globalAlpha = baseAlpha
       ctx.beginPath()
       ctx.arc(x, y, r, 0, 2 * Math.PI)
-      ctx.fillStyle = categoryColor(node.category)
-      ctx.fill()
+      if (node.ghost) {
+        // Dashed muted outline, no fill — a "page doesn't exist yet" marker.
+        ctx.setLineDash([3 / globalScale, 3 / globalScale])
+        ctx.lineWidth = 1.5 / globalScale
+        ctx.strokeStyle = '#8a8270'
+        ctx.stroke()
+        ctx.setLineDash([])
+      } else {
+        ctx.fillStyle = categoryColor(node.category)
+        ctx.fill()
+      }
 
       // Draw the title under the node once zoomed in, or for focused nodes.
       if (globalScale > 1.2 || (neighbourIds != null && !isDim)) {
@@ -142,7 +155,7 @@ export default function GraphView({
         ctx.font = `${fontSize}px sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
-        ctx.fillStyle = '#e9e1d2'
+        ctx.fillStyle = node.ghost ? '#8a8270' : '#e9e1d2'
         ctx.fillText(node.title, x, y + r + 1)
       }
       ctx.globalAlpha = 1
@@ -190,6 +203,10 @@ export default function GraphView({
       linkDirectionalArrowRelPos={1}
       onNodeHover={(node) => setHoverId(node ? String(node.id) : null)}
       onNodeClick={(node: GNode) => {
+        if (node.ghost) {
+          onGhostClick(node.title)
+          return
+        }
         const id = String(node.id)
         if (clickTimer.current != null) {
           window.clearTimeout(clickTimer.current)
@@ -200,6 +217,15 @@ export default function GraphView({
             clickTimer.current = null
             onSelect(id)
           }, 250)
+        }
+      }}
+      onNodeDragEnd={(node: GNode) => {
+        // Stick the node where it was dropped; persist real pages only
+        // (ghost ids are ephemeral, so their pins would not survive a rebuild).
+        node.fx = node.x
+        node.fy = node.y
+        if (!node.ghost && node.x != null && node.y != null) {
+          onPinNode(String(node.id), node.x, node.y)
         }
       }}
       onBackgroundClick={() => onSelect(null)}
