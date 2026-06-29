@@ -144,6 +144,7 @@ export default function GraphView({
         ctx.strokeStyle = '#8a8270'
         ctx.stroke()
         ctx.setLineDash([])
+        ctx.lineWidth = 1
       } else {
         ctx.fillStyle = categoryColor(node.category)
         ctx.fill()

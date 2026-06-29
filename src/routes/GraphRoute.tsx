@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
-import { db, buildGraphData, categoryColor, createPage, type LorePage } from '../db'
+import { db, buildGraphData, categoryColor, createPage, type GraphNode, type LorePage } from '../db'
 import { useGraphPrefs } from '../useGraphPrefs'
 import GraphView from '../components/GraphView'
 import EmptyState from '../components/EmptyState'
@@ -48,16 +48,28 @@ export default function GraphRoute() {
     )
     const visible = new Set(nodes.map((n) => n.id))
     const links = full.links.filter((l) => visible.has(l.source) && visible.has(l.target))
-    // Clone nodes/links: the force simulation mutates the objects it receives.
-    // Seed fx/fy from saved pins so a pinned layout is restored on load.
     return {
-      nodes: nodes.map((n) => {
-        const pin = pins[n.id]
-        return pin ? { ...n, fx: pin.x, fy: pin.y } : { ...n }
-      }),
+      nodes: nodes.map((n) => ({ ...n })),
       links: links.map((l) => ({ ...l })),
     }
-  }, [full, hidden, tag, showGhosts, pins])
+  }, [full, hidden, tag, showGhosts])
+
+  // Seed pinned positions imperatively rather than through the `filtered` memo,
+  // so a live drag (which updates `pins`) doesn't recreate the graph data and
+  // reheat the whole simulation. The running sim reads fx/fy off these same node
+  // objects on its next tick; on a filter change `filtered` is rebuilt fresh and
+  // this re-applies the pins. Restore-on-load works the same way once pins load.
+  useEffect(() => {
+    for (const n of filtered.nodes) {
+      const pin = pins[n.id]
+      if (pin) {
+        const node = n as GraphNode & { fx?: number; fy?: number }
+        // eslint-disable-next-line react-hooks/immutability
+        node.fx = pin.x
+        node.fy = pin.y
+      }
+    }
+  }, [filtered, pins])
 
   // Drop saved pins for pages that no longer exist.
   useEffect(() => {

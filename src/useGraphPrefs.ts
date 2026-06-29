@@ -47,7 +47,10 @@ export function useGraphPrefs(): GraphPrefs {
   const [viewDraft, setViewDraft] = useState<SavedView | null>(null)
   const [pinsDraft, setPinsDraft] = useState<Pins | null>(null)
 
-  const view = viewDraft ?? savedView ?? DEFAULT_VIEW
+  const view = useMemo(
+    () => viewDraft ?? (savedView ? { ...DEFAULT_VIEW, ...savedView } : DEFAULT_VIEW),
+    [viewDraft, savedView],
+  )
   const pins = pinsDraft ?? savedPins ?? NO_PINS
 
   const writeView = useCallback((next: SavedView) => {
