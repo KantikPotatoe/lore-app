@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getMeta, setMeta } from './db'
 
@@ -13,6 +13,11 @@ interface SavedView {
 }
 
 type Pins = Record<string, { x: number; y: number }>
+
+// Stable fallback identities so consumers' useMemo deps don't bust every render
+// while nothing is stored.
+const DEFAULT_VIEW: SavedView = { hidden: [], showArrows: false, showGhosts: true, panelOpen: false }
+const NO_PINS: Pins = {}
 
 export interface GraphPrefs {
   hidden: Set<string>
@@ -30,86 +35,65 @@ export interface GraphPrefs {
 }
 
 export function useGraphPrefs(): GraphPrefs {
-  // Wrap the read so "still loading" (outer undefined) is distinguishable from
-  // "loaded, no row" (inner undefined) — otherwise defaults could clobber a row.
-  const savedView = useLiveQuery(async () => ({ v: await getMeta<SavedView>(VIEW_KEY) }), [])
-  const savedPins = useLiveQuery(async () => ({ v: await getMeta<Pins>(PINS_KEY) }), [])
+  // Read the persisted rows reactively. getMeta returns undefined both while
+  // loading and when no row exists — both collapse to defaults below, and we
+  // never write on load, so a stored row is never clobbered by defaults.
+  const savedView = useLiveQuery(() => getMeta<SavedView>(VIEW_KEY), [])
+  const savedPins = useLiveQuery(() => getMeta<Pins>(PINS_KEY), [])
 
-  const [hidden, setHidden] = useState<Set<string>>(new Set())
-  const [showArrows, setShowArrows] = useState(false)
-  const [showGhosts, setShowGhosts] = useState(true)
-  const [panelOpen, setPanelOpen] = useState(false)
-  const [pins, setPins] = useState<Pins>({})
+  // Local overrides layered on top of the persisted values; null until the user
+  // acts, after which the draft reflects intent immediately (the liveQuery also
+  // re-fires after each write and converges to the same value).
+  const [viewDraft, setViewDraft] = useState<SavedView | null>(null)
+  const [pinsDraft, setPinsDraft] = useState<Pins | null>(null)
 
-  // State (not ref) so that viewHydrated/pinsHydrated can be deps of the persist
-  // effects. When hydration completes, the persist effect re-runs and captures
-  // any state mutations that happened before the liveQuery resolved.
-  const [viewHydrated, setViewHydrated] = useState(false)
-  const [pinsHydrated, setPinsHydrated] = useState(false)
+  const view = viewDraft ?? savedView ?? DEFAULT_VIEW
+  const pins = pinsDraft ?? savedPins ?? NO_PINS
 
-  useEffect(() => {
-    if (viewHydrated || savedView === undefined) return
-    setViewHydrated(true)
-    const v = savedView.v
-    if (v) {
-      setHidden(new Set(v.hidden ?? []))
-      setShowArrows(v.showArrows ?? false)
-      setShowGhosts(v.showGhosts ?? true)
-      setPanelOpen(v.panelOpen ?? false)
-    }
-  }, [savedView, viewHydrated])
+  const writeView = useCallback((next: SavedView) => {
+    setViewDraft(next)
+    setMeta(VIEW_KEY, next)
+  }, [])
 
-  useEffect(() => {
-    if (pinsHydrated || savedPins === undefined) return
-    setPinsHydrated(true)
-    if (savedPins.v) setPins(savedPins.v)
-  }, [savedPins, pinsHydrated])
+  const writePins = useCallback((next: Pins) => {
+    setPinsDraft(next)
+    setMeta(PINS_KEY, next)
+  }, [])
 
-  // Persist only after hydration, so initial defaults never overwrite a stored row.
-  // viewHydrated is in the dep array so the effect fires once hydration completes,
-  // picking up any state changes that occurred before the liveQuery resolved.
-  useEffect(() => {
-    if (!viewHydrated) return
-    setMeta(VIEW_KEY, { hidden: [...hidden], showArrows, showGhosts, panelOpen } satisfies SavedView)
-  }, [hidden, showArrows, showGhosts, panelOpen, viewHydrated])
-
-  useEffect(() => {
-    if (!pinsHydrated) return
-    setMeta(PINS_KEY, pins)
-  }, [pins, pinsHydrated])
+  const hidden = useMemo(() => new Set(view.hidden), [view.hidden])
 
   const toggleCategory = useCallback((cat: string) => {
-    setHidden((prev) => {
-      const next = new Set(prev)
-      if (next.has(cat)) next.delete(cat)
-      else next.add(cat)
-      return next
-    })
-  }, [])
+    const next = new Set(view.hidden)
+    if (next.has(cat)) next.delete(cat)
+    else next.add(cat)
+    writeView({ ...view, hidden: [...next] })
+  }, [view, writeView])
+
+  const setShowArrows = useCallback((v: boolean) => writeView({ ...view, showArrows: v }), [view, writeView])
+  const setShowGhosts = useCallback((v: boolean) => writeView({ ...view, showGhosts: v }), [view, writeView])
+  const setPanelOpen = useCallback((v: boolean) => writeView({ ...view, panelOpen: v }), [view, writeView])
 
   const pinNode = useCallback((id: string, x: number, y: number) => {
-    setPins((prev) => ({ ...prev, [id]: { x, y } }))
-  }, [])
+    writePins({ ...pins, [id]: { x, y } })
+  }, [pins, writePins])
 
-  const clearPins = useCallback(() => setPins({}), [])
+  const clearPins = useCallback(() => writePins({}), [writePins])
 
   const prunePins = useCallback((validIds: Set<string>) => {
-    setPins((prev) => {
-      const next: Pins = {}
-      let changed = false
-      for (const [id, pos] of Object.entries(prev)) {
-        if (validIds.has(id)) next[id] = pos
-        else changed = true
-      }
-      return changed ? next : prev
-    })
-  }, [])
+    let changed = false
+    const next: Pins = {}
+    for (const [id, pos] of Object.entries(pins)) {
+      if (validIds.has(id)) next[id] = pos
+      else changed = true
+    }
+    if (changed) writePins(next)
+  }, [pins, writePins])
 
   return {
     hidden, toggleCategory,
-    showArrows, setShowArrows,
-    showGhosts, setShowGhosts,
-    panelOpen, setPanelOpen,
+    showArrows: view.showArrows, setShowArrows,
+    showGhosts: view.showGhosts, setShowGhosts,
+    panelOpen: view.panelOpen, setPanelOpen,
     pins, pinNode, clearPins, prunePins,
   }
 }
