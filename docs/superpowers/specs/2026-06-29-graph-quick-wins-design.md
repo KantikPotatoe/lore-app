@@ -90,8 +90,11 @@ Pure data → rendering → persistence, mirroring the codebase's "pure core + t
 
 ### 4. Persistence — `src/useGraphPrefs.ts` (new hook)
 
-Owns two per-lore meta rows (same store as `home-config`; carried in backups
-automatically — no Dexie schema or `CURRENT_SCHEMA_VERSION` bump):
+Owns two per-lore meta rows (same store as `home-config`). Like `home-config`,
+these are **local-only**: `exportAll`/`importAll` enumerate pages/maps/pins/regions/
+templates/calendars/events/images but never the `meta` store, so graph prefs do not
+travel in a backup. Because they never cross the backup boundary there is nothing to
+version or migrate — hence no Dexie schema or `CURRENT_SCHEMA_VERSION` bump:
 
 - `graph-view` → `{ hidden: string[]; showArrows: boolean; showGhosts: boolean; panelOpen: boolean }`
 - `graph-pins` → `{ [pageId: string]: { x: number; y: number } }`
