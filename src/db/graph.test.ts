@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { buildGraphData } from './graph'
-import type { Infobox, InfoboxField, LorePage } from './types'
+import { buildGraphData, type LorePage } from '../db'
+import type { Infobox, InfoboxField } from './types'
 
 // buildGraphData is a pure function over a page array, so these tests pass pages
 // in directly (no DB). They pin the documented edge rules: a node per page
@@ -51,10 +51,13 @@ describe('buildGraphData', () => {
     expect(data.nodes.find((n) => n.id === 'b')!.degree).toBe(1)
   })
 
-  it('drops links to a missing target', () => {
+  it('creates a ghost node (not a real edge) for a link to a missing target', () => {
     const data = buildGraphData([page('a', 'A', { content: link('Ghost') })])
-    expect(data.links).toEqual([])
-    expect(data.nodes[0].degree).toBe(0)
+    // The real node has no real neighbours.
+    expect(data.nodes.find((n) => n.id === 'a')!.degree).toBe(0)
+    // A ghost node and a ghost link are emitted instead of being silently dropped.
+    expect(data.nodes.some((n) => n.ghost)).toBe(true)
+    expect(data.links).toEqual([{ source: 'a', target: 'ghost:ghost' }])
   })
 
   it('drops self-links', () => {
@@ -98,5 +101,68 @@ describe('buildGraphData', () => {
       page('b', 'B'),
     ])
     expect(data.links).toEqual([{ source: 'a', target: 'b' }])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Ghost node tests (Task 1)
+// ---------------------------------------------------------------------------
+
+/** Minimal page factory for ghost-node tests — only fields buildGraphData reads. */
+function ghostPage(partial: Partial<LorePage> & { id: string; title: string }): LorePage {
+  return {
+    category: 'General',
+    content: '',
+    summary: '',
+    tags: [],
+    createdAt: 0,
+    updatedAt: 0,
+    ...partial,
+  } as LorePage
+}
+
+describe('buildGraphData ghost nodes', () => {
+  it('turns a link to a missing page into one ghost node', () => {
+    const pages = [ghostPage({ id: 'a', title: 'Sam', content: `<p>${link('Mordor')}</p>` })]
+    const { nodes, links } = buildGraphData(pages)
+
+    const ghost = nodes.find((n) => n.ghost)
+    expect(ghost).toBeDefined()
+    expect(ghost!.id).toBe('ghost:mordor')
+    expect(ghost!.degree).toBe(1)
+    expect(links).toContainEqual({ source: 'a', target: 'ghost:mordor' })
+  })
+
+  it('collapses two linkers to the same missing title into one ghost (degree 2)', () => {
+    const pages = [
+      ghostPage({ id: 'a', title: 'Sam', content: `<p>${link('Mordor')}</p>` }),
+      ghostPage({ id: 'b', title: 'Frodo', content: `<p>${link('Mordor')}</p>` }),
+    ]
+    const ghosts = buildGraphData(pages).nodes.filter((n) => n.ghost)
+    expect(ghosts).toHaveLength(1)
+    expect(ghosts[0].degree).toBe(2)
+  })
+
+  it('prettifies the lowercased link text to a title-cased label', () => {
+    const pages = [ghostPage({ id: 'a', title: 'Sam', content: `<p>${link('the shire')}</p>` })]
+    const ghost = buildGraphData(pages).nodes.find((n) => n.ghost)!
+    expect(ghost.title).toBe('The Shire')
+  })
+
+  it('does not create a ghost when the target page exists', () => {
+    const pages = [
+      ghostPage({ id: 'a', title: 'Sam', content: `<p>${link('Frodo')}</p>` }),
+      ghostPage({ id: 'b', title: 'Frodo' }),
+    ]
+    expect(buildGraphData(pages).nodes.some((n) => n.ghost)).toBe(false)
+  })
+
+  it('leaves real-node degree unaffected by outgoing ghost links', () => {
+    const pages = [
+      ghostPage({ id: 'a', title: 'Sam', content: `<p>${link('Frodo')} ${link('Mordor')}</p>` }),
+      ghostPage({ id: 'b', title: 'Frodo' }),
+    ]
+    const sam = buildGraphData(pages).nodes.find((n) => n.id === 'a')!
+    expect(sam.degree).toBe(1) // only the real Frodo edge counts
   })
 })

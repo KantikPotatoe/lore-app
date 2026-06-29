@@ -1,9 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, buildGraphData, categoryColor, type LorePage } from '../db'
+import { useNavigate } from 'react-router-dom'
+import { db, buildGraphData, categoryColor, createPage, type GraphNode, type LorePage } from '../db'
+import { useGraphPrefs } from '../useGraphPrefs'
 import GraphView from '../components/GraphView'
 import EmptyState from '../components/EmptyState'
 import HubsOrphansPanel from '../components/HubsOrphansPanel'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 const NO_PAGES: LorePage[] = []
 
@@ -12,37 +15,66 @@ export default function GraphRoute() {
 
   const full = useMemo(() => buildGraphData(pages), [pages])
 
+  const navigate = useNavigate()
+  const {
+    hidden, toggleCategory,
+    showArrows, setShowArrows,
+    showGhosts, setShowGhosts,
+    panelOpen, setPanelOpen,
+    pins, pinNode, clearPins, prunePins,
+  } = useGraphPrefs()
+  const [tag, setTag] = useState('')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [pendingGhost, setPendingGhost] = useState<string | null>(null)
+
   // All categories / tags present in the data, for the toolbar controls.
+  // Exclude ghost nodes so the filter chips only show real page categories/tags.
   const categories = useMemo(
-    () => [...new Set(full.nodes.map((n) => n.category))].sort((a, b) => a.localeCompare(b)),
+    () => [...new Set(full.nodes.filter((n) => !n.ghost).map((n) => n.category))].sort((a, b) => a.localeCompare(b)),
     [full],
   )
   const tags = useMemo(
-    () => [...new Set(full.nodes.flatMap((n) => n.tags))].sort((a, b) => a.localeCompare(b)),
+    () => [...new Set(full.nodes.filter((n) => !n.ghost).flatMap((n) => n.tags))].sort((a, b) => a.localeCompare(b)),
     [full],
   )
 
-  // Hidden categories (empty = all visible). Selected tag ('' = any).
-  const [hidden, setHidden] = useState<Set<string>>(new Set())
-  const [tag, setTag] = useState('')
-  const [showArrows, setShowArrows] = useState(false)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [query, setQuery] = useState('')
-  const [panelOpen, setPanelOpen] = useState(false)
-
   const filtered = useMemo(() => {
     const nodes = full.nodes.filter(
-      (n) => !hidden.has(n.category) && (tag === '' || n.tags.includes(tag)),
+      (n) =>
+        (showGhosts || !n.ghost) &&
+        !hidden.has(n.category) &&
+        (tag === '' || n.tags.includes(tag)),
     )
     const visible = new Set(nodes.map((n) => n.id))
     const links = full.links.filter((l) => visible.has(l.source) && visible.has(l.target))
-    // Clone nodes/links: the force simulation mutates the objects it receives,
-    // so we must not hand it our memoised source arrays.
     return {
       nodes: nodes.map((n) => ({ ...n })),
       links: links.map((l) => ({ ...l })),
     }
-  }, [full, hidden, tag])
+  }, [full, hidden, tag, showGhosts])
+
+  // Seed pinned positions imperatively rather than through the `filtered` memo,
+  // so a live drag (which updates `pins`) doesn't recreate the graph data and
+  // reheat the whole simulation. The running sim reads fx/fy off these same node
+  // objects on its next tick; on a filter change `filtered` is rebuilt fresh and
+  // this re-applies the pins. Restore-on-load works the same way once pins load.
+  useEffect(() => {
+    for (const n of filtered.nodes) {
+      const pin = pins[n.id]
+      if (pin) {
+        const node = n as GraphNode & { fx?: number; fy?: number }
+        // eslint-disable-next-line react-hooks/immutability
+        node.fx = pin.x
+        node.fy = pin.y
+      }
+    }
+  }, [filtered, pins])
+
+  // Drop saved pins for pages that no longer exist.
+  useEffect(() => {
+    if (full.nodes.length > 0) prunePins(new Set(full.nodes.map((n) => n.id)))
+  }, [full, prunePins])
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -61,19 +93,16 @@ export default function GraphRoute() {
     [filtered],
   )
 
-  function toggleCategory(cat: string) {
-    setHidden((prev) => {
-      const next = new Set(prev)
-      if (next.has(cat)) next.delete(cat)
-      else next.add(cat)
-      return next
-    })
-  }
-
   function selectNode(id: string) {
     setSelectedId(null)
     // Defer so the GraphView effect sees a real change and re-glides.
     requestAnimationFrame(() => setSelectedId(id))
+  }
+
+  async function createGhost(title: string) {
+    setPendingGhost(null)
+    const id = await createPage({ title, status: 'Stub' })
+    navigate(`/page/${id}`)
   }
 
   if (pages.length === 0) {
@@ -143,14 +172,27 @@ export default function GraphRoute() {
 
         <button
           className={`ghost-btn${showArrows ? ' active' : ''}`}
-          onClick={() => setShowArrows((v) => !v)}
+          onClick={() => setShowArrows(!showArrows)}
         >
           {showArrows ? '➜ Arrows on' : '➜ Arrows off'}
         </button>
 
         <button
+          className={`ghost-btn${showGhosts ? ' active' : ''}`}
+          onClick={() => setShowGhosts(!showGhosts)}
+        >
+          {showGhosts ? '👻 Ghosts on' : '👻 Ghosts off'}
+        </button>
+
+        {Object.keys(pins).length > 0 && (
+          <button className="ghost-btn" onClick={clearPins}>
+            ⤺ Reset layout
+          </button>
+        )}
+
+        <button
           className={`ghost-btn${panelOpen ? ' active' : ''}`}
-          onClick={() => setPanelOpen((v) => !v)}
+          onClick={() => setPanelOpen(!panelOpen)}
         >
           {panelOpen ? '☰ Hide lists' : '☰ Hubs & orphans'}
         </button>
@@ -168,12 +210,24 @@ export default function GraphRoute() {
             showArrows={showArrows}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            onGhostClick={setPendingGhost}
+            onPinNode={pinNode}
           />
         </div>
         {panelOpen && (
           <HubsOrphansPanel hubs={hubs} orphans={orphans} onSelect={selectNode} />
         )}
       </div>
+
+      <ConfirmDialog
+        open={pendingGhost !== null}
+        title="Create page?"
+        confirmLabel="Create"
+        onConfirm={() => pendingGhost && createGhost(pendingGhost)}
+        onCancel={() => setPendingGhost(null)}
+      >
+        "{pendingGhost}" doesn't exist yet. Create it?
+      </ConfirmDialog>
     </div>
   )
 }
