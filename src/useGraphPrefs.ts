@@ -5,18 +5,36 @@ import { getMeta, setMeta } from './db'
 const VIEW_KEY = 'graph-view'
 const PINS_KEY = 'graph-pins'
 
+/** Camera transform: zoom level `k` plus the graph-space coordinates centred in
+ *  the viewport. Matches what react-force-graph's `onZoomEnd` reports and what
+ *  `zoom()`/`centerAt()` consume to restore it. */
+export interface GraphCam {
+  k: number
+  x: number
+  y: number
+}
+
 interface SavedView {
   hidden: string[]
   showArrows: boolean
   showGhosts: boolean
   panelOpen: boolean
+  tag: string
+  cam: GraphCam | null
 }
 
 type Pins = Record<string, { x: number; y: number }>
 
 // Stable fallback identities so consumers' useMemo deps don't bust every render
 // while nothing is stored.
-const DEFAULT_VIEW: SavedView = { hidden: [], showArrows: false, showGhosts: true, panelOpen: false }
+const DEFAULT_VIEW: SavedView = {
+  hidden: [],
+  showArrows: false,
+  showGhosts: true,
+  panelOpen: false,
+  tag: '',
+  cam: null,
+}
 const NO_PINS: Pins = {}
 
 export interface GraphPrefs {
@@ -28,6 +46,10 @@ export interface GraphPrefs {
   setShowGhosts: (v: boolean) => void
   panelOpen: boolean
   setPanelOpen: (v: boolean) => void
+  tag: string
+  setTag: (v: string) => void
+  cam: GraphCam | null
+  setCam: (c: GraphCam) => void
   pins: Pins
   pinNode: (id: string, x: number, y: number) => void
   clearPins: () => void
@@ -75,6 +97,8 @@ export function useGraphPrefs(): GraphPrefs {
   const setShowArrows = useCallback((v: boolean) => writeView({ ...view, showArrows: v }), [view, writeView])
   const setShowGhosts = useCallback((v: boolean) => writeView({ ...view, showGhosts: v }), [view, writeView])
   const setPanelOpen = useCallback((v: boolean) => writeView({ ...view, panelOpen: v }), [view, writeView])
+  const setTag = useCallback((v: string) => writeView({ ...view, tag: v }), [view, writeView])
+  const setCam = useCallback((c: GraphCam) => writeView({ ...view, cam: c }), [view, writeView])
 
   const pinNode = useCallback((id: string, x: number, y: number) => {
     writePins({ ...pins, [id]: { x, y } })
@@ -97,6 +121,8 @@ export function useGraphPrefs(): GraphPrefs {
     showArrows: view.showArrows, setShowArrows,
     showGhosts: view.showGhosts, setShowGhosts,
     panelOpen: view.panelOpen, setPanelOpen,
+    tag: view.tag, setTag,
+    cam: view.cam, setCam,
     pins, pinNode, clearPins, prunePins,
   }
 }

@@ -21,9 +21,10 @@ export default function GraphRoute() {
     showArrows, setShowArrows,
     showGhosts, setShowGhosts,
     panelOpen, setPanelOpen,
+    tag, setTag,
+    cam, setCam,
     pins, pinNode, clearPins, prunePins,
   } = useGraphPrefs()
-  const [tag, setTag] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [pendingGhost, setPendingGhost] = useState<string | null>(null)
@@ -212,6 +213,8 @@ export default function GraphRoute() {
             onSelect={setSelectedId}
             onGhostClick={setPendingGhost}
             onPinNode={pinNode}
+            initialCam={cam}
+            onCamChange={setCam}
           />
         </div>
         {panelOpen && (
