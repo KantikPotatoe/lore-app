@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
-import { db, buildGraphData, categoryColor, createPage, type GraphNode, type LorePage } from '../db'
+import { db, buildGraphData, categoryColor, nodesWithinHops, createPage, type GraphNode, type LorePage } from '../db'
 import { useGraphPrefs } from '../useGraphPrefs'
 import GraphView from '../components/GraphView'
 import EmptyState from '../components/EmptyState'
@@ -22,6 +22,8 @@ export default function GraphRoute() {
     showGhosts, setShowGhosts,
     panelOpen, setPanelOpen,
     tag, setTag,
+    minDegree, setMinDegree,
+    depth, setDepth,
     cam, setCam,
     pins, pinNode, clearPins, prunePins,
   } = useGraphPrefs()
@@ -39,13 +41,24 @@ export default function GraphRoute() {
     () => [...new Set(full.nodes.filter((n) => !n.ghost).flatMap((n) => n.tags))].sort((a, b) => a.localeCompare(b)),
     [full],
   )
+  // Highest connection count present, so the min-degree slider caps at something
+  // meaningful (and hides entirely when nothing is connected).
+  const maxDegree = useMemo(() => full.nodes.reduce((m, n) => Math.max(m, n.degree), 0), [full])
+
+  // The depth filter only bites when a node is selected. Deriving the focus id
+  // this way keeps `filtered` from recomputing (and reheating the sim) on every
+  // selection while depth is 0 — the id only enters the dep array once depth > 0.
+  const depthFocus = depth > 0 ? selectedId : null
 
   const filtered = useMemo(() => {
+    const hopSet = depthFocus ? nodesWithinHops(full.links, depthFocus, depth) : null
     const nodes = full.nodes.filter(
       (n) =>
         (showGhosts || !n.ghost) &&
         !hidden.has(n.category) &&
-        (tag === '' || n.tags.includes(tag)),
+        (tag === '' || n.tags.includes(tag)) &&
+        n.degree >= minDegree &&
+        (hopSet == null || hopSet.has(n.id)),
     )
     const visible = new Set(nodes.map((n) => n.id))
     const links = full.links.filter((l) => visible.has(l.source) && visible.has(l.target))
@@ -53,7 +66,7 @@ export default function GraphRoute() {
       nodes: nodes.map((n) => ({ ...n })),
       links: links.map((l) => ({ ...l })),
     }
-  }, [full, hidden, tag, showGhosts])
+  }, [full, hidden, tag, showGhosts, minDegree, depth, depthFocus])
 
   // Seed pinned positions imperatively rather than through the `filtered` memo,
   // so a live drag (which updates `pins`) doesn't recreate the graph data and
@@ -171,6 +184,37 @@ export default function GraphRoute() {
           {tags.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
 
+        {maxDegree > 0 && (
+          <>
+            <label className="graph-slider" title="Hide nodes with fewer connections">
+              Min links
+              <input
+                type="range"
+                min={0}
+                max={maxDegree}
+                value={Math.min(minDegree, maxDegree)}
+                onChange={(e) => setMinDegree(Number(e.target.value))}
+              />
+              <span className="graph-slider-val">{minDegree}</span>
+            </label>
+
+            <label
+              className="graph-slider"
+              title="Show only nodes within N hops of the selected node"
+            >
+              Depth
+              <input
+                type="range"
+                min={0}
+                max={6}
+                value={depth}
+                onChange={(e) => setDepth(Number(e.target.value))}
+              />
+              <span className="graph-slider-val">{depth === 0 ? 'off' : `${depth} hop${depth > 1 ? 's' : ''}`}</span>
+            </label>
+          </>
+        )}
+
         <button
           className={`ghost-btn${showArrows ? ' active' : ''}`}
           onClick={() => setShowArrows(!showArrows)}
@@ -200,6 +244,7 @@ export default function GraphRoute() {
 
         <span className="graph-hint">
           {filtered.nodes.length} pages · {filtered.links.length} links
+          {depth > 0 && !selectedId && ' — select a node to apply depth'}
           {filtered.nodes.length > 300 && ' — filter by type or tag to declutter'}
         </span>
       </div>
