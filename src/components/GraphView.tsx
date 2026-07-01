@@ -200,12 +200,18 @@ export default function GraphView({
 
   const linkColor = useCallback(
     (link: GLink) => {
-      if (neighbourIds == null) return 'rgba(160,160,160,0.35)'
+      // Mutual (A↔B) links read as the stronger ties: brighter and bluer at rest
+      // than the greyer one-way links.
+      if (neighbourIds == null) return link.mutual ? 'rgba(150,180,255,0.5)' : 'rgba(160,160,160,0.28)'
       const active = neighbourIds.has(endId(link.source)) && neighbourIds.has(endId(link.target))
-      return active ? 'rgba(180,200,255,0.9)' : 'rgba(160,160,160,0.08)'
+      if (!active) return 'rgba(160,160,160,0.08)'
+      return link.mutual ? 'rgba(190,210,255,0.95)' : 'rgba(170,185,225,0.7)'
     },
     [neighbourIds],
   )
+
+  // Mutual links also draw thicker, so reciprocity reads even without colour.
+  const linkWidth = useCallback((link: GLink) => (link.mutual ? 2.5 : 1), [])
 
   return (
     <div ref={wrapRef} style={{ width: '100%', height: '100%' }}>
@@ -223,6 +229,7 @@ export default function GraphView({
         ctx.fill()
       }}
       linkColor={linkColor}
+      linkWidth={linkWidth}
       linkDirectionalArrowColor={linkColor}
       linkDirectionalArrowLength={showArrows ? 4 : 0}
       linkDirectionalArrowRelPos={1}

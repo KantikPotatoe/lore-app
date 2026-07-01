@@ -1145,6 +1145,15 @@ button.wiki-link { background: none; border-top: none; border-left: none; border
   border-radius: var(--radius);
   overflow: hidden;
 }
+.graph-3d-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--ink-faint);
+  font-size: 0.9rem;
+}
 .graph-panel {
   width: 240px;
   flex: none;
