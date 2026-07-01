@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   db, addMap, addPin, addRegion, deleteMap, pinType, regionStyle,
-  mapBreadcrumb, ancestorMapIds, createPage,
+  mapBreadcrumb, ancestorMapIds, createPage, findPageIdByTitle,
   TYPE_COLORS, type MapPin, type MapRegion, type InfoboxTemplate,
 } from '../db'
 import MapView, { type PinMarkerStyle, type FocusTarget } from '../components/MapView'
@@ -286,7 +286,10 @@ export default function MapRoute() {
   // spin up a stub page straight from the map instead of only picking an
   // existing one (mirrors RefField's inline "create new page").
   async function createLinkedPage(label: string, link: (pageId: string) => void) {
-    const id = await createPage({ title: label.trim() || 'New page' })
+    const title = label.trim() || 'New page'
+    // Reuse an existing page with this title rather than creating a duplicate
+    // (createPage now rejects a title clash).
+    const id = (await findPageIdByTitle(title)) ?? (await createPage({ title }))
     link(id)
   }
 

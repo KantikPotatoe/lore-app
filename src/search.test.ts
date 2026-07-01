@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { buildIndex, syncIndex, searchPages } from './search'
+import { buildIndex, syncIndex, searchPages, highlightSnippet } from './search'
 import type { LorePage } from './db'
 
 // search.ts uses stripHtml (DOMParser), so the suite-default happy-dom env applies.
@@ -31,6 +31,35 @@ describe('buildIndex + searchPages', () => {
     expect(ids('wizard')).toEqual(['a']) // HTML tags stripped before indexing
     expect(ids('ringbearer')).toEqual(['b'])
     expect(searchPages('')).toEqual([])
+  })
+})
+
+describe('highlightSnippet', () => {
+  it('wraps every occurrence of the first query word in <mark>', () => {
+    expect(highlightSnippet('the grey wizard', 'wizard')).toBe('the grey <mark>wizard</mark>')
+    expect(highlightSnippet('Wizard vs wizard', 'wizard')).toBe('<mark>Wizard</mark> vs <mark>wizard</mark>')
+  })
+
+  it('escapes HTML in the snippet so stored text cannot become live markup', () => {
+    // stripHtml decodes entities, so a page whose *visible text* is an HTML tag
+    // (self-typed or from an imported backup) reaches the snippet as raw markup.
+    expect(highlightSnippet('<img src=x onerror=alert(1)>', 'img')).toBe(
+      '&lt;<mark>img</mark> src=x onerror=alert(1)&gt;',
+    )
+  })
+
+  it('escapes the snippet even when the query does not match', () => {
+    expect(highlightSnippet('<script>alert(1)</script>', 'zzz')).toBe(
+      '&lt;script&gt;alert(1)&lt;/script&gt;',
+    )
+  })
+
+  it('escapes the snippet when the query is empty', () => {
+    expect(highlightSnippet('a < b & c', '')).toBe('a &lt; b &amp; c')
+  })
+
+  it('treats regex metacharacters in the query as literals', () => {
+    expect(highlightSnippet('cost (a+b)', '(a+b)')).toBe('cost <mark>(a+b)</mark>')
   })
 })
 

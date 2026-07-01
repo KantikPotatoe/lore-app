@@ -41,4 +41,12 @@ describe('maybeTakeSnapshot', () => {
     await maybeTakeSnapshot()
     expect(await db.snapshots.count()).toBe(1)
   })
+
+  it('coalesces concurrent calls into a single snapshot', async () => {
+    // The App start effect double-invokes under StrictMode in dev; two overlapping
+    // calls must not both read the stale last-time and each take a snapshot.
+    await addPage()
+    await Promise.all([maybeTakeSnapshot(), maybeTakeSnapshot()])
+    expect(await db.snapshots.count()).toBe(1)
+  })
 })

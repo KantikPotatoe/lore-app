@@ -125,6 +125,13 @@ describe('parseBackup — version reporting', () => {
     const json = JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION, pages: [] })
     expect(parseBackup(json).schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
   })
+
+  it('rejects a backup stamped with a newer schemaVersion than this app understands', () => {
+    const json = JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION + 1, pages: [] })
+    // Importing a shape this app doesn't understand could silently drop or corrupt
+    // data — refuse before any clear() rather than proceed against an unknown shape.
+    expect(() => parseBackup(json)).toThrow(/newer version/)
+  })
 })
 
 describe('exportAll — version stamping', () => {
@@ -233,6 +240,20 @@ describe('importAll — round-trips', () => {
     await importAll(json)
     expect(await db.images.get('ok')).toBeDefined()
     expect(await db.images.get('evil')).toBeUndefined()
+  })
+
+  it('drops imported SVG data-URL images (they can embed scripts)', async () => {
+    const json = JSON.stringify({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      pages: [],
+      images: [
+        { id: 'raster', pageId: 'p1', dataUrl: 'data:image/png;base64,AAA', caption: '', order: 0, createdAt: 1 },
+        { id: 'svg', pageId: 'p1', dataUrl: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=', caption: '', order: 1, createdAt: 2 },
+      ],
+    })
+    await importAll(json)
+    expect(await db.images.get('raster')).toBeDefined()
+    expect(await db.images.get('svg')).toBeUndefined()
   })
 })
 

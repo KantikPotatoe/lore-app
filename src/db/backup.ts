@@ -127,6 +127,13 @@ export function parseBackup(
   if (!raw || typeof raw !== 'object' || !Array.isArray((raw as BackupData).pages)) {
     throw new Error("This doesn't look like a Lore Codex backup file. Nothing was changed.")
   }
+  const stamped = (raw as BackupData).schemaVersion
+  if (typeof stamped === 'number' && stamped > CURRENT_SCHEMA_VERSION) {
+    // A backup from a newer app version may use a shape this build doesn't
+    // understand; importing it could silently drop or corrupt data. Refuse before
+    // any clear() rather than proceed. (migrateBackup only upgrades old → current.)
+    throw new Error('This backup was made by a newer version of Lore Codex. Update the app before importing it. Nothing was changed.')
+  }
   const data = migrateBackup(raw as BackupData)
   return {
     data,
@@ -186,7 +193,14 @@ function sanitizeBackup(data: BackupData): BackupData {
     pages: asArray(data.pages).map((p) => ({ ...p, content: sanitizeHtml(p.content) })),
     events: asArray(data.events).map((e) => ({ ...e, description: sanitizeHtml(e.description) })),
     // Images carry no HTML; defend against a non-image payload smuggled into dataUrl.
-    images: asArray(data.images).filter((img) => typeof img.dataUrl === 'string' && img.dataUrl.startsWith('data:image/')),
+    // SVG data-URLs are excluded specifically: they can embed <script>, so a future
+    // render path (<object>/<iframe>/new-tab navigation) would execute it.
+    images: asArray(data.images).filter(
+      (img) =>
+        typeof img.dataUrl === 'string' &&
+        img.dataUrl.startsWith('data:image/') &&
+        !img.dataUrl.startsWith('data:image/svg+xml'),
+    ),
   }
 }
 

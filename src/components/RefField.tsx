@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, createPage, parseRefTitles, serializeRefTitles } from '../db'
+import { db, createPage, findPageIdByTitle, parseRefTitles, serializeRefTitles } from '../db'
 
 interface Props {
   /** Current field value, e.g. "[[Iron Guild]] [[Free Companies]]". */
@@ -46,7 +46,11 @@ export default function RefField({ value, refType, onChange }: Props) {
   async function createAndAdd() {
     const title = query.trim()
     if (!title) return
-    await createPage({ title, category: refType })
+    // A page with this title may already exist (e.g. it's linked elsewhere so it's
+    // filtered out of the suggestions); reuse it rather than creating a duplicate,
+    // which createPage now rejects.
+    const existing = await findPageIdByTitle(title)
+    if (!existing) await createPage({ title, category: refType })
     addTitle(title)
   }
 

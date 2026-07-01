@@ -10,19 +10,34 @@ import type { LorePage } from './types'
 export async function createPage(partial: Partial<LorePage> = {}): Promise<string> {
   const id = uid()
   const category = partial.category || DEFAULT_CATEGORY
+  const explicitTitle = partial.title?.trim()
+  // Resolve the default infobox (reads db.templates) before opening the write
+  // transaction, which then only spans db.pages for the clash-check + add.
+  const infobox = partial.infobox ?? (await defaultInfobox(category))
   const page: LorePage = {
     id,
-    title: partial.title?.trim() || 'Untitled',
+    title: explicitTitle || 'Untitled',
     category,
     content: partial.content || '',
     summary: partial.summary || '',
     status: partial.status || DEFAULT_STATUS,
     tags: partial.tags || [],
-    infobox: partial.infobox ?? (await defaultInfobox(category)),
+    infobox,
     createdAt: now(),
     updatedAt: now(),
   }
-  await db.pages.add(page)
+  await db.transaction('rw', db.pages, async () => {
+    // Reject an explicit title that clashes with an existing page (case-insensitive),
+    // mirroring renamePage — duplicate titles make [[links]] ambiguous. The default
+    // 'Untitled' is exempt so creating several blank pages still works. The check is
+    // inside the transaction so a concurrent add can't slip a clash past it.
+    if (explicitTitle) {
+      const lc = explicitTitle.toLowerCase()
+      const clash = (await db.pages.toArray()).find((p) => p.title.trim().toLowerCase() === lc)
+      if (clash) throw new Error(`A page titled "${clash.title}" already exists.`)
+    }
+    await db.pages.add(page)
+  })
   return id
 }
 
@@ -31,12 +46,17 @@ export async function updatePage(id: string, changes: Partial<LorePage>): Promis
 }
 
 export async function deletePage(id: string): Promise<void> {
-  await db.pages.delete(id)
-  // Remove this page's gallery images so no orphans are left behind.
-  await db.images.where('pageId').equals(id).delete()
-  // Unlink any pins that pointed at this page.
-  const linked = await db.pins.where('pageId').equals(id).toArray()
-  await Promise.all(linked.map((p) => db.pins.update(p.id, { pageId: null })))
+  // One transaction so the delete + gallery cleanup + pin unlink either all land
+  // or all roll back — a mid-sequence failure can't leave orphaned images or pins
+  // pointing at a deleted page.
+  await db.transaction('rw', db.pages, db.images, db.pins, async () => {
+    await db.pages.delete(id)
+    // Remove this page's gallery images so no orphans are left behind.
+    await db.images.where('pageId').equals(id).delete()
+    // Unlink any pins that pointed at this page.
+    const linked = await db.pins.where('pageId').equals(id).toArray()
+    await Promise.all(linked.map((p) => db.pins.update(p.id, { pageId: null })))
+  })
 }
 
 /** Find an existing page's id by title (case-insensitive), or null. No creation —
@@ -107,18 +127,23 @@ function rewriteLinksInPage(
  *  make links ambiguous). No-ops on an empty or unchanged title. */
 export async function renamePage(id: string, newTitle: string): Promise<void> {
   const trimmed = newTitle.trim()
-  const page = await db.pages.get(id)
-  if (!page) return
-  const oldTitle = page.title
-  if (!trimmed || trimmed === oldTitle) return
+  if (!trimmed) return
 
-  const all = await db.pages.toArray()
-  const clash = all.find(
-    (p) => p.id !== id && p.title.trim().toLowerCase() === trimmed.toLowerCase(),
-  )
-  if (clash) throw new Error(`A page titled "${clash.title}" already exists.`)
-
+  // Read the page list, run the clash check, and rewrite all references inside a
+  // single transaction. Doing the read + clash check outside would let a write
+  // that lands in between (autosave, a second tab) go unseen — silently reverted
+  // by the rewrite from a stale snapshot, or slip a clashing title past the check.
   await db.transaction('rw', db.pages, async () => {
+    const all = await db.pages.toArray()
+    const page = all.find((p) => p.id === id)
+    if (!page || trimmed === page.title) return
+    const oldTitle = page.title
+
+    const clash = all.find(
+      (p) => p.id !== id && p.title.trim().toLowerCase() === trimmed.toLowerCase(),
+    )
+    if (clash) throw new Error(`A page titled "${clash.title}" already exists.`)
+
     await db.pages.update(id, { title: trimmed, updatedAt: now() })
     for (const p of all) {
       if (p.id === id) continue

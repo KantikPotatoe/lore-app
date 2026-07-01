@@ -51,6 +51,14 @@ export default function SettingsRoute() {
   function setField(patch: Partial<LoreSettings>) {
     setDraft((prev) => ({ ...(prev ?? savedSettings ?? DEFAULT_SETTINGS), ...patch }))
   }
+  // Clearing a number input makes valueAsNumber NaN; dropping it keeps a bad value
+  // out of settings (a NaN snapshot threshold makes `changed < NaN` always false).
+  function setNumField(key: keyof LoreSettings) {
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
+      const v = e.target.valueAsNumber
+      if (Number.isFinite(v)) setField({ [key]: v } as Partial<LoreSettings>)
+    }
+  }
   useEffect(() => {
     if (draft) updateSettings(draft)
   }, [draft])
@@ -104,6 +112,11 @@ export default function SettingsRoute() {
       await downloadPreImportBackup()
       await importAll(json)
       alert('Backup restored.')
+    } catch (err) {
+      // importAll rolls the transaction back on failure (e.g. a crafted backup with
+      // duplicate ids), so the current data survives — but the user still needs to
+      // know it didn't take, rather than seeing nothing happen.
+      alert(err instanceof Error ? `Import failed: ${err.message}` : 'Import failed. Your data was not changed.')
     } finally { setBusy(false) }
   }
 
@@ -122,21 +135,21 @@ export default function SettingsRoute() {
             <span>Snapshot after this many changes</span>
             <input
               type="number" min={1} max={100} value={s.snapshotChangeThreshold}
-              onChange={(e) => setField({ snapshotChangeThreshold: e.target.valueAsNumber })}
+              onChange={setNumField('snapshotChangeThreshold')}
             />
           </label>
           <label className="settings-field">
             <span>…or after this many hours of activity</span>
             <input
               type="number" min={1} max={100} value={s.snapshotTimeHours}
-              onChange={(e) => setField({ snapshotTimeHours: e.target.valueAsNumber })}
+              onChange={setNumField('snapshotTimeHours')}
             />
           </label>
           <label className="settings-field">
             <span>Keep newest snapshots</span>
             <input
               type="number" min={1} max={100} value={s.snapshotRetention}
-              onChange={(e) => setField({ snapshotRetention: e.target.valueAsNumber })}
+              onChange={setNumField('snapshotRetention')}
             />
           </label>
         </div>
@@ -211,7 +224,7 @@ export default function SettingsRoute() {
           <span>Warn me to back up after this many days</span>
           <input
             type="number" min={1} max={100} value={s.backupOverdueDays}
-            onChange={(e) => setField({ backupOverdueDays: e.target.valueAsNumber })}
+            onChange={setNumField('backupOverdueDays')}
           />
         </label>
 
