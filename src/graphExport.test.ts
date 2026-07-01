@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildScene, EXPORT_BG, GHOST_COLOR, LABEL_COLOR } from './graphExport'
+import { buildScene, sceneToSvg, svgBlob, EXPORT_BG, GHOST_COLOR, LABEL_COLOR } from './graphExport'
 import { categoryColor, type GraphData, type GraphNode } from './db'
 
 // Nodes as the running sim leaves them: plain GraphNode + injected x/y.
@@ -87,5 +87,49 @@ describe('buildScene', () => {
     expect(scene.links).toHaveLength(1)
     expect(scene.links[0].x2).toBe(30)
     expect(scene.links[0].y2).toBe(40)
+  })
+})
+
+function scene1() {
+  const data = {
+    nodes: [
+      { title: 'Alice & Bob', category: 'Character', tags: [], status: 'Draft', degree: 1, id: 'a', x: 0, y: 0 },
+      { title: 'Ghosttown', category: '', tags: [], status: '', degree: 1, id: 'g', ghost: true, x: 20, y: 0 },
+    ],
+    links: [{ source: 'a', target: 'g', mutual: false }],
+  } as unknown as GraphData
+  return buildScene(data, { colorBy: 'type', highlightTag: '', islandColors: new Map() })!
+}
+
+describe('sceneToSvg', () => {
+  it('emits a viewBox matching the scene bounds', () => {
+    const s = scene1()
+    const svg = sceneToSvg(s)
+    expect(svg).toContain(`viewBox="${s.minX} ${s.minY} ${s.width} ${s.height}"`)
+  })
+
+  it('emits one circle, one line, and one text per node/link', () => {
+    const svg = sceneToSvg(scene1())
+    expect((svg.match(/<circle/g) ?? []).length).toBe(2)
+    expect((svg.match(/<line/g) ?? []).length).toBe(1)
+    expect((svg.match(/<text/g) ?? []).length).toBe(2)
+  })
+
+  it('draws ghost nodes with a dashed stroke and no fill', () => {
+    const svg = sceneToSvg(scene1())
+    expect(svg).toContain('stroke-dasharray')
+    expect(svg).toContain(`stroke="${'#8a8270'}"`)
+  })
+
+  it('XML-escapes label text', () => {
+    const svg = sceneToSvg(scene1())
+    expect(svg).toContain('Alice &amp; Bob')
+    expect(svg).not.toContain('Alice & Bob')
+  })
+
+  it('svgBlob wraps a string as an image/svg+xml Blob', () => {
+    const blob = svgBlob('<svg/>')
+    expect(blob.type).toBe('image/svg+xml')
+    expect(blob.size).toBeGreaterThan(0)
   })
 })

@@ -118,3 +118,56 @@ export function buildScene(
     links: sceneLinks,
   }
 }
+
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+// Fixed label size in graph units (the live view uses 12/scale; a static export
+// has no zoom, so a constant reads consistently against node radii).
+export const LABEL_FONT = 12
+
+/** Render a scene to a standalone SVG document string. */
+export function sceneToSvg(scene: GraphScene): string {
+  const parts: string[] = []
+  parts.push(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${scene.minX} ${scene.minY} ${scene.width} ${scene.height}" width="${scene.width}" height="${scene.height}">`,
+  )
+  parts.push(
+    `<rect x="${scene.minX}" y="${scene.minY}" width="${scene.width}" height="${scene.height}" fill="${scene.background}"/>`,
+  )
+
+  for (const l of scene.links) {
+    parts.push(
+      `<line x1="${l.x1}" y1="${l.y1}" x2="${l.x2}" y2="${l.y2}" stroke="${l.color}" stroke-width="${l.width}"/>`,
+    )
+  }
+
+  for (const n of scene.nodes) {
+    if (n.ghost) {
+      parts.push(
+        `<circle cx="${n.x}" cy="${n.y}" r="${n.r}" fill="none" stroke="${GHOST_COLOR}" stroke-width="1.5" stroke-dasharray="3 3"/>`,
+      )
+    } else {
+      parts.push(`<circle cx="${n.x}" cy="${n.y}" r="${n.r}" fill="${n.fill}"/>`)
+    }
+  }
+
+  for (const n of scene.nodes) {
+    parts.push(
+      `<text x="${n.x}" y="${n.y + n.r + 1}" fill="${n.labelColor}" font-family="sans-serif" font-size="${LABEL_FONT}" text-anchor="middle" dominant-baseline="hanging">${escapeXml(n.title)}</text>`,
+    )
+  }
+
+  parts.push('</svg>')
+  return parts.join('')
+}
+
+/** Wrap an SVG string as a downloadable Blob. */
+export function svgBlob(svg: string): Blob {
+  return new Blob([svg], { type: 'image/svg+xml' })
+}
