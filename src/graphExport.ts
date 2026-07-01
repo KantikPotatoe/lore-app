@@ -129,7 +129,7 @@ function escapeXml(s: string): string {
 
 // Fixed label size in graph units (the live view uses 12/scale; a static export
 // has no zoom, so a constant reads consistently against node radii).
-export const LABEL_FONT = 12
+const LABEL_FONT = 12
 
 /** Render a scene to a standalone SVG document string. */
 export function sceneToSvg(scene: GraphScene): string {
@@ -170,4 +170,89 @@ export function sceneToSvg(scene: GraphScene): string {
 /** Wrap an SVG string as a downloadable Blob. */
 export function svgBlob(svg: string): Blob {
   return new Blob([svg], { type: 'image/svg+xml' })
+}
+
+// Retina scale for the raster export so labels stay crisp.
+const PNG_SCALE = 2
+
+/** Rasterise a scene to a PNG Blob via an offscreen canvas. */
+export function sceneToPng(scene: GraphScene): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.ceil(scene.width * PNG_SCALE))
+    canvas.height = Math.max(1, Math.ceil(scene.height * PNG_SCALE))
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      reject(new Error('2D canvas context unavailable'))
+      return
+    }
+
+    ctx.scale(PNG_SCALE, PNG_SCALE)
+    ctx.translate(-scene.minX, -scene.minY)
+
+    // Background.
+    ctx.fillStyle = scene.background
+    ctx.fillRect(scene.minX, scene.minY, scene.width, scene.height)
+
+    // Links.
+    for (const l of scene.links) {
+      ctx.beginPath()
+      ctx.moveTo(l.x1, l.y1)
+      ctx.lineTo(l.x2, l.y2)
+      ctx.strokeStyle = l.color
+      ctx.lineWidth = l.width
+      ctx.stroke()
+    }
+
+    // Nodes.
+    for (const n of scene.nodes) {
+      ctx.beginPath()
+      ctx.arc(n.x, n.y, n.r, 0, 2 * Math.PI)
+      if (n.ghost) {
+        ctx.setLineDash([3, 3])
+        ctx.lineWidth = 1.5
+        ctx.strokeStyle = GHOST_COLOR
+        ctx.stroke()
+        ctx.setLineDash([])
+      } else {
+        ctx.fillStyle = n.fill as string
+        ctx.fill()
+      }
+    }
+
+    // Labels.
+    ctx.font = `${LABEL_FONT}px sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    for (const n of scene.nodes) {
+      ctx.fillStyle = n.labelColor
+      ctx.fillText(n.title, n.x, n.y + n.r + 1)
+    }
+
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob)
+      else reject(new Error('canvas.toBlob returned null'))
+    }, 'image/png')
+  })
+}
+
+/** Trigger a browser download of a Blob (same idiom as backup.ts). */
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+/** Build a filename-safe export name: graph-<slug>-YYYY-MM-DD.<ext>. */
+export function graphFilename(loreName: string, ext: 'png' | 'svg'): string {
+  const slug =
+    loreName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'world'
+  const d = new Date()
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `graph-${slug}-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.${ext}`
 }

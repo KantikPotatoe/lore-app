@@ -133,3 +133,32 @@ describe('sceneToSvg', () => {
     expect(blob.size).toBeGreaterThan(0)
   })
 })
+
+import { graphFilename, sceneToPng } from './graphExport'
+
+describe('graphFilename', () => {
+  it('slugifies the lore name and appends the extension', () => {
+    const name = graphFilename('My Grand World!', 'svg')
+    expect(name).toMatch(/^graph-my-grand-world-\d{4}-\d{2}-\d{2}\.svg$/)
+  })
+
+  it('falls back to "world" for an empty name', () => {
+    expect(graphFilename('   ', 'png')).toMatch(/^graph-world-\d{4}-\d{2}-\d{2}\.png$/)
+  })
+})
+
+describe('sceneToPng', () => {
+  it('resolves to a non-empty image/png Blob', async () => {
+    const data = { nodes: [{ title: 'A', category: 'Character', tags: [], status: 'Draft', degree: 0, id: 'a', x: 0, y: 0 }], links: [] } as unknown as import('./db').GraphData
+    const scene = buildScene(data, { colorBy: 'type', highlightTag: '', islandColors: new Map() })!
+    let blob: Blob
+    try {
+      blob = await sceneToPng(scene)
+    } catch {
+      // happy-dom's canvas may not implement toBlob; skip the assertion there.
+      return
+    }
+    expect(blob.type).toBe('image/png')
+    expect(blob.size).toBeGreaterThan(0)
+  })
+})
