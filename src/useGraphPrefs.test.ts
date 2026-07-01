@@ -18,8 +18,37 @@ describe('useGraphPrefs', () => {
     expect(result.current.showGhosts).toBe(true)
     expect(result.current.showArrows).toBe(false)
     expect(result.current.panelOpen).toBe(false)
+    expect(result.current.tag).toBe('')
+    expect(result.current.cam).toBeNull()
     expect([...result.current.hidden]).toEqual([])
     expect(result.current.pins).toEqual({})
+  })
+
+  it('backfills tag/cam defaults for older view rows missing them', async () => {
+    // A row written before tag/cam existed must hydrate without throwing.
+    await setMeta('graph-view', { hidden: [], showArrows: false, showGhosts: true, panelOpen: false })
+    const { result } = renderHook(() => useGraphPrefs())
+    await waitFor(() => expect(result.current).toBeTruthy())
+    expect(result.current.tag).toBe('')
+    expect(result.current.cam).toBeNull()
+  })
+
+  it('persists the selected tag to meta', async () => {
+    const { result } = renderHook(() => useGraphPrefs())
+    await waitFor(() => expect(result.current).toBeTruthy())
+    act(() => result.current.setTag('Faction'))
+    await waitFor(() => expect(result.current.tag).toBe('Faction'))
+    const v = await getMeta<{ tag: string }>('graph-view')
+    expect(v?.tag).toBe('Faction')
+  })
+
+  it('persists the camera transform to meta', async () => {
+    const { result } = renderHook(() => useGraphPrefs())
+    await waitFor(() => expect(result.current).toBeTruthy())
+    act(() => result.current.setCam({ k: 2, x: 100, y: -50 }))
+    await waitFor(() => expect(result.current.cam).toEqual({ k: 2, x: 100, y: -50 }))
+    const v = await getMeta<{ cam: { k: number } }>('graph-view')
+    expect(v?.cam).toEqual({ k: 2, x: 100, y: -50 })
   })
 
   it('hydrates view + pins from existing meta rows', async () => {

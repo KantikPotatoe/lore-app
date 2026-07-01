@@ -6,6 +6,7 @@ import ForceGraph2D, {
   type LinkObject,
 } from 'react-force-graph-2d'
 import { categoryColor, type GraphData, type GraphNode, type GraphLink } from '../db'
+import type { GraphCam } from '../useGraphPrefs'
 
 // The force simulation augments our plain nodes/links in place (adds x/y and
 // swaps link source/target from an id string to the resolved node object), so
@@ -48,6 +49,8 @@ export default function GraphView({
   onSelect,
   onGhostClick,
   onPinNode,
+  initialCam,
+  onCamChange,
 }: {
   data: GraphData
   showArrows: boolean
@@ -55,6 +58,8 @@ export default function GraphView({
   onSelect: (id: string | null) => void
   onGhostClick: (title: string) => void
   onPinNode: (id: string, x: number, y: number) => void
+  initialCam: GraphCam | null
+  onCamChange: (cam: GraphCam) => void
 }) {
   const navigate = useNavigate()
   const [hoverId, setHoverId] = useState<string | null>(null)
@@ -164,6 +169,25 @@ export default function GraphView({
     [neighbourIds],
   )
 
+  // Restore the saved camera once, after the container has a real size. The
+  // force-graph auto-fits the view only while the zoom is still its own default
+  // (see force-graph's onFinishUpdate "re-zoom if not user modified"), so a
+  // single programmatic zoom/centerAt both restores the saved view and disables
+  // that auto-fit for good — later filter rebuilds keep the user's camera.
+  const restoredCam = useRef(false)
+  useEffect(() => {
+    if (restoredCam.current || !initialCam || size.width === 0) return
+    const fg = fgRef.current
+    if (!fg) return
+    restoredCam.current = true
+    // rAF so we land after the library's own initial fit on this frame.
+    const raf = requestAnimationFrame(() => {
+      fg.zoom(initialCam.k, 0)
+      fg.centerAt(initialCam.x, initialCam.y, 0)
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [initialCam, size.width])
+
   // Ease the camera to the selected node. Coordinates are populated on the
   // node objects by the running simulation.
   useEffect(() => {
@@ -230,6 +254,11 @@ export default function GraphView({
         }
       }}
       onBackgroundClick={() => onSelect(null)}
+      onZoomEnd={(t: { k: number; x: number; y: number }) => {
+        // force-graph reports the gesture-end transform merged with the current
+        // graph-space centre, so x/y are already in the form centerAt() expects.
+        onCamChange({ k: t.k, x: t.x, y: t.y })
+      }}
       backgroundColor="#15130f"
       />
     </div>
