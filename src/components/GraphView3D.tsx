@@ -25,12 +25,14 @@ export default function GraphView3D({
   showArrows,
   colorBy,
   highlightTag,
+  islandColors,
   onGhostClick,
 }: {
   data: GraphData
   showArrows: boolean
   colorBy: ColorBy
   highlightTag: string
+  islandColors: Map<string, string>
   onGhostClick: (title: string) => void
 }) {
   const navigate = useNavigate()
@@ -51,8 +53,8 @@ export default function GraphView3D({
   }, [])
 
   const nodeColor = useCallback(
-    (node: GNode) => (node.ghost ? GHOST_COLOR : nodeFill(node, colorBy, highlightTag)),
-    [colorBy, highlightTag],
+    (node: GNode) => (node.ghost ? GHOST_COLOR : nodeFill(node, colorBy, highlightTag, islandColors)),
+    [colorBy, highlightTag, islandColors],
   )
   const linkColor = useCallback(
     (link: GLink) => (link.mutual ? 'rgba(150,180,255,0.8)' : 'rgba(160,160,160,0.4)'),

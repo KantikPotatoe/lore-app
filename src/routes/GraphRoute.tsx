@@ -1,18 +1,19 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
-import { db, buildGraphData, categoryColor, statusColor, STATUSES, nodesWithinHops, createPage, type GraphNode, type LorePage } from '../db'
+import { db, buildGraphData, categoryColor, statusColor, STATUSES, nodesWithinHops, connectedComponents, createPage, type GraphNode, type LorePage } from '../db'
 import { useGraphPrefs } from '../useGraphPrefs'
 import GraphView from '../components/GraphView'
 import EmptyState from '../components/EmptyState'
 import HubsOrphansPanel from '../components/HubsOrphansPanel'
 import ConfirmDialog from '../components/ConfirmDialog'
-import type { ColorBy } from '../graphColor'
+import { islandColorOf, type ColorBy } from '../graphColor'
 
 // The 3D view drags in three.js, so load it only when the user opts in.
 const GraphView3D = lazy(() => import('../components/GraphView3D'))
 
 const NO_PAGES: LorePage[] = []
+const EMPTY_ISLAND_COLORS = new Map<string, string>()
 
 export default function GraphRoute() {
   const pages = useLiveQuery(() => db.pages.toArray(), []) ?? NO_PAGES
@@ -121,6 +122,19 @@ export default function GraphRoute() {
     [filtered],
   )
 
+  // Connected-component colouring for island mode. Computed over the *filtered*
+  // graph (what's actually drawn) so it respects ghost/category/tag/degree
+  // filters, and only when island mode is active — other modes get a stable
+  // empty map so the renderer prop identity doesn't churn.
+  const { islandColors, clusterCount } = useMemo(() => {
+    if (colorBy !== 'island') return { islandColors: EMPTY_ISLAND_COLORS, clusterCount: 0 }
+    const { componentOf, sizes } = connectedComponents(filtered.nodes.map((n) => n.id), filtered.links)
+    return {
+      islandColors: islandColorOf(componentOf, sizes),
+      clusterCount: sizes.filter((s) => s >= 2).length,
+    }
+  }, [colorBy, filtered])
+
   function selectNode(id: string) {
     setSelectedId(null)
     // Defer so the GraphView effect sees a real change and re-glides.
@@ -198,12 +212,13 @@ export default function GraphRoute() {
           {tags.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
 
-        <label className="graph-slider" title="Colour nodes by page type, status, or a highlighted tag">
+        <label className="graph-slider" title="Colour nodes by page type, status, a highlighted tag, or connected island">
           Color by
           <select value={colorBy} onChange={(e) => setColorBy(e.target.value as ColorBy)}>
             <option value="type">Type</option>
             <option value="status">Status</option>
             <option value="tag">Tag</option>
+            <option value="island">Island</option>
           </select>
         </label>
 
@@ -293,6 +308,7 @@ export default function GraphRoute() {
           {depth > 0 && !selectedId && ' — select a node to apply depth'}
           {filtered.nodes.length > 300 && ' — filter by type or tag to declutter'}
           {colorBy === 'tag' && tag === '' && ' — select a tag to highlight'}
+          {colorBy === 'island' && ` — ${clusterCount} island${clusterCount === 1 ? '' : 's'}`}
         </span>
       </div>
 
@@ -305,6 +321,7 @@ export default function GraphRoute() {
                 showArrows={showArrows}
                 colorBy={colorBy}
                 highlightTag={tag}
+                islandColors={islandColors}
                 onGhostClick={setPendingGhost}
               />
             </Suspense>
@@ -314,6 +331,7 @@ export default function GraphRoute() {
               showArrows={showArrows}
               colorBy={colorBy}
               highlightTag={tag}
+              islandColors={islandColors}
               selectedId={selectedId}
               onSelect={setSelectedId}
               onGhostClick={setPendingGhost}

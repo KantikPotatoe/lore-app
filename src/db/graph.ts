@@ -166,3 +166,58 @@ export function nodesWithinHops(
   }
   return visited
 }
+
+/** Partition the given node ids into connected components, treating links as
+ *  undirected. Returns `componentOf` (node id → component rank) and `sizes`
+ *  (rank → node count). Components are ranked by size descending; equal-size
+ *  components are ordered by their smallest member id (ascending), so the result
+ *  is deterministic — no dependence on iteration order or randomness. Link
+ *  endpoints absent from `nodeIds` are ignored, so callers can pass filtered
+ *  links without pre-scrubbing them. Used by the graph's "island" colour mode to
+ *  give each disconnected sub-region its own colour. */
+export function connectedComponents(
+  nodeIds: string[],
+  links: Pick<GraphLink, 'source' | 'target'>[],
+): { componentOf: Map<string, number>; sizes: number[] } {
+  const present = new Set(nodeIds)
+  const adj = new Map<string, Set<string>>()
+  for (const id of nodeIds) adj.set(id, new Set())
+  for (const l of links) {
+    if (!present.has(l.source) || !present.has(l.target)) continue
+    adj.get(l.source)!.add(l.target)
+    adj.get(l.target)!.add(l.source)
+  }
+
+  // Flood-fill each unvisited node into a component (list of member ids).
+  const seen = new Set<string>()
+  const groups: string[][] = []
+  for (const start of nodeIds) {
+    if (seen.has(start)) continue
+    const members: string[] = []
+    const stack = [start]
+    seen.add(start)
+    while (stack.length > 0) {
+      const id = stack.pop()!
+      members.push(id)
+      for (const nb of adj.get(id)!) {
+        if (!seen.has(nb)) {
+          seen.add(nb)
+          stack.push(nb)
+        }
+      }
+    }
+    groups.push(members)
+  }
+
+  // Rank by size desc, then by smallest member id asc for a stable tie-break.
+  const minId = (g: string[]) => g.reduce((m, id) => (id < m ? id : m), g[0])
+  groups.sort((a, b) => b.length - a.length || (minId(a) < minId(b) ? -1 : 1))
+
+  const componentOf = new Map<string, number>()
+  const sizes: number[] = []
+  groups.forEach((g, rank) => {
+    sizes.push(g.length)
+    for (const id of g) componentOf.set(id, rank)
+  })
+  return { componentOf, sizes }
+}

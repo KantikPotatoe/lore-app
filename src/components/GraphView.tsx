@@ -48,6 +48,7 @@ export default function GraphView({
   showArrows,
   colorBy,
   highlightTag,
+  islandColors,
   selectedId,
   onSelect,
   onGhostClick,
@@ -59,6 +60,7 @@ export default function GraphView({
   showArrows: boolean
   colorBy: ColorBy
   highlightTag: string
+  islandColors: Map<string, string>
   selectedId: string | null
   onSelect: (id: string | null) => void
   onGhostClick: (title: string) => void
@@ -156,7 +158,7 @@ export default function GraphView({
         ctx.setLineDash([])
         ctx.lineWidth = 1
       } else {
-        ctx.fillStyle = nodeFill(node, colorBy, highlightTag)
+        ctx.fillStyle = nodeFill(node, colorBy, highlightTag, islandColors)
         ctx.fill()
       }
 
@@ -171,7 +173,7 @@ export default function GraphView({
       }
       ctx.globalAlpha = 1
     },
-    [neighbourIds, colorBy, highlightTag],
+    [neighbourIds, colorBy, highlightTag, islandColors],
   )
 
   // Restore the saved camera once, after the container has a real size. The
