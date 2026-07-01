@@ -5,7 +5,8 @@ import ForceGraph2D, {
   type NodeObject,
   type LinkObject,
 } from 'react-force-graph-2d'
-import { categoryColor, type GraphData, type GraphNode, type GraphLink } from '../db'
+import { type GraphData, type GraphNode, type GraphLink } from '../db'
+import { nodeFill, type ColorBy } from '../graphColor'
 import type { GraphCam } from '../useGraphPrefs'
 
 // The force simulation augments our plain nodes/links in place (adds x/y and
@@ -45,6 +46,8 @@ function neighboursOf(id: string, links: GLink[]): Set<string> {
 export default function GraphView({
   data,
   showArrows,
+  colorBy,
+  highlightTag,
   selectedId,
   onSelect,
   onGhostClick,
@@ -54,6 +57,8 @@ export default function GraphView({
 }: {
   data: GraphData
   showArrows: boolean
+  colorBy: ColorBy
+  highlightTag: string
   selectedId: string | null
   onSelect: (id: string | null) => void
   onGhostClick: (title: string) => void
@@ -151,7 +156,7 @@ export default function GraphView({
         ctx.setLineDash([])
         ctx.lineWidth = 1
       } else {
-        ctx.fillStyle = categoryColor(node.category)
+        ctx.fillStyle = nodeFill(node, colorBy, highlightTag)
         ctx.fill()
       }
 
@@ -166,7 +171,7 @@ export default function GraphView({
       }
       ctx.globalAlpha = 1
     },
-    [neighbourIds],
+    [neighbourIds, colorBy, highlightTag],
   )
 
   // Restore the saved camera once, after the container has a real size. The
