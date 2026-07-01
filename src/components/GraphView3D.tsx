@@ -4,7 +4,8 @@ import ForceGraph3D, {
   type NodeObject,
   type LinkObject,
 } from 'react-force-graph-3d'
-import { categoryColor, type GraphData, type GraphNode, type GraphLink } from '../db'
+import { type GraphData, type GraphNode, type GraphLink } from '../db'
+import { nodeFill, type ColorBy } from '../graphColor'
 
 // The 3D view is a "wow" companion to the 2D canvas: same data, simpler
 // interaction. Nodes are coloured by category (ghosts muted), sized by degree;
@@ -22,10 +23,14 @@ function radiusFor(degree: number): number {
 export default function GraphView3D({
   data,
   showArrows,
+  colorBy,
+  highlightTag,
   onGhostClick,
 }: {
   data: GraphData
   showArrows: boolean
+  colorBy: ColorBy
+  highlightTag: string
   onGhostClick: (title: string) => void
 }) {
   const navigate = useNavigate()
@@ -46,8 +51,8 @@ export default function GraphView3D({
   }, [])
 
   const nodeColor = useCallback(
-    (node: GNode) => (node.ghost ? GHOST_COLOR : categoryColor(node.category)),
-    [],
+    (node: GNode) => (node.ghost ? GHOST_COLOR : nodeFill(node, colorBy, highlightTag)),
+    [colorBy, highlightTag],
   )
   const linkColor = useCallback(
     (link: GLink) => (link.mutual ? 'rgba(150,180,255,0.8)' : 'rgba(160,160,160,0.4)'),

@@ -22,6 +22,7 @@ describe('useGraphPrefs', () => {
     expect(result.current.cam).toBeNull()
     expect(result.current.minDegree).toBe(0)
     expect(result.current.depth).toBe(0)
+    expect(result.current.colorBy).toBe('type')
     expect([...result.current.hidden]).toEqual([])
     expect([...result.current.hiddenStatuses]).toEqual([])
     expect(result.current.threeD).toBe(false)
@@ -76,6 +77,15 @@ describe('useGraphPrefs', () => {
     await waitFor(() => expect(result.current.tag).toBe('Faction'))
     const v = await getMeta<{ tag: string }>('graph-view')
     expect(v?.tag).toBe('Faction')
+  })
+
+  it('persists the colour-by mode to meta', async () => {
+    const { result } = renderHook(() => useGraphPrefs())
+    await waitFor(() => expect(result.current).toBeTruthy())
+    act(() => result.current.setColorBy('status'))
+    await waitFor(() => expect(result.current.colorBy).toBe('status'))
+    const v = await getMeta<{ colorBy: string }>('graph-view')
+    expect(v?.colorBy).toBe('status')
   })
 
   it('persists the camera transform to meta', async () => {

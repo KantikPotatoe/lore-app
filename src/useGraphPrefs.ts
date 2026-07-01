@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getMeta, setMeta } from './db'
+import type { ColorBy } from './graphColor'
 
 const VIEW_KEY = 'graph-view'
 const PINS_KEY = 'graph-pins'
@@ -26,6 +27,8 @@ interface SavedView {
   minDegree: number
   /** When a node is selected, show only nodes within this many hops (0 = off). */
   depth: number
+  /** Which dimension drives node colour: page type, status, or a highlighted tag. */
+  colorBy: ColorBy
   cam: GraphCam | null
 }
 
@@ -43,6 +46,7 @@ const DEFAULT_VIEW: SavedView = {
   tag: '',
   minDegree: 0,
   depth: 0,
+  colorBy: 'type',
   cam: null,
 }
 const NO_PINS: Pins = {}
@@ -66,6 +70,8 @@ export interface GraphPrefs {
   setMinDegree: (v: number) => void
   depth: number
   setDepth: (v: number) => void
+  colorBy: ColorBy
+  setColorBy: (v: ColorBy) => void
   cam: GraphCam | null
   setCam: (c: GraphCam) => void
   pins: Pins
@@ -127,6 +133,7 @@ export function useGraphPrefs(): GraphPrefs {
   const setTag = useCallback((v: string) => writeView({ ...view, tag: v }), [view, writeView])
   const setMinDegree = useCallback((v: number) => writeView({ ...view, minDegree: v }), [view, writeView])
   const setDepth = useCallback((v: number) => writeView({ ...view, depth: v }), [view, writeView])
+  const setColorBy = useCallback((v: ColorBy) => writeView({ ...view, colorBy: v }), [view, writeView])
   const setCam = useCallback((c: GraphCam) => writeView({ ...view, cam: c }), [view, writeView])
 
   const pinNode = useCallback((id: string, x: number, y: number) => {
@@ -155,6 +162,7 @@ export function useGraphPrefs(): GraphPrefs {
     tag: view.tag, setTag,
     minDegree: view.minDegree, setMinDegree,
     depth: view.depth, setDepth,
+    colorBy: view.colorBy, setColorBy,
     cam: view.cam, setCam,
     pins, pinNode, clearPins, prunePins,
   }

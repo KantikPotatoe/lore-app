@@ -7,6 +7,7 @@ import GraphView from '../components/GraphView'
 import EmptyState from '../components/EmptyState'
 import HubsOrphansPanel from '../components/HubsOrphansPanel'
 import ConfirmDialog from '../components/ConfirmDialog'
+import type { ColorBy } from '../graphColor'
 
 // The 3D view drags in three.js, so load it only when the user opts in.
 const GraphView3D = lazy(() => import('../components/GraphView3D'))
@@ -27,6 +28,7 @@ export default function GraphRoute() {
     threeD, setThreeD,
     panelOpen, setPanelOpen,
     tag, setTag,
+    colorBy, setColorBy,
     minDegree, setMinDegree,
     depth, setDepth,
     cam, setCam,
@@ -68,7 +70,7 @@ export default function GraphRoute() {
         (showGhosts || !n.ghost) &&
         !hidden.has(n.category) &&
         (n.ghost || !hiddenStatuses.has(n.status)) &&
-        (tag === '' || n.tags.includes(tag)) &&
+        (colorBy === 'tag' || tag === '' || n.tags.includes(tag)) &&
         n.degree >= minDegree &&
         (hopSet == null || hopSet.has(n.id)),
     )
@@ -78,7 +80,7 @@ export default function GraphRoute() {
       nodes: nodes.map((n) => ({ ...n })),
       links: links.map((l) => ({ ...l })),
     }
-  }, [full, hidden, hiddenStatuses, tag, showGhosts, minDegree, depth, depthFocus])
+  }, [full, hidden, hiddenStatuses, tag, showGhosts, minDegree, depth, depthFocus, colorBy])
 
   // Seed pinned positions imperatively rather than through the `filtered` memo,
   // so a live drag (which updates `pins`) doesn't recreate the graph data and
@@ -196,6 +198,15 @@ export default function GraphRoute() {
           {tags.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
 
+        <label className="graph-slider" title="Colour nodes by page type, status, or a highlighted tag">
+          Color by
+          <select value={colorBy} onChange={(e) => setColorBy(e.target.value as ColorBy)}>
+            <option value="type">Type</option>
+            <option value="status">Status</option>
+            <option value="tag">Tag</option>
+          </select>
+        </label>
+
         {statuses.length > 1 && (
           <div className="graph-chips">
             {statuses.map((s) => (
@@ -281,6 +292,7 @@ export default function GraphRoute() {
           {filtered.nodes.length} pages · {filtered.links.length} links
           {depth > 0 && !selectedId && ' — select a node to apply depth'}
           {filtered.nodes.length > 300 && ' — filter by type or tag to declutter'}
+          {colorBy === 'tag' && tag === '' && ' — select a tag to highlight'}
         </span>
       </div>
 
@@ -291,6 +303,8 @@ export default function GraphRoute() {
               <GraphView3D
                 data={filtered}
                 showArrows={showArrows}
+                colorBy={colorBy}
+                highlightTag={tag}
                 onGhostClick={setPendingGhost}
               />
             </Suspense>
@@ -298,6 +312,8 @@ export default function GraphRoute() {
             <GraphView
               data={filtered}
               showArrows={showArrows}
+              colorBy={colorBy}
+              highlightTag={tag}
               selectedId={selectedId}
               onSelect={setSelectedId}
               onGhostClick={setPendingGhost}
