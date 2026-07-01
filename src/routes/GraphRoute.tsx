@@ -212,7 +212,7 @@ export default function GraphRoute() {
           {tags.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
 
-        <label className="graph-slider" title="Colour nodes by page type, status, or a highlighted tag">
+        <label className="graph-slider" title="Colour nodes by page type, status, a highlighted tag, or connected island">
           Color by
           <select value={colorBy} onChange={(e) => setColorBy(e.target.value as ColorBy)}>
             <option value="type">Type</option>
