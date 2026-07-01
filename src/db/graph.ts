@@ -129,3 +129,40 @@ export function buildGraphData(pages: LorePage[]): GraphData {
 
   return { nodes, links }
 }
+
+/** The set of node ids within `hops` edges of `startId` (inclusive of the start),
+ *  walking links as undirected. `hops` of 0 returns just the start; a start id
+ *  absent from the graph returns just itself. Used by the graph's depth filter to
+ *  show only the neighbourhood around a focused node. */
+export function nodesWithinHops(
+  links: Pick<GraphLink, 'source' | 'target'>[],
+  startId: string,
+  hops: number,
+): Set<string> {
+  const adj = new Map<string, Set<string>>()
+  const link = (a: string, b: string) => {
+    let set = adj.get(a)
+    if (!set) adj.set(a, (set = new Set()))
+    set.add(b)
+  }
+  for (const l of links) {
+    link(l.source, l.target)
+    link(l.target, l.source)
+  }
+
+  const visited = new Set<string>([startId])
+  let frontier = [startId]
+  for (let d = 0; d < hops && frontier.length > 0; d++) {
+    const next: string[] = []
+    for (const id of frontier) {
+      for (const nb of adj.get(id) ?? []) {
+        if (!visited.has(nb)) {
+          visited.add(nb)
+          next.push(nb)
+        }
+      }
+    }
+    frontier = next
+  }
+  return visited
+}

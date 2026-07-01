@@ -22,6 +22,10 @@ interface SavedView {
   threeD: boolean
   panelOpen: boolean
   tag: string
+  /** Hide nodes with fewer than this many connections (0 = show all). */
+  minDegree: number
+  /** When a node is selected, show only nodes within this many hops (0 = off). */
+  depth: number
   cam: GraphCam | null
 }
 
@@ -37,6 +41,8 @@ const DEFAULT_VIEW: SavedView = {
   threeD: false,
   panelOpen: false,
   tag: '',
+  minDegree: 0,
+  depth: 0,
   cam: null,
 }
 const NO_PINS: Pins = {}
@@ -56,6 +62,10 @@ export interface GraphPrefs {
   setPanelOpen: (v: boolean) => void
   tag: string
   setTag: (v: string) => void
+  minDegree: number
+  setMinDegree: (v: number) => void
+  depth: number
+  setDepth: (v: number) => void
   cam: GraphCam | null
   setCam: (c: GraphCam) => void
   pins: Pins
@@ -115,6 +125,8 @@ export function useGraphPrefs(): GraphPrefs {
   const setThreeD = useCallback((v: boolean) => writeView({ ...view, threeD: v }), [view, writeView])
   const setPanelOpen = useCallback((v: boolean) => writeView({ ...view, panelOpen: v }), [view, writeView])
   const setTag = useCallback((v: string) => writeView({ ...view, tag: v }), [view, writeView])
+  const setMinDegree = useCallback((v: number) => writeView({ ...view, minDegree: v }), [view, writeView])
+  const setDepth = useCallback((v: number) => writeView({ ...view, depth: v }), [view, writeView])
   const setCam = useCallback((c: GraphCam) => writeView({ ...view, cam: c }), [view, writeView])
 
   const pinNode = useCallback((id: string, x: number, y: number) => {
@@ -141,6 +153,8 @@ export function useGraphPrefs(): GraphPrefs {
     threeD: view.threeD, setThreeD,
     panelOpen: view.panelOpen, setPanelOpen,
     tag: view.tag, setTag,
+    minDegree: view.minDegree, setMinDegree,
+    depth: view.depth, setDepth,
     cam: view.cam, setCam,
     pins, pinNode, clearPins, prunePins,
   }

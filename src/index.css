@@ -1084,6 +1084,25 @@ button.wiki-link { background: none; border-top: none; border-left: none; border
   font-size: 0.85rem;
   margin-left: auto;
 }
+.graph-slider {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-dim);
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.graph-slider input[type='range'] {
+  width: 84px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.graph-slider-val {
+  min-width: 3ch;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
 .graph-search {
   position: relative;
 }

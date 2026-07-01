@@ -20,10 +20,24 @@ describe('useGraphPrefs', () => {
     expect(result.current.panelOpen).toBe(false)
     expect(result.current.tag).toBe('')
     expect(result.current.cam).toBeNull()
+    expect(result.current.minDegree).toBe(0)
+    expect(result.current.depth).toBe(0)
     expect([...result.current.hidden]).toEqual([])
     expect([...result.current.hiddenStatuses]).toEqual([])
     expect(result.current.threeD).toBe(false)
     expect(result.current.pins).toEqual({})
+  })
+
+  it('persists the min-degree and depth sliders to meta', async () => {
+    const { result } = renderHook(() => useGraphPrefs())
+    await waitFor(() => expect(result.current).toBeTruthy())
+    act(() => result.current.setMinDegree(2))
+    act(() => result.current.setDepth(3))
+    await waitFor(() => expect(result.current.minDegree).toBe(2))
+    expect(result.current.depth).toBe(3)
+    const v = await getMeta<{ minDegree: number; depth: number }>('graph-view')
+    expect(v?.minDegree).toBe(2)
+    expect(v?.depth).toBe(3)
   })
 
   it('toggleStatus hides then reveals a status, persisting to meta', async () => {

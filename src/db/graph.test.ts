@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildGraphData, type LorePage } from '../db'
+import { buildGraphData, nodesWithinHops, type GraphLink, type LorePage } from '../db'
 import type { Infobox, InfoboxField } from './types'
 
 // buildGraphData is a pure function over a page array, so these tests pass pages
@@ -184,5 +184,51 @@ describe('buildGraphData ghost nodes', () => {
     ]
     const sam = buildGraphData(pages).nodes.find((n) => n.id === 'a')!
     expect(sam.degree).toBe(1) // only the real Frodo edge counts
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Depth / neighbourhood traversal (degree/depth slider)
+// ---------------------------------------------------------------------------
+
+/** A path graph a—b—c—d, used to check hop distances. */
+const PATH: Pick<GraphLink, 'source' | 'target'>[] = [
+  { source: 'a', target: 'b' },
+  { source: 'b', target: 'c' },
+  { source: 'c', target: 'd' },
+]
+
+describe('nodesWithinHops', () => {
+  it('returns just the start at 0 hops', () => {
+    expect([...nodesWithinHops(PATH, 'a', 0)]).toEqual(['a'])
+  })
+
+  it('includes direct neighbours at 1 hop', () => {
+    expect([...nodesWithinHops(PATH, 'b', 1)].sort()).toEqual(['a', 'b', 'c'])
+  })
+
+  it('reaches further nodes as hops grow, walking links undirected', () => {
+    expect([...nodesWithinHops(PATH, 'a', 2)].sort()).toEqual(['a', 'b', 'c'])
+    expect([...nodesWithinHops(PATH, 'a', 3)].sort()).toEqual(['a', 'b', 'c', 'd'])
+  })
+
+  it('does not exceed the reachable set when hops outrun the graph', () => {
+    expect([...nodesWithinHops(PATH, 'a', 99)].sort()).toEqual(['a', 'b', 'c', 'd'])
+  })
+
+  it('returns just the start id when it is absent from the links', () => {
+    expect([...nodesWithinHops(PATH, 'zzz', 3)]).toEqual(['zzz'])
+  })
+
+  it('handles a node with several branches', () => {
+    const star: Pick<GraphLink, 'source' | 'target'>[] = [
+      { source: 'hub', target: 'a' },
+      { source: 'hub', target: 'b' },
+      { source: 'hub', target: 'c' },
+    ]
+    expect([...nodesWithinHops(star, 'hub', 1)].sort()).toEqual(['a', 'b', 'c', 'hub'])
+    // From a leaf, the other leaves are 2 hops away (via the hub).
+    expect([...nodesWithinHops(star, 'a', 1)].sort()).toEqual(['a', 'hub'])
+    expect([...nodesWithinHops(star, 'a', 2)].sort()).toEqual(['a', 'b', 'c', 'hub'])
   })
 })
