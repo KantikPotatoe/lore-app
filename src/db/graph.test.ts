@@ -46,7 +46,7 @@ describe('buildGraphData', () => {
       page('a', 'A', { content: link('B') }),
       page('b', 'B'),
     ])
-    expect(data.links).toEqual([{ source: 'a', target: 'b' }])
+    expect(data.links).toEqual([{ source: 'a', target: 'b', mutual: false }])
     expect(data.nodes.find((n) => n.id === 'a')!.degree).toBe(1)
     expect(data.nodes.find((n) => n.id === 'b')!.degree).toBe(1)
   })
@@ -57,7 +57,7 @@ describe('buildGraphData', () => {
     expect(data.nodes.find((n) => n.id === 'a')!.degree).toBe(0)
     // A ghost node and a ghost link are emitted instead of being silently dropped.
     expect(data.nodes.some((n) => n.ghost)).toBe(true)
-    expect(data.links).toEqual([{ source: 'a', target: 'ghost:ghost' }])
+    expect(data.links).toEqual([{ source: 'a', target: 'ghost:ghost', mutual: false }])
   })
 
   it('drops self-links', () => {
@@ -66,14 +66,34 @@ describe('buildGraphData', () => {
     expect(data.nodes[0].degree).toBe(0)
   })
 
-  it('collapses A→B and B→A into a single undirected edge', () => {
+  it('collapses A→B and B→A into a single undirected edge, marked mutual', () => {
     const data = buildGraphData([
       page('a', 'A', { content: link('B') }),
       page('b', 'B', { content: link('A') }),
     ])
     expect(data.links).toHaveLength(1)
+    expect(data.links[0].mutual).toBe(true)
     expect(data.nodes.find((n) => n.id === 'a')!.degree).toBe(1)
     expect(data.nodes.find((n) => n.id === 'b')!.degree).toBe(1)
+  })
+
+  it('marks a one-way link as not mutual', () => {
+    const data = buildGraphData([
+      page('a', 'A', { content: link('B') }),
+      page('b', 'B'),
+    ])
+    expect(data.links[0].mutual).toBe(false)
+  })
+
+  it('reports each page status on its node (defaulting older/unknown values)', () => {
+    const data = buildGraphData([
+      page('a', 'A', { status: 'Complete' }),
+      page('b', 'B', { status: 'WIP' }), // retired status → default
+      page('c', 'C'), // no status → default
+    ])
+    expect(data.nodes.find((n) => n.id === 'a')!.status).toBe('Complete')
+    expect(data.nodes.find((n) => n.id === 'b')!.status).toBe('Draft')
+    expect(data.nodes.find((n) => n.id === 'c')!.status).toBe('Draft')
   })
 
   it('counts distinct neighbours for degree', () => {
@@ -92,7 +112,7 @@ describe('buildGraphData', () => {
       page('a', 'A', { content: link('gOnDoR') }),
       page('g', 'Gondor'),
     ])
-    expect(data.links).toEqual([{ source: 'a', target: 'g' }])
+    expect(data.links).toEqual([{ source: 'a', target: 'g', mutual: false }])
   })
 
   it('reads links from infobox ref fields too', () => {
@@ -100,7 +120,7 @@ describe('buildGraphData', () => {
       page('a', 'A', { infobox: infobox([field('[[B]]')]) }),
       page('b', 'B'),
     ])
-    expect(data.links).toEqual([{ source: 'a', target: 'b' }])
+    expect(data.links).toEqual([{ source: 'a', target: 'b', mutual: false }])
   })
 })
 
@@ -130,7 +150,7 @@ describe('buildGraphData ghost nodes', () => {
     expect(ghost).toBeDefined()
     expect(ghost!.id).toBe('ghost:mordor')
     expect(ghost!.degree).toBe(1)
-    expect(links).toContainEqual({ source: 'a', target: 'ghost:mordor' })
+    expect(links).toContainEqual({ source: 'a', target: 'ghost:mordor', mutual: false })
   })
 
   it('collapses two linkers to the same missing title into one ghost (degree 2)', () => {

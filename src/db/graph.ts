@@ -1,4 +1,5 @@
 import { linkedTitles } from './pages'
+import { pageStatus } from './schema'
 import type { LorePage } from './types'
 
 // ---------------------------------------------------------------------------
@@ -12,16 +13,23 @@ export interface GraphNode {
   title: string
   category: string
   tags: string[]
+  /** Development status (Stub/Draft/Complete); '' for ghost nodes. Drives the
+   *  status filter. */
+  status: string
   degree: number
   /** True for synthetic nodes standing in for links to pages that don't exist yet. */
   ghost?: boolean
 }
 
 /** One edge between two existing pages. `source`/`target` keep the original
- *  link direction so directional arrows can be drawn when enabled. */
+ *  link direction so directional arrows can be drawn when enabled. `mutual` is
+ *  true when both pages link to each other (A→B and B→A), which tends to mark
+ *  the stronger relationships and is styled more prominently. Always false for
+ *  ghost edges (a missing page can't link back). */
 export interface GraphLink {
   source: string
   target: string
+  mutual: boolean
 }
 
 export interface GraphData {
@@ -58,7 +66,8 @@ export function buildGraphData(pages: LorePage[]): GraphData {
   // Distinct real pages linking to each unresolved title → drives ghost size.
   const ghostLinkers = new Map<string, Set<string>>()
 
-  const seen = new Set<string>() // de-dupe real edge key "a|b" with a < b
+  const byKey = new Map<string, GraphLink>() // undirected edge key "a|b" (a < b) → edge
+  const directed = new Set<string>() // every seen "src>tgt" real direction
   const links: GraphLink[] = []
 
   for (const page of pages) {
@@ -75,17 +84,26 @@ export function buildGraphData(pages: LorePage[]): GraphData {
         }
         if (!linkers.has(page.id)) {
           linkers.add(page.id)
-          links.push({ source: page.id, target: ghostId })
+          links.push({ source: page.id, target: ghostId, mutual: false })
         }
         continue
       }
+      directed.add(`${page.id}>${targetId}`)
       const key = page.id < targetId ? `${page.id}|${targetId}` : `${targetId}|${page.id}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      links.push({ source: page.id, target: targetId })
+      if (!byKey.has(key)) {
+        const edge: GraphLink = { source: page.id, target: targetId, mutual: false }
+        byKey.set(key, edge)
+        links.push(edge)
+      }
       neighbours.get(page.id)!.add(targetId)
       neighbours.get(targetId)!.add(page.id)
     }
+  }
+
+  // A real edge is mutual when both directions were linked. Ghost edges keep
+  // mutual:false — the missing target can't link back.
+  for (const edge of byKey.values()) {
+    edge.mutual = directed.has(`${edge.source}>${edge.target}`) && directed.has(`${edge.target}>${edge.source}`)
   }
 
   const nodes: GraphNode[] = pages.map((p) => ({
@@ -93,6 +111,7 @@ export function buildGraphData(pages: LorePage[]): GraphData {
     title: p.title,
     category: p.category,
     tags: p.tags,
+    status: pageStatus(p),
     degree: neighbours.get(p.id)!.size,
   }))
 
@@ -102,6 +121,7 @@ export function buildGraphData(pages: LorePage[]): GraphData {
       title: prettyTitle(ghostId.slice('ghost:'.length)),
       category: GHOST_CATEGORY,
       tags: [],
+      status: '',
       degree: linkers.size,
       ghost: true,
     })
