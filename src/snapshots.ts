@@ -3,14 +3,27 @@ import { getSettings } from './settings'
 
 const SNAPSHOT_TIME_KEY = 'snapshot-last-time'
 
+// Coalesces overlapping calls: the App start effect double-invokes under React
+// StrictMode in dev, and edit sessions can overlap. Without this guard two callers
+// both read the stale SNAPSHOT_TIME_KEY and each take a snapshot. While one run is
+// in flight, later calls await the same promise instead of starting their own.
+let inFlight: Promise<void> | null = null
+
 /**
  * Take a snapshot if the number of changed records (pages + timeline events)
  * since the last snapshot meets the configured change threshold, OR if the
  * configured time has passed and at least one record changed. Thresholds and
  * retention come from per-lore settings (defaults reproduce the old 50 / 24h /
- * keep-10 behavior). Safe to call after every save and on app start.
+ * keep-10 behavior). Safe to call after every save and on app start; concurrent
+ * calls are coalesced into one.
  */
-export async function maybeTakeSnapshot(): Promise<void> {
+export function maybeTakeSnapshot(): Promise<void> {
+  if (inFlight) return inFlight
+  inFlight = takeSnapshot().finally(() => { inFlight = null })
+  return inFlight
+}
+
+async function takeSnapshot(): Promise<void> {
   const { snapshotChangeThreshold, snapshotTimeHours, snapshotRetention } = await getSettings()
   const lastTime = (await getMeta<number>(SNAPSHOT_TIME_KEY)) ?? 0
   const now = Date.now()

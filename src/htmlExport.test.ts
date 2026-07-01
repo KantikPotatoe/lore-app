@@ -100,6 +100,47 @@ describe('buildHtmlSite', () => {
     expect(bPage).toContain('<a href="./a.html">A</a>')
   })
 
+  it('escapes plain-text fields interpolated into the exported HTML', () => {
+    const infobox: Infobox = {
+      template: 'Character',
+      image: null,
+      caption: '',
+      fields: [{ id: '1', label: 'Weapon <b>', value: 'Sting & <i>glow</i>' }],
+    }
+    const cite = `<sup data-citation data-text="Book <x>" data-locator="p<1>" data-quote="he said &quot;hi&quot;"></sup>`
+    const files = buildHtmlSite(
+      [page('a', 'Sauron <script>alert(1)</script>', { category: 'Villain & Co', content: `<p>${cite}</p>`, infobox })],
+      [image('img', 'a', 0, 'A <b>caption</b>')],
+    )
+    const html = files['pages/a.html']
+    // No raw script/markup from a plain-text field survives into the output.
+    expect(html).not.toContain('<script>alert(1)</script>')
+    expect(html).toContain('Sauron &lt;script&gt;alert(1)&lt;/script&gt;')
+    expect(html).toContain('Villain &amp; Co')
+    expect(html).toContain('Weapon &lt;b&gt;')
+    expect(html).toContain('Sting &amp; &lt;i&gt;glow&lt;/i&gt;')
+    expect(html).toContain('A &lt;b&gt;caption&lt;/b&gt;')
+    expect(html).toContain('Book &lt;x&gt;')
+    // index.html interpolates title + category too.
+    expect(files['index.html']).not.toContain('<script>alert(1)</script>')
+  })
+
+  it('resolves wiki links, backlinks, and citations case-insensitively', () => {
+    const files = buildHtmlSite(
+      [
+        page('a', 'A', { content: `<p>${link('mordor')}</p>` }),
+        page('m', 'Mordor'),
+      ],
+      [],
+    )
+    // Link written as [[mordor]] resolves to the "Mordor" page (not broken).
+    expect(files['pages/a.html']).toContain('<a href="./m.html">mordor</a>')
+    expect(files['pages/a.html']).not.toContain('broken-link')
+    // Backlink index is likewise case-insensitive.
+    expect(files['pages/m.html']).toContain('What links here')
+    expect(files['pages/m.html']).toContain('<a href="./a.html">A</a>')
+  })
+
   it('renders a References section with page links and free text', () => {
     const cite = (a: Record<string, string>) =>
       `<sup data-citation ${Object.entries(a).map(([k, v]) => `data-${k}="${v}"`).join(' ')}></sup>`

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { db } from '../db'
 import SettingsRoute from './SettingsRoute'
@@ -26,5 +26,17 @@ describe('SettingsRoute', () => {
     render(<MemoryRouter><SettingsRoute /></MemoryRouter>)
     const toggle = await screen.findByLabelText(/auto-link page titles/i)
     expect((toggle as HTMLInputElement).checked).toBe(true)
+  })
+
+  it('ignores a cleared (NaN) numeric input instead of persisting NaN', async () => {
+    // Clearing a number input yields NaN from valueAsNumber; a NaN threshold breaks
+    // snapshot logic (changed < NaN is always false), so it must be dropped.
+    render(<MemoryRouter><SettingsRoute /></MemoryRouter>)
+    const input = (await screen.findByLabelText(/Snapshot after this many changes/)) as HTMLInputElement
+    fireEvent.change(input, { target: { value: '7' } })
+    expect(input.value).toBe('7')
+    fireEvent.change(input, { target: { value: '' } })
+    // The NaN write is dropped, so the field keeps its last valid value.
+    expect(input.value).toBe('7')
   })
 })

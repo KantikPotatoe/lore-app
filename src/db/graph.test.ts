@@ -293,6 +293,20 @@ describe('connectedComponents', () => {
     expect(sizes).toEqual([1])
   })
 
+  it('coerces object endpoints from the mutated force simulation to ids', () => {
+    // ForceGraph2D mutates link.source/target from id strings into node objects
+    // once the sim runs. Island mode recomputes over those mutated links, so
+    // connectedComponents must read the id off an object endpoint too — otherwise
+    // every edge is ignored and each node becomes its own singleton island.
+    const { componentOf, sizes } = connectedComponents(
+      ['a', 'b'],
+      [{ source: { id: 'a' }, target: { id: 'b' } } as never],
+    )
+    expect(componentOf.get('a')).toBe(0)
+    expect(componentOf.get('b')).toBe(0)
+    expect(sizes).toEqual([2])
+  })
+
   it('returns empty results for no nodes', () => {
     const { componentOf, sizes } = connectedComponents([], [])
     expect(componentOf.size).toBe(0)

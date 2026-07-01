@@ -3,6 +3,7 @@ import {
   db,
   createPage,
   updatePage,
+  deletePage,
   findPageIdByTitle,
   renamePage,
   getBacklinks,
@@ -16,6 +17,8 @@ import {
 
 beforeEach(async () => {
   await db.pages.clear()
+  await db.images.clear()
+  await db.pins.clear()
 })
 
 /** A body anchor linking to `title` (matches what the editor emits). */
@@ -31,6 +34,35 @@ function refInfobox(value: string): Infobox {
     fields: [{ id: 'f1', label: 'Ally', value, fieldType: 'ref' }],
   }
 }
+
+describe('createPage', () => {
+  it('rejects an explicit title that clashes with an existing page (case-insensitive)', async () => {
+    await createPage({ title: 'Gondor' })
+    await expect(createPage({ title: '  gondor ' })).rejects.toThrow(/already exists/)
+    // The clashing page was not added.
+    expect(await db.pages.count()).toBe(1)
+  })
+
+  it('still allows repeated blank pages (the default Untitled is exempt)', async () => {
+    await createPage()
+    await createPage()
+    const titles = (await db.pages.toArray()).map((p) => p.title)
+    expect(titles).toEqual(['Untitled', 'Untitled'])
+  })
+})
+
+describe('deletePage', () => {
+  it('unlinks pins that pointed at the deleted page', async () => {
+    const pageId = await createPage({ title: 'Doomed' })
+    await db.pins.add({ id: 'pin1', mapId: 'm1', lat: 0, lng: 0, label: 'X', pageId })
+    await db.pins.add({ id: 'pin2', mapId: 'm1', lat: 1, lng: 1, label: 'Y', pageId: null })
+
+    await deletePage(pageId)
+
+    expect((await db.pins.get('pin1'))!.pageId).toBeNull()
+    expect((await db.pins.get('pin2'))!.pageId).toBeNull() // untouched
+  })
+})
 
 describe('findPageIdByTitle', () => {
   it('finds a page case-insensitively and trimming the query', async () => {
