@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildGraphData, nodesWithinHops, type GraphLink, type LorePage } from '../db'
+import { buildGraphData, nodesWithinHops, connectedComponents, type GraphLink, type LorePage } from '../db'
 import type { Infobox, InfoboxField } from './types'
 
 // buildGraphData is a pure function over a page array, so these tests pass pages
@@ -230,5 +230,72 @@ describe('nodesWithinHops', () => {
     // From a leaf, the other leaves are 2 hops away (via the hub).
     expect([...nodesWithinHops(star, 'a', 1)].sort()).toEqual(['a', 'hub'])
     expect([...nodesWithinHops(star, 'a', 2)].sort()).toEqual(['a', 'b', 'c', 'hub'])
+  })
+})
+
+describe('connectedComponents', () => {
+  it('groups two disjoint clusters plus a singleton', () => {
+    const ids = ['a', 'b', 'c', 'd', 'e']
+    const links = [
+      { source: 'a', target: 'b' },
+      { source: 'b', target: 'c' },
+      { source: 'd', target: 'e' },
+    ]
+    const { componentOf, sizes } = connectedComponents(ids, links)
+    // Largest component (a,b,c) ranks 0; (d,e) ranks 1; nothing left over here.
+    expect(componentOf.get('a')).toBe(0)
+    expect(componentOf.get('b')).toBe(0)
+    expect(componentOf.get('c')).toBe(0)
+    expect(componentOf.get('d')).toBe(1)
+    expect(componentOf.get('e')).toBe(1)
+    expect(sizes).toEqual([3, 2])
+  })
+
+  it('ranks a lone node as its own component after the clusters', () => {
+    const { componentOf, sizes } = connectedComponents(
+      ['x', 'a', 'b'],
+      [{ source: 'a', target: 'b' }],
+    )
+    expect(componentOf.get('a')).toBe(0)
+    expect(componentOf.get('b')).toBe(0)
+    expect(componentOf.get('x')).toBe(1)
+    expect(sizes).toEqual([2, 1])
+  })
+
+  it('breaks equal-size ties by smallest node id', () => {
+    // Two size-2 components: {m,n} and {c,d}. {c,d} has the smaller min id → rank 0.
+    const { componentOf } = connectedComponents(
+      ['m', 'n', 'c', 'd'],
+      [{ source: 'm', target: 'n' }, { source: 'c', target: 'd' }],
+    )
+    expect(componentOf.get('c')).toBe(0)
+    expect(componentOf.get('d')).toBe(0)
+    expect(componentOf.get('m')).toBe(1)
+    expect(componentOf.get('n')).toBe(1)
+  })
+
+  it('treats links as undirected and lets a shared node bridge two chains', () => {
+    const { sizes } = connectedComponents(
+      ['a', 'b', 'g', 'c'],
+      // a→g and c→g (g is e.g. a ghost id both link to): all one component.
+      [{ source: 'a', target: 'g' }, { source: 'c', target: 'g' }, { source: 'a', target: 'b' }],
+    )
+    expect(sizes).toEqual([4])
+  })
+
+  it('ignores link endpoints not present in nodeIds', () => {
+    const { componentOf, sizes } = connectedComponents(
+      ['a'],
+      [{ source: 'a', target: 'missing' }],
+    )
+    expect(componentOf.get('a')).toBe(0)
+    expect(componentOf.has('missing')).toBe(false)
+    expect(sizes).toEqual([1])
+  })
+
+  it('returns empty results for no nodes', () => {
+    const { componentOf, sizes } = connectedComponents([], [])
+    expect(componentOf.size).toBe(0)
+    expect(sizes).toEqual([])
   })
 })
