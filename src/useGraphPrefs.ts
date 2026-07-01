@@ -16,8 +16,10 @@ export interface GraphCam {
 
 interface SavedView {
   hidden: string[]
+  hiddenStatuses: string[]
   showArrows: boolean
   showGhosts: boolean
+  threeD: boolean
   panelOpen: boolean
   tag: string
   /** Hide nodes with fewer than this many connections (0 = show all). */
@@ -33,8 +35,10 @@ type Pins = Record<string, { x: number; y: number }>
 // while nothing is stored.
 const DEFAULT_VIEW: SavedView = {
   hidden: [],
+  hiddenStatuses: [],
   showArrows: false,
   showGhosts: true,
+  threeD: false,
   panelOpen: false,
   tag: '',
   minDegree: 0,
@@ -46,10 +50,14 @@ const NO_PINS: Pins = {}
 export interface GraphPrefs {
   hidden: Set<string>
   toggleCategory: (cat: string) => void
+  hiddenStatuses: Set<string>
+  toggleStatus: (status: string) => void
   showArrows: boolean
   setShowArrows: (v: boolean) => void
   showGhosts: boolean
   setShowGhosts: (v: boolean) => void
+  threeD: boolean
+  setThreeD: (v: boolean) => void
   panelOpen: boolean
   setPanelOpen: (v: boolean) => void
   tag: string
@@ -96,6 +104,7 @@ export function useGraphPrefs(): GraphPrefs {
   }, [])
 
   const hidden = useMemo(() => new Set(view.hidden), [view.hidden])
+  const hiddenStatuses = useMemo(() => new Set(view.hiddenStatuses), [view.hiddenStatuses])
 
   const toggleCategory = useCallback((cat: string) => {
     const next = new Set(view.hidden)
@@ -104,8 +113,16 @@ export function useGraphPrefs(): GraphPrefs {
     writeView({ ...view, hidden: [...next] })
   }, [view, writeView])
 
+  const toggleStatus = useCallback((status: string) => {
+    const next = new Set(view.hiddenStatuses)
+    if (next.has(status)) next.delete(status)
+    else next.add(status)
+    writeView({ ...view, hiddenStatuses: [...next] })
+  }, [view, writeView])
+
   const setShowArrows = useCallback((v: boolean) => writeView({ ...view, showArrows: v }), [view, writeView])
   const setShowGhosts = useCallback((v: boolean) => writeView({ ...view, showGhosts: v }), [view, writeView])
+  const setThreeD = useCallback((v: boolean) => writeView({ ...view, threeD: v }), [view, writeView])
   const setPanelOpen = useCallback((v: boolean) => writeView({ ...view, panelOpen: v }), [view, writeView])
   const setTag = useCallback((v: string) => writeView({ ...view, tag: v }), [view, writeView])
   const setMinDegree = useCallback((v: number) => writeView({ ...view, minDegree: v }), [view, writeView])
@@ -130,8 +147,10 @@ export function useGraphPrefs(): GraphPrefs {
 
   return {
     hidden, toggleCategory,
+    hiddenStatuses, toggleStatus,
     showArrows: view.showArrows, setShowArrows,
     showGhosts: view.showGhosts, setShowGhosts,
+    threeD: view.threeD, setThreeD,
     panelOpen: view.panelOpen, setPanelOpen,
     tag: view.tag, setTag,
     minDegree: view.minDegree, setMinDegree,

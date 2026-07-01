@@ -1,7 +1,7 @@
 {
   "name": "lore-app",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -27,6 +27,7 @@
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-force-graph-2d": "^1.29.1",
+    "react-force-graph-3d": "^1.29.1",
     "react-router-dom": "^7.17.0"
   },
   "overrides": {

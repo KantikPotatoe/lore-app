@@ -23,6 +23,8 @@ describe('useGraphPrefs', () => {
     expect(result.current.minDegree).toBe(0)
     expect(result.current.depth).toBe(0)
     expect([...result.current.hidden]).toEqual([])
+    expect([...result.current.hiddenStatuses]).toEqual([])
+    expect(result.current.threeD).toBe(false)
     expect(result.current.pins).toEqual({})
   })
 
@@ -36,6 +38,26 @@ describe('useGraphPrefs', () => {
     const v = await getMeta<{ minDegree: number; depth: number }>('graph-view')
     expect(v?.minDegree).toBe(2)
     expect(v?.depth).toBe(3)
+  })
+
+  it('toggleStatus hides then reveals a status, persisting to meta', async () => {
+    const { result } = renderHook(() => useGraphPrefs())
+    await waitFor(() => expect(result.current).toBeTruthy())
+    act(() => result.current.toggleStatus('Stub'))
+    await waitFor(() => expect([...result.current.hiddenStatuses]).toEqual(['Stub']))
+    const v = await getMeta<{ hiddenStatuses: string[] }>('graph-view')
+    expect(v?.hiddenStatuses).toEqual(['Stub'])
+    act(() => result.current.toggleStatus('Stub'))
+    await waitFor(() => expect([...result.current.hiddenStatuses]).toEqual([]))
+  })
+
+  it('persists the 3D toggle to meta', async () => {
+    const { result } = renderHook(() => useGraphPrefs())
+    await waitFor(() => expect(result.current).toBeTruthy())
+    act(() => result.current.setThreeD(true))
+    await waitFor(() => expect(result.current.threeD).toBe(true))
+    const v = await getMeta<{ threeD: boolean }>('graph-view')
+    expect(v?.threeD).toBe(true)
   })
 
   it('backfills tag/cam defaults for older view rows missing them', async () => {
