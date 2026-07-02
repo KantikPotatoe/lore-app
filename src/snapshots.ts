@@ -27,12 +27,13 @@ async function takeSnapshot(): Promise<void> {
   const { snapshotChangeThreshold, snapshotTimeHours, snapshotRetention } = await getSettings()
   const lastTime = (await getMeta<number>(SNAPSHOT_TIME_KEY)) ?? 0
   const now = Date.now()
-  const [pagesChanged, events] = await Promise.all([
+  const [pagesChanged, events, scenesChanged] = await Promise.all([
     db.pages.where('updatedAt').above(lastTime).count(),
     db.events.toArray(),
+    db.scenes.where('updatedAt').above(lastTime).count(),
   ])
   const eventsChanged = events.filter((e) => e.updatedAt > lastTime).length
-  const changed = pagesChanged + eventsChanged
+  const changed = pagesChanged + eventsChanged + scenesChanged
 
   if (changed === 0) return
 
