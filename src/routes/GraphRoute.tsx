@@ -8,6 +8,8 @@ import EmptyState from '../components/EmptyState'
 import HubsOrphansPanel from '../components/HubsOrphansPanel'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { islandColorOf, type ColorBy } from '../graphColor'
+import { getLore, currentLoreId } from '../lores'
+import { buildScene, sceneToSvg, svgBlob, sceneToPng, downloadBlob, graphFilename } from '../graphExport'
 
 // The 3D view drags in three.js, so load it only when the user opts in.
 const GraphView3D = lazy(() => import('../components/GraphView3D'))
@@ -38,6 +40,9 @@ export default function GraphRoute() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [pendingGhost, setPendingGhost] = useState<string | null>(null)
+  const [exportMsg, setExportMsg] = useState<string | null>(null)
+  const lore = useLiveQuery(() => getLore(currentLoreId()), [])
+  const loreName = lore?.name ?? 'World'
 
   // All categories / tags present in the data, for the toolbar controls.
   // Exclude ghost nodes so the filter chips only show real page categories/tags.
@@ -139,6 +144,25 @@ export default function GraphRoute() {
     setSelectedId(null)
     // Defer so the GraphView effect sees a real change and re-glides.
     requestAnimationFrame(() => setSelectedId(id))
+  }
+
+  async function doExport(format: 'png' | 'svg') {
+    setExportMsg(null)
+    const scene = buildScene(filtered, { colorBy, highlightTag: tag, islandColors })
+    if (!scene) {
+      setExportMsg('Graph still settling — try again')
+      return
+    }
+    try {
+      const filename = graphFilename(loreName, format)
+      if (format === 'svg') {
+        downloadBlob(svgBlob(sceneToSvg(scene)), filename)
+      } else {
+        downloadBlob(await sceneToPng(scene), filename)
+      }
+    } catch {
+      setExportMsg('Export failed — try again')
+    }
   }
 
   async function createGhost(title: string) {
@@ -294,6 +318,31 @@ export default function GraphRoute() {
           <button className="ghost-btn" onClick={clearPins}>
             ⤺ Reset layout
           </button>
+        )}
+
+        {!threeD && filtered.nodes.length > 0 && (
+          <details className="graph-export">
+            <summary className="ghost-btn">⬇ Export</summary>
+            <div className="graph-export-menu">
+              <button
+                onClick={(e) => {
+                  ;(e.currentTarget.closest('details') as HTMLDetailsElement).open = false
+                  doExport('png')
+                }}
+              >
+                PNG image
+              </button>
+              <button
+                onClick={(e) => {
+                  ;(e.currentTarget.closest('details') as HTMLDetailsElement).open = false
+                  doExport('svg')
+                }}
+              >
+                SVG vector
+              </button>
+              {exportMsg && <p className="graph-export-msg">{exportMsg}</p>}
+            </div>
+          </details>
         )}
 
         <button
