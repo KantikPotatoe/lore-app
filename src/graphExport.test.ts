@@ -78,6 +78,15 @@ describe('buildScene', () => {
     expect(scene.links).toHaveLength(0) // link touches skipped 'b' → dropped
   })
 
+  it('widens the bbox for a node with a long title vs a short title', () => {
+    const shortData = { nodes: [pos({ id: 'a', title: 'A' }, 0, 0)], links: [] } as unknown as GraphData
+    const longTitle = 'X'.repeat(40)
+    const longData = { nodes: [pos({ id: 'a', title: longTitle }, 0, 0)], links: [] } as unknown as GraphData
+    const shortScene = buildScene(shortData, OPTS)!
+    const longScene = buildScene(longData, OPTS)!
+    expect(longScene.width).toBeGreaterThan(shortScene.width)
+  })
+
   it('resolves link endpoints whether source/target are ids or node objects', () => {
     const a = pos({ id: 'a' }, 0, 0)
     const b = pos({ id: 'b' }, 30, 40)

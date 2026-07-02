@@ -161,7 +161,11 @@ export default function GraphRoute() {
         downloadBlob(await sceneToPng(scene), filename)
       }
     } catch {
-      setExportMsg('Export failed — try again')
+      setExportMsg(
+        format === 'png'
+          ? 'PNG export failed — the graph may be too large; try SVG.'
+          : 'Export failed — try again',
+      )
     }
   }
 
@@ -321,7 +325,12 @@ export default function GraphRoute() {
         )}
 
         {!threeD && filtered.nodes.length > 0 && (
-          <details className="graph-export">
+          <details
+            className="graph-export"
+            onToggle={(e) => {
+              if (!(e.currentTarget as HTMLDetailsElement).open) setExportMsg(null)
+            }}
+          >
             <summary className="ghost-btn">⬇ Export</summary>
             <div className="graph-export-menu">
               <button

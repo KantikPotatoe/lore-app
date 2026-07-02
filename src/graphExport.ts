@@ -12,6 +12,12 @@ export const GHOST_COLOR = '#8a8270'
 // node radius plus a line of label text below it.
 const PAD = 48
 
+// Rough px-per-character estimate for the 12px sans-serif label font, used to
+// reserve horizontal room for a node's label (which is center-anchored and can
+// be wider than the node itself). Not exact glyph metrics — buildScene stays
+// pure (no canvas/measureText) — just enough to keep long titles from clipping.
+const LABEL_CHAR_W = 7
+
 // Rest-state link styling, mirrored from GraphView.linkColor / linkWidth (the
 // no-focus branch) so an exported image matches the graph at rest.
 const MUTUAL_LINK = { color: 'rgba(150,180,255,0.5)', width: 2.5 }
@@ -98,9 +104,11 @@ export function buildScene(
   // Bounding box over node centres expanded by each node's radius, then padded.
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   for (const n of sceneNodes) {
-    minX = Math.min(minX, n.x - n.r)
+    const halfLabelW = (n.title.length * LABEL_CHAR_W) / 2
+    const rx = Math.max(n.r, halfLabelW)
+    minX = Math.min(minX, n.x - rx)
     minY = Math.min(minY, n.y - n.r)
-    maxX = Math.max(maxX, n.x + n.r)
+    maxX = Math.max(maxX, n.x + rx)
     maxY = Math.max(maxY, n.y + n.r)
   }
   minX -= PAD
