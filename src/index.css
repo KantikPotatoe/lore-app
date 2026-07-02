@@ -2479,3 +2479,8 @@ button.wiki-link { background: none; border-top: none; border-left: none; border
   color: var(--ink);
   font-size: 0.75rem;
 }
+.book-compile {
+  display: inline-flex;
+  gap: 0.4rem;
+  margin-left: auto;
+}

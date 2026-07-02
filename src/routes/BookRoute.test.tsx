@@ -34,4 +34,11 @@ describe('BookRoute', () => {
     fireEvent.click(await screen.findByRole('button', { name: /grid/i }))
     expect(await screen.findByText(/no plotlines yet/i)).toBeTruthy()
   })
+
+  it('shows compile buttons (EPUB + Print)', async () => {
+    await db.books.add({ id: 'b1', title: 'My Novel', synopsis: '', order: 0, createdAt: 1, updatedAt: 1 })
+    renderAt('/book/b1')
+    expect(await screen.findByRole('button', { name: /epub/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /print|pdf/i })).toBeTruthy()
+  })
 })

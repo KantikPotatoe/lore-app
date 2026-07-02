@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import BookWriteView from '../components/manuscript/BookWriteView'
 import BookGridView from '../components/manuscript/BookGridView'
+import { exportBookEpub, printBook } from '../manuscriptExport'
 
 export default function BookRoute() {
   const { bookId } = useParams<{ bookId: string }>()
@@ -25,6 +26,10 @@ export default function BookRoute() {
         <div className="seg-control">
           <button className={view === 'write' ? 'seg active' : 'seg'} onClick={() => setView('write')}>Write</button>
           <button className={view === 'grid' ? 'seg active' : 'seg'} onClick={() => setView('grid')}>Grid</button>
+        </div>
+        <div className="book-compile">
+          <button className="ghost-btn" onClick={() => exportBookEpub(bookId)}>EPUB</button>
+          <button className="ghost-btn" onClick={() => printBook(bookId)}>Print / PDF</button>
         </div>
       </div>
       {view === 'write' ? (
