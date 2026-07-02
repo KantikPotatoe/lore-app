@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { db } from '../db'
+import { db, createBook, createChapter, createScene, updateScene } from '../db'
 import ManuscriptRoute from './ManuscriptRoute'
 
 afterEach(async () => {
@@ -36,5 +36,14 @@ describe('ManuscriptRoute', () => {
       </MemoryRouter>,
     )
     expect(await screen.findByText(/no books yet/i)).toBeTruthy()
+  })
+
+  it('shows a book’s scene count and word total', async () => {
+    const book = await createBook('Counted')
+    const ch = await createChapter(book.id, 'C')
+    const sc = await createScene(book.id, ch.id, 'S')
+    await updateScene(sc.id, { content: '<p>one two three</p>' })
+    render(<MemoryRouter><ManuscriptRoute /></MemoryRouter>)
+    expect(await screen.findByText(/1 scene · 3 words/i)).toBeTruthy()
   })
 })
