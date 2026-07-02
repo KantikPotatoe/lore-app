@@ -5,6 +5,7 @@ import { db, createPage, updatePage, renamePage, deletePage, findPageIdByTitle, 
 import LoreEditor from '../components/LoreEditor'
 import References from '../components/References'
 import Infobox from '../components/Infobox'
+import DraftInput from '../components/DraftInput'
 import Backlinks from '../components/Backlinks'
 import ImageGallery from '../components/ImageGallery'
 import TableOfContents from '../components/TableOfContents'
@@ -227,10 +228,10 @@ export default function PageRoute() {
           )}
 
           {editing ? (
-            <input
+            <DraftInput
               className="summary-input"
               value={page.summary}
-              onChange={(e) => updatePage(id, { summary: e.target.value })}
+              onCommit={(v) => updatePage(id, { summary: v })}
               placeholder="One-line summary…"
             />
           ) : (

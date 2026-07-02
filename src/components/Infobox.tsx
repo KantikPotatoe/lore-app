@@ -9,6 +9,7 @@ import {
 } from '../db'
 import WikiText from './WikiText'
 import RefField from './RefField'
+import DraftInput from './DraftInput'
 import { compressImage } from '../imageUtils'
 
 interface Props {
@@ -88,11 +89,11 @@ export default function Infobox({ box, editable, onChange, onRemove, title, acce
           <img src={box.image} alt={title} />
           {editable ? (
             <>
-              <input
+              <DraftInput
                 className="infobox-caption-input"
                 placeholder="caption…"
                 value={box.caption}
-                onChange={(e) => onChange({ ...box, caption: e.target.value })}
+                onCommit={(v) => onChange({ ...box, caption: v })}
               />
               <div className="infobox-img-actions">
                 <button className="mini-btn" onClick={() => fileRef.current?.click()}>Replace</button>
@@ -133,11 +134,11 @@ export default function Infobox({ box, editable, onChange, onRemove, title, acce
           ? box.fields.map((fld) =>
               fld.kind === 'separator' ? (
                 <div key={fld.id} className="infobox-row editing separator">
-                  <input
+                  <DraftInput
                     className="infobox-separator-input"
                     value={fld.label}
                     placeholder="Section heading…"
-                    onChange={(e) => setField(fld.id, { label: e.target.value })}
+                    onCommit={(v) => setField(fld.id, { label: v })}
                   />
                   <button className="tag-x" title="Remove separator" onClick={() => removeField(fld.id)}>×</button>
                 </div>
@@ -148,10 +149,10 @@ export default function Infobox({ box, editable, onChange, onRemove, title, acce
                       {fld.label}
                     </span>
                   ) : (
-                    <input
+                    <DraftInput
                       className="infobox-label-input"
                       value={fld.label}
-                      onChange={(e) => setField(fld.id, { label: e.target.value })}
+                      onCommit={(v) => setField(fld.id, { label: v })}
                     />
                   )}
                   {fld.fieldType === 'ref' && fld.refType ? (
@@ -161,19 +162,19 @@ export default function Infobox({ box, editable, onChange, onRemove, title, acce
                       onChange={(value) => setField(fld.id, { value })}
                     />
                   ) : fld.fieldType === 'number' ? (
-                    <input
+                    <DraftInput
                       className="infobox-value-input"
                       type="number"
                       placeholder="number…"
                       value={fld.value}
-                      onChange={(e) => setField(fld.id, { value: e.target.value })}
+                      onCommit={(v) => setField(fld.id, { value: v })}
                     />
                   ) : (
-                    <input
+                    <DraftInput
                       className="infobox-value-input"
                       placeholder="value…"
                       value={fld.value}
-                      onChange={(e) => setField(fld.id, { value: e.target.value })}
+                      onCommit={(v) => setField(fld.id, { value: v })}
                     />
                   )}
                   <button className="tag-x" title="Remove field" onClick={() => removeField(fld.id)}>×</button>
