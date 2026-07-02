@@ -11,6 +11,7 @@ import type {
   Calendar,
   TimelineEvent,
   PageImage,
+  DocLink,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -105,6 +106,7 @@ export class LoreDB extends Dexie {
   calendars!: Table<Calendar, string>
   events!: Table<TimelineEvent, string>
   images!: Table<PageImage, string>
+  docLinks!: Table<DocLink, string>
 
   constructor(name: string = 'lore-app') {
     super(name)
@@ -198,6 +200,21 @@ export class LoreDB extends Dexie {
           if (p.status === 'WIP') p.status = 'Draft'
         }),
     )
+    // v10 adds the curated document-attachment join table (#109); existing data
+    // is preserved (a new table needs no data migration of the others).
+    this.version(10).stores({
+      pages: 'id, title, category, updatedAt',
+      maps: 'id, name, createdAt',
+      pins: 'id, mapId, pageId, childMapId',
+      regions: 'id, mapId, pageId, childMapId',
+      meta: '&key',
+      templates: 'id, name',
+      snapshots: '++id, timestamp',
+      calendars: 'id, name, createdAt',
+      events: 'id, calendarId, startAbsolute, pageId',
+      images: 'id, pageId, order',
+      docLinks: 'id, pageId, documentId',
+    })
   }
 }
 

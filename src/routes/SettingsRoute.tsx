@@ -80,11 +80,12 @@ export default function SettingsRoute() {
   }
 
   async function loadCounts(): Promise<BackupCounts> {
-    const [pages, maps, pins, regions, templates, calendars, events, images] = await Promise.all([
+    const [pages, maps, pins, regions, templates, calendars, events, images, docLinks] = await Promise.all([
       db.pages.count(), db.maps.count(), db.pins.count(), db.regions.count(),
       db.templates.count(), db.calendars.count(), db.events.count(), db.images.count(),
+      db.docLinks.count(),
     ])
-    return { pages, maps, pins, regions, templates, calendars, events, images }
+    return { pages, maps, pins, regions, templates, calendars, events, images, docLinks }
   }
 
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {

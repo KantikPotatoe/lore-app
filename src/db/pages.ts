@@ -49,13 +49,16 @@ export async function deletePage(id: string): Promise<void> {
   // One transaction so the delete + gallery cleanup + pin unlink either all land
   // or all roll back — a mid-sequence failure can't leave orphaned images or pins
   // pointing at a deleted page.
-  await db.transaction('rw', db.pages, db.images, db.pins, async () => {
+  await db.transaction('rw', db.pages, db.images, db.pins, db.docLinks, async () => {
     await db.pages.delete(id)
     // Remove this page's gallery images so no orphans are left behind.
     await db.images.where('pageId').equals(id).delete()
     // Unlink any pins that pointed at this page.
     const linked = await db.pins.where('pageId').equals(id).toArray()
     await Promise.all(linked.map((p) => db.pins.update(p.id, { pageId: null })))
+    // Drop document-attachment edges on either endpoint (owning page or document).
+    await db.docLinks.where('pageId').equals(id).delete()
+    await db.docLinks.where('documentId').equals(id).delete()
   })
 }
 

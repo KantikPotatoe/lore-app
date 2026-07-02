@@ -5,6 +5,7 @@ import { sanitizeHtml } from '../sanitize'
 import pkg from '../../package.json'
 import type {
   Calendar,
+  DocLink,
   InfoboxTemplate,
   LorePage,
   MapPin,
@@ -24,7 +25,7 @@ import type {
  * changes, and add a MIGRATIONS step (below) for the new version so older
  * backups keep importing.
  */
-export const CURRENT_SCHEMA_VERSION = 9
+export const CURRENT_SCHEMA_VERSION = 10
 
 /** The shape produced by exportAll() and accepted by importAll().
  *  `schemaVersion`/`appVersion` were added in schema v5's tooling; legacy
@@ -41,6 +42,7 @@ export interface BackupData {
   calendars?: Calendar[]
   events?: TimelineEvent[]
   images?: PageImage[]
+  docLinks?: DocLink[]
 }
 
 /** Counts of each record kind in a backup, for the import confirmation. */
@@ -53,6 +55,7 @@ export interface BackupCounts {
   calendars: number
   events: number
   images: number
+  docLinks: number
 }
 
 /** A defensive "treat anything that isn't an array as empty" helper, so a
@@ -89,6 +92,8 @@ const MIGRATIONS: Record<number, (d: BackupData) => BackupData> = {
       p.status === 'WIP' ? { ...p, status: 'Draft' } : p,
     ),
   }),
+  // v10 added the curated document-attachment join table; fill it in for older backups.
+  9: (d) => ({ ...d, docLinks: asArray(d.docLinks) }),
 }
 
 /**
@@ -147,12 +152,13 @@ export function parseBackup(
       calendars: asArray(data.calendars).length,
       events: asArray(data.events).length,
       images: asArray(data.images).length,
+      docLinks: asArray(data.docLinks).length,
     },
   }
 }
 
 export async function exportAll(): Promise<string> {
-  const [pages, maps, pins, regions, templates, calendars, events, images] = await Promise.all([
+  const [pages, maps, pins, regions, templates, calendars, events, images, docLinks] = await Promise.all([
     db.pages.toArray(),
     db.maps.toArray(),
     db.pins.toArray(),
@@ -161,6 +167,7 @@ export async function exportAll(): Promise<string> {
     db.calendars.toArray(),
     db.events.toArray(),
     db.images.toArray(),
+    db.docLinks.toArray(),
   ])
   return JSON.stringify({
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -174,6 +181,7 @@ export async function exportAll(): Promise<string> {
     calendars,
     events,
     images,
+    docLinks,
   })
 }
 
@@ -201,16 +209,25 @@ function sanitizeBackup(data: BackupData): BackupData {
         img.dataUrl.startsWith('data:image/') &&
         !img.dataUrl.startsWith('data:image/svg+xml'),
     ),
+    // Drop attachment edges whose endpoints aren't in this backup's page set —
+    // an untrusted or hand-edited backup could carry dangling ids.
+    docLinks: (() => {
+      const pageIds = new Set(asArray(data.pages).map((p) => p.id))
+      return asArray(data.docLinks).filter(
+        (l) => pageIds.has(l.pageId) && pageIds.has(l.documentId),
+      )
+    })(),
   }
 }
 
 export async function importAll(json: string): Promise<void> {
   const { data: parsed } = parseBackup(json) // throws before any clear(); migrated to the current shape
   const data = sanitizeBackup(parsed) // strip XSS from untrusted HTML before it touches the DB
-  await db.transaction('rw', [db.pages, db.maps, db.pins, db.regions, db.templates, db.calendars, db.events, db.images], async () => {
+  await db.transaction('rw', [db.pages, db.maps, db.pins, db.regions, db.templates, db.calendars, db.events, db.images, db.docLinks], async () => {
     await Promise.all([
       db.pages.clear(), db.maps.clear(), db.pins.clear(), db.regions.clear(),
       db.templates.clear(), db.calendars.clear(), db.events.clear(), db.images.clear(),
+      db.docLinks.clear(),
     ])
     await db.pages.bulkAdd(asArray(data.pages))
     await db.maps.bulkAdd(asArray(data.maps))
@@ -220,6 +237,7 @@ export async function importAll(json: string): Promise<void> {
     await db.calendars.bulkAdd(asArray(data.calendars))
     await db.events.bulkAdd(asArray(data.events))
     await db.images.bulkAdd(asArray(data.images))
+    await db.docLinks.bulkAdd(asArray(data.docLinks))
   })
   // Older backups have no templates / calendars — make sure the built-ins exist.
   await seedTemplates()
