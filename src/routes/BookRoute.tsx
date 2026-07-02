@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import BookWriteView from '../components/manuscript/BookWriteView'
+import BookGridView from '../components/manuscript/BookGridView'
 
 export default function BookRoute() {
   const { bookId } = useParams<{ bookId: string }>()
@@ -29,7 +30,7 @@ export default function BookRoute() {
       {view === 'write' ? (
         <BookWriteView bookId={bookId} selectedSceneId={selectedSceneId} onSelectScene={selectScene} />
       ) : (
-        <div className="book-grid-view empty-hint">The plotline grid arrives in a later update.</div>
+        <BookGridView bookId={bookId} />
       )}
     </div>
   )
