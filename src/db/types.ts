@@ -60,6 +60,17 @@ export interface PageImage {
   createdAt: number
 }
 
+/** A curated attachment linking a page to a Document-type page. Reciprocal:
+ *  surfaced on both the owning page ("Documents") and the document
+ *  ("Attached to"). The edge is id-based, so page renames never touch it. */
+export interface DocLink {
+  id: string
+  pageId: string      // the page the document is attached to
+  documentId: string  // the attached Document-type page
+  order: number       // 0-based position in pageId's curated list
+  createdAt: number
+}
+
 /** An uploaded world map image. */
 export interface WorldMap {
   id: string
