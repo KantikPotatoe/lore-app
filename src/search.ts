@@ -37,11 +37,30 @@ function extractSnippet(text: string, query: string, maxLen = 160): string {
   return (start > 0 ? '…' : '') + text.slice(start, end) + (end < text.length ? '…' : '')
 }
 
+/** Escape HTML special characters. The snippet is plain text (stripHtml decodes
+ *  entities), but SearchModal injects the result via dangerouslySetInnerHTML, so
+ *  every text run must be escaped or stored text like "<img onerror=…>" (typed as
+ *  visible text, or carried by an imported backup) would render as live markup. */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 export function highlightSnippet(snippet: string, query: string): string {
   const q = query.trim().split(/\s+/)[0] ?? ''
-  if (!q) return snippet
-  const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
-  return snippet.replace(re, '<mark>$1</mark>')
+  if (!q) return escapeHtml(snippet)
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+  let out = ''
+  let last = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(snippet)) !== null) {
+    out += escapeHtml(snippet.slice(last, m.index)) + '<mark>' + escapeHtml(m[0]) + '</mark>'
+    last = m.index + m[0].length
+  }
+  return out + escapeHtml(snippet.slice(last))
 }
 
 /** Full rebuild from scratch: discard the index and re-add every page. Used for the

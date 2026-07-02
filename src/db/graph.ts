@@ -37,6 +37,15 @@ export interface GraphData {
   links: GraphLink[]
 }
 
+/** A link endpoint is an id string before the force simulation runs, but the
+ *  renderer (ForceGraph2D) mutates it into the resolved node object afterwards,
+ *  so consumers of drawn links may see either shape. */
+type LinkEnd = string | { id: string }
+
+function endId(end: LinkEnd): string {
+  return typeof end === 'object' ? end.id : end
+}
+
 // Category sentinel for ghost nodes — they branch on the `ghost` flag, not this,
 // so it stays internal and is excluded from the toolbar's category list.
 const GHOST_CATEGORY = '__ghost__'
@@ -177,15 +186,17 @@ export function nodesWithinHops(
  *  give each disconnected sub-region its own colour. */
 export function connectedComponents(
   nodeIds: string[],
-  links: Pick<GraphLink, 'source' | 'target'>[],
+  links: { source: LinkEnd; target: LinkEnd }[],
 ): { componentOf: Map<string, number>; sizes: number[] } {
   const present = new Set(nodeIds)
   const adj = new Map<string, Set<string>>()
   for (const id of nodeIds) adj.set(id, new Set())
   for (const l of links) {
-    if (!present.has(l.source) || !present.has(l.target)) continue
-    adj.get(l.source)!.add(l.target)
-    adj.get(l.target)!.add(l.source)
+    const s = endId(l.source)
+    const t = endId(l.target)
+    if (!present.has(s) || !present.has(t)) continue
+    adj.get(s)!.add(t)
+    adj.get(t)!.add(s)
   }
 
   // Flood-fill each unvisited node into a component (list of member ids).

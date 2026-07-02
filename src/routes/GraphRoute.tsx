@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
-import { db, buildGraphData, categoryColor, statusColor, STATUSES, nodesWithinHops, connectedComponents, createPage, type GraphNode, type LorePage } from '../db'
+import { db, buildGraphData, categoryColor, statusColor, STATUSES, nodesWithinHops, connectedComponents, createPage, findPageIdByTitle, type GraphNode, type LorePage } from '../db'
 import { useGraphPrefs } from '../useGraphPrefs'
 import GraphView from '../components/GraphView'
 import EmptyState from '../components/EmptyState'
@@ -171,7 +171,9 @@ export default function GraphRoute() {
 
   async function createGhost(title: string) {
     setPendingGhost(null)
-    const id = await createPage({ title, status: 'Stub' })
+    // If the page already exists (e.g. created since the ghost was drawn), open it
+    // instead of creating a duplicate (createPage now rejects a title clash).
+    const id = (await findPageIdByTitle(title)) ?? (await createPage({ title, status: 'Stub' }))
     navigate(`/page/${id}`)
   }
 

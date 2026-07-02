@@ -25,3 +25,5 @@ dist-ssr
 
 # Claude Code local settings & worktrees
 .claude/
+AUDIT_INSTRUCTIONS.md
+AUDIT_REPORT.md
