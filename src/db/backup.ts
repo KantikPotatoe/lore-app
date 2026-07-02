@@ -4,13 +4,18 @@ import { seedDefaultCalendar } from './calendar'
 import { sanitizeHtml } from '../sanitize'
 import pkg from '../../package.json'
 import type {
+  Beat,
+  Book,
   Calendar,
+  Chapter,
   DocLink,
   InfoboxTemplate,
   LorePage,
   MapPin,
   MapRegion,
   PageImage,
+  Plotline,
+  Scene,
   TimelineEvent,
   WorldMap,
 } from './types'
@@ -25,7 +30,7 @@ import type {
  * changes, and add a MIGRATIONS step (below) for the new version so older
  * backups keep importing.
  */
-export const CURRENT_SCHEMA_VERSION = 10
+export const CURRENT_SCHEMA_VERSION = 11
 
 /** The shape produced by exportAll() and accepted by importAll().
  *  `schemaVersion`/`appVersion` were added in schema v5's tooling; legacy
@@ -43,6 +48,11 @@ export interface BackupData {
   events?: TimelineEvent[]
   images?: PageImage[]
   docLinks?: DocLink[]
+  books?: Book[]
+  chapters?: Chapter[]
+  scenes?: Scene[]
+  plotlines?: Plotline[]
+  beats?: Beat[]
 }
 
 /** Counts of each record kind in a backup, for the import confirmation. */
@@ -56,6 +66,11 @@ export interface BackupCounts {
   events: number
   images: number
   docLinks: number
+  books: number
+  chapters: number
+  scenes: number
+  plotlines: number
+  beats: number
 }
 
 /** A defensive "treat anything that isn't an array as empty" helper, so a
@@ -94,6 +109,15 @@ const MIGRATIONS: Record<number, (d: BackupData) => BackupData> = {
   }),
   // v10 added the curated document-attachment join table; fill it in for older backups.
   9: (d) => ({ ...d, docLinks: asArray(d.docLinks) }),
+  // v11 added the manuscript authoring tables; fill them in for older backups.
+  10: (d) => ({
+    ...d,
+    books: asArray(d.books),
+    chapters: asArray(d.chapters),
+    scenes: asArray(d.scenes),
+    plotlines: asArray(d.plotlines),
+    beats: asArray(d.beats),
+  }),
 }
 
 /**
@@ -153,12 +177,18 @@ export function parseBackup(
       events: asArray(data.events).length,
       images: asArray(data.images).length,
       docLinks: asArray(data.docLinks).length,
+      books: asArray(data.books).length,
+      chapters: asArray(data.chapters).length,
+      scenes: asArray(data.scenes).length,
+      plotlines: asArray(data.plotlines).length,
+      beats: asArray(data.beats).length,
     },
   }
 }
 
 export async function exportAll(): Promise<string> {
-  const [pages, maps, pins, regions, templates, calendars, events, images, docLinks] = await Promise.all([
+  const [pages, maps, pins, regions, templates, calendars, events, images, docLinks,
+    books, chapters, scenes, plotlines, beats] = await Promise.all([
     db.pages.toArray(),
     db.maps.toArray(),
     db.pins.toArray(),
@@ -168,6 +198,11 @@ export async function exportAll(): Promise<string> {
     db.events.toArray(),
     db.images.toArray(),
     db.docLinks.toArray(),
+    db.books.toArray(),
+    db.chapters.toArray(),
+    db.scenes.toArray(),
+    db.plotlines.toArray(),
+    db.beats.toArray(),
   ])
   return JSON.stringify({
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -182,6 +217,11 @@ export async function exportAll(): Promise<string> {
     events,
     images,
     docLinks,
+    books,
+    chapters,
+    scenes,
+    plotlines,
+    beats,
   })
 }
 
@@ -200,6 +240,9 @@ function sanitizeBackup(data: BackupData): BackupData {
     ...data,
     pages: asArray(data.pages).map((p) => ({ ...p, content: sanitizeHtml(p.content) })),
     events: asArray(data.events).map((e) => ({ ...e, description: sanitizeHtml(e.description) })),
+    // Scene prose is HTML from the editor; scrub it at the import boundary like page
+    // content. synopsis/notes/title are plain text (React-escaped), left untouched.
+    scenes: asArray(data.scenes).map((s) => ({ ...s, content: sanitizeHtml(s.content) })),
     // Images carry no HTML; defend against a non-image payload smuggled into dataUrl.
     // SVG data-URLs are excluded specifically: they can embed <script>, so a future
     // render path (<object>/<iframe>/new-tab navigation) would execute it.
@@ -223,11 +266,12 @@ function sanitizeBackup(data: BackupData): BackupData {
 export async function importAll(json: string): Promise<void> {
   const { data: parsed } = parseBackup(json) // throws before any clear(); migrated to the current shape
   const data = sanitizeBackup(parsed) // strip XSS from untrusted HTML before it touches the DB
-  await db.transaction('rw', [db.pages, db.maps, db.pins, db.regions, db.templates, db.calendars, db.events, db.images, db.docLinks], async () => {
+  await db.transaction('rw', [db.pages, db.maps, db.pins, db.regions, db.templates, db.calendars, db.events, db.images, db.docLinks, db.books, db.chapters, db.scenes, db.plotlines, db.beats], async () => {
     await Promise.all([
       db.pages.clear(), db.maps.clear(), db.pins.clear(), db.regions.clear(),
       db.templates.clear(), db.calendars.clear(), db.events.clear(), db.images.clear(),
-      db.docLinks.clear(),
+      db.docLinks.clear(), db.books.clear(), db.chapters.clear(), db.scenes.clear(),
+      db.plotlines.clear(), db.beats.clear(),
     ])
     await db.pages.bulkAdd(asArray(data.pages))
     await db.maps.bulkAdd(asArray(data.maps))
@@ -238,6 +282,11 @@ export async function importAll(json: string): Promise<void> {
     await db.events.bulkAdd(asArray(data.events))
     await db.images.bulkAdd(asArray(data.images))
     await db.docLinks.bulkAdd(asArray(data.docLinks))
+    await db.books.bulkAdd(asArray(data.books))
+    await db.chapters.bulkAdd(asArray(data.chapters))
+    await db.scenes.bulkAdd(asArray(data.scenes))
+    await db.plotlines.bulkAdd(asArray(data.plotlines))
+    await db.beats.bulkAdd(asArray(data.beats))
   })
   // Older backups have no templates / calendars — make sure the built-ins exist.
   await seedTemplates()

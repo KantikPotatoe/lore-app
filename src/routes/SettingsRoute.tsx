@@ -80,12 +80,17 @@ export default function SettingsRoute() {
   }
 
   async function loadCounts(): Promise<BackupCounts> {
-    const [pages, maps, pins, regions, templates, calendars, events, images, docLinks] = await Promise.all([
+    const [pages, maps, pins, regions, templates, calendars, events, images, docLinks,
+      books, chapters, scenes, plotlines, beats] = await Promise.all([
       db.pages.count(), db.maps.count(), db.pins.count(), db.regions.count(),
       db.templates.count(), db.calendars.count(), db.events.count(), db.images.count(),
-      db.docLinks.count(),
+      db.docLinks.count(), db.books.count(), db.chapters.count(), db.scenes.count(),
+      db.plotlines.count(), db.beats.count(),
     ])
-    return { pages, maps, pins, regions, templates, calendars, events, images, docLinks }
+    return {
+      pages, maps, pins, regions, templates, calendars, events, images, docLinks,
+      books, chapters, scenes, plotlines, beats,
+    }
   }
 
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
@@ -122,7 +127,7 @@ export default function SettingsRoute() {
   }
 
   const fmtCounts = (c: BackupCounts) =>
-    `${c.pages} pages · ${c.maps} maps · ${c.pins} pins · ${c.regions} regions · ${c.templates} page-types · ${c.calendars} calendars · ${c.events} events`
+    `${c.pages} pages · ${c.maps} maps · ${c.pins} pins · ${c.regions} regions · ${c.templates} page-types · ${c.calendars} calendars · ${c.events} events · ${c.books} books · ${c.scenes} scenes`
 
   return (
     <div className="settings-page">

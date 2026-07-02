@@ -25,6 +25,8 @@ async function clearAll(): Promise<void> {
   await Promise.all([
     db.pages.clear(), db.maps.clear(), db.pins.clear(), db.regions.clear(),
     db.templates.clear(), db.calendars.clear(), db.events.clear(), db.images.clear(),
+    db.books.clear(), db.chapters.clear(), db.scenes.clear(),
+    db.plotlines.clear(), db.beats.clear(),
   ])
 }
 
@@ -260,13 +262,13 @@ describe('importAll — round-trips', () => {
 })
 
 describe('schema version', () => {
-  it('is at 10 for the docLinks table', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(10)
+  it('is at 11 for the manuscript tables', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(11)
   })
 
   it('stamps an older backup up to current with no data loss', () => {
     const out = migrateBackup({ schemaVersion: 6, pages: [], regions: [] })
-    expect(out.schemaVersion).toBe(10)
+    expect(out.schemaVersion).toBe(11)
     expect(out.regions).toEqual([])
   })
 })
@@ -337,5 +339,37 @@ describe('docLinks in backups', () => {
     obj.pages = obj.pages.filter((p: { id: string }) => p.id !== d)
     await importAll(JSON.stringify(obj))
     expect(await db.docLinks.count()).toBe(0)
+  })
+})
+
+describe('manuscript tables in backups', () => {
+  it('CURRENT_SCHEMA_VERSION is 11', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(11)
+  })
+
+  it('round-trips books/chapters/scenes/plotlines/beats', async () => {
+    await db.books.add({ id: 'b1', title: 'B', synopsis: '', order: 0, createdAt: 1, updatedAt: 1 })
+    await db.chapters.add({ id: 'c1', bookId: 'b1', title: 'C', order: 0, createdAt: 1, updatedAt: 1 })
+    await db.scenes.add({
+      id: 's1', bookId: 'b1', chapterId: 'c1', title: 'S', content: '<p>hi</p>', synopsis: '',
+      notes: '', status: 'draft', order: 0, wordCount: 1, povPageId: null,
+      castPageIds: [], locationPageIds: [], createdAt: 1, updatedAt: 1,
+    })
+    await db.plotlines.add({ id: 'p1', bookId: 'b1', name: 'Main', color: '#fff', kind: 'plot', order: 0, createdAt: 1, updatedAt: 1 })
+    await db.beats.add({ id: 'bt1', bookId: 'b1', plotlineId: 'p1', sceneId: 's1', label: '', note: 'note', order: 0, createdAt: 1, updatedAt: 1 })
+
+    const json = await exportAll()
+    await importAll(json) // clears then restores
+    expect(await db.books.count()).toBe(1)
+    expect(await db.chapters.count()).toBe(1)
+    expect(await db.scenes.count()).toBe(1)
+    expect(await db.plotlines.count()).toBe(1)
+    expect(await db.beats.count()).toBe(1)
+  })
+
+  it('an old backup (schemaVersion 10) imports with empty manuscript tables', () => {
+    const { data, counts } = parseBackup(JSON.stringify({ schemaVersion: 10, pages: [] }))
+    expect(data.books).toEqual([])
+    expect(counts.books).toBe(0)
   })
 })
