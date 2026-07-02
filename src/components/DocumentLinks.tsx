@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -104,9 +104,6 @@ function DocumentsPanel({
           onPick={(docId) => attachDocument(page.id, docId)}
         />
       )}
-      {!editable && attached.length === 0 && (
-        <p className="doc-links-empty">No documents attached yet.</p>
-      )}
     </div>
   )
 }
@@ -189,7 +186,7 @@ function DocPicker({
               className="ref-result"
               onClick={() => { onPick(p.id); setQuery('') }}
             >
-              <span className="dot" style={{ background: categoryColor(p.category) } as CSSProperties} />
+              <span className="dot" style={{ background: categoryColor(p.category) }} />
               {p.title}
             </button>
           ))}

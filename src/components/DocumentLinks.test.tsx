@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { db, createPage, attachDocument } from '../db'
 import DocumentLinks from './DocumentLinks'
@@ -57,12 +57,7 @@ describe('DocumentLinks', () => {
     await attachDocument(s, d)
     renderLinks(await getPage(s), true)
     fireEvent.click(await screen.findByTitle('Remove attachment'))
-    // NOTE: deviation from the brief's exact test code — a single 0ms tick was
-    // not enough for the dexie-react-hooks liveQuery observable to propagate
-    // the delete through fake-indexeddb in this environment (verified: 0ms
-    // failed deterministically, 50ms/300ms passed reliably across repeats).
-    await new Promise((r) => setTimeout(r, 100))
-    expect(screen.queryByText('The Letter')).toBeNull()
+    await waitFor(() => expect(screen.queryByText('The Letter')).toBeNull())
     expect(await db.docLinks.count()).toBe(0)
   })
 })
