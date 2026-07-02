@@ -41,6 +41,7 @@ describe('parseBackup — acceptance and counts', () => {
       calendars: 0,
       events: 0,
       images: 0,
+      docLinks: 0,
     })
   })
 
@@ -65,6 +66,7 @@ describe('parseBackup — acceptance and counts', () => {
       calendars: 1,
       events: 2,
       images: 0,
+      docLinks: 0,
     })
   })
 

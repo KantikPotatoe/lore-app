@@ -5,6 +5,8 @@ import {
   parseBackup,
   exportAll,
   importAll,
+  createPage,
+  attachDocument,
   CURRENT_SCHEMA_VERSION,
   type BackupData,
   type Calendar,
@@ -258,13 +260,13 @@ describe('importAll — round-trips', () => {
 })
 
 describe('schema version', () => {
-  it('is at 9 for the retired WIP status', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(9)
+  it('is at 10 for the docLinks table', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(10)
   })
 
   it('stamps an older backup up to current with no data loss', () => {
     const out = migrateBackup({ schemaVersion: 6, pages: [], regions: [] })
-    expect(out.schemaVersion).toBe(9)
+    expect(out.schemaVersion).toBe(10)
     expect(out.regions).toEqual([])
   })
 })
@@ -293,5 +295,47 @@ describe('WIP status migration', () => {
       'Complete',
       undefined,
     ])
+  })
+})
+
+describe('docLinks in backups', () => {
+  beforeEach(async () => {
+    await db.pages.clear()
+    await db.docLinks.clear()
+  })
+
+  it('round-trips docLinks through export → import', async () => {
+    const s = await createPage({ title: 'Owner' })
+    const d = await createPage({ title: 'Doc', category: 'Document' })
+    await attachDocument(s, d)
+
+    const json = await exportAll()
+    await db.docLinks.clear()
+    await importAll(json)
+
+    const rows = await db.docLinks.toArray()
+    expect(rows).toHaveLength(1)
+    expect(rows[0].pageId).toBe(s)
+    expect(rows[0].documentId).toBe(d)
+  })
+
+  it('migrates a legacy backup (no docLinks) to an empty table', async () => {
+    const legacy = JSON.stringify({ schemaVersion: 9, pages: [] })
+    const { data } = parseBackup(legacy)
+    expect(data.docLinks).toEqual([])
+    await importAll(legacy)
+    expect(await db.docLinks.count()).toBe(0)
+  })
+
+  it('drops edges referencing pages absent from the backup', async () => {
+    const s = await createPage({ title: 'Owner' })
+    const d = await createPage({ title: 'Doc', category: 'Document' })
+    await attachDocument(s, d)
+    const json = await exportAll()
+    // Corrupt the backup: remove the document page but keep the edge.
+    const obj = JSON.parse(json)
+    obj.pages = obj.pages.filter((p: { id: string }) => p.id !== d)
+    await importAll(JSON.stringify(obj))
+    expect(await db.docLinks.count()).toBe(0)
   })
 })
