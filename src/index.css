@@ -2215,3 +2215,54 @@ button.wiki-link { background: none; border-top: none; border-left: none; border
   color: var(--ink);
   padding: 0.25rem 0.4rem;
 }
+
+/* "Appears in" — manuscript scene references on a wiki page */
+.appears-in {
+  margin-top: 1rem;
+}
+.appears-in-head {
+  font-family: var(--display);
+  font-size: 0.9rem;
+  color: var(--ink-dim);
+  margin-bottom: 0.5rem;
+}
+.appears-in-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.appears-in-row {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: var(--ink);
+}
+.appears-in-row:hover .appears-in-scene {
+  color: var(--accent);
+}
+.appears-in-scene {
+  font-size: 0.9rem;
+}
+.appears-in-loc {
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+.appears-in-roles {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin-top: 0.15rem;
+  flex-wrap: wrap;
+}
+.appears-in-role {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink-dim);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+}

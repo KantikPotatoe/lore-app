@@ -7,6 +7,7 @@ import References from '../components/References'
 import Infobox from '../components/Infobox'
 import DraftInput from '../components/DraftInput'
 import Backlinks from '../components/Backlinks'
+import SceneAppearances from '../components/SceneAppearances'
 import ImageGallery from '../components/ImageGallery'
 import TableOfContents from '../components/TableOfContents'
 import DocumentLinks from '../components/DocumentLinks'
@@ -331,6 +332,7 @@ export default function PageRoute() {
           )}
 
           <Backlinks pageId={id} />
+          <SceneAppearances pageId={id} />
         </div>
       </div>
 
