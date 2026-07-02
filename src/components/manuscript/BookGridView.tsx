@@ -5,6 +5,7 @@ import {
   createBeat, updateBeat, deleteBeat, sceneStatusColor, TYPE_COLORS,
   type Scene, type Chapter, type Plotline, type Beat,
 } from '../../db'
+import StructureControls from './StructureControls'
 
 const NO_SCENES: Scene[] = []
 const NO_CHAPTERS: Chapter[] = []
@@ -19,6 +20,12 @@ export default function BookGridView({ bookId }: { bookId: string }) {
 
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+
+  // Structure lane pinned to the top; plot lanes follow in their own order.
+  const orderedLanes = useMemo(
+    () => [...plotlines].sort((a, b) => Number(b.kind === 'structure') - Number(a.kind === 'structure')),
+    [plotlines],
+  )
 
   // Ordered scene columns (by chapter order, then scene order) + chapter spans.
   const { columns, chapterSpans } = useMemo(() => {
@@ -41,6 +48,9 @@ export default function BookGridView({ bookId }: { bookId: string }) {
     return m
   }, [beats])
 
+  // Plot-lane index (for ▲▼ reorder, which only applies to plot lanes).
+  const plotLanes = useMemo(() => plotlines.filter((p) => p.kind === 'plot').sort((a, b) => a.order - b.order), [plotlines])
+
   function startEdit(key: string, current: string) {
     setEditingKey(key)
     setDraft(current)
@@ -49,15 +59,16 @@ export default function BookGridView({ bookId }: { bookId: string }) {
   async function commitEdit(plotlineId: string, sceneId: string, beat: Beat | undefined) {
     const text = draft.trim()
     setEditingKey(null)
-    if (beat && !text) { await deleteBeat(beat.id); return }
+    if (beat && !text && !beat.label) { await deleteBeat(beat.id); return }
     if (beat && text !== beat.note) { await updateBeat(beat.id, { note: text }); return }
     if (!beat && text) { await createBeat(bookId, plotlineId, sceneId, text); return }
   }
 
-  function moveLane(index: number, dir: -1 | 1) {
-    const next = [...plotlines]
+  function moveLane(pl: Plotline, dir: -1 | 1) {
+    const index = plotLanes.findIndex((p) => p.id === pl.id)
     const j = index + dir
-    if (j < 0 || j >= next.length) return
+    if (index < 0 || j < 0 || j >= plotLanes.length) return
+    const next = [...plotLanes]
     ;[next[index], next[j]] = [next[j], next[index]]
     reorderPlotlines(bookId, next.map((p) => p.id))
   }
@@ -72,6 +83,7 @@ export default function BookGridView({ bookId }: { bookId: string }) {
     <div className="grid-board">
       <div className="grid-board-actions">
         <button className="primary-btn" onClick={() => createPlotline(bookId, 'New plotline')}>＋ Plotline</button>
+        <StructureControls bookId={bookId} />
       </div>
       {plotlines.length === 0 ? (
         <p className="empty-hint">No plotlines yet. Add one to start plotting.</p>
@@ -96,27 +108,31 @@ export default function BookGridView({ bookId }: { bookId: string }) {
               </tr>
             </thead>
             <tbody>
-              {plotlines.map((pl, index) => (
+              {orderedLanes.map((pl) => (
                 <tr key={pl.id}>
-                  <th className="grid-lane" style={{ borderLeft: `3px solid ${pl.color}` }}>
-                    <div className="grid-lane-controls">
-                      <button
-                        className="lane-swatch"
-                        title="Change color"
-                        aria-label={`lane color ${pl.id}`}
-                        style={{ background: pl.color }}
-                        onClick={() => cycleColor(pl)}
-                      />
-                      <input
-                        className="lane-name"
-                        aria-label={`lane name ${pl.id}`}
-                        value={pl.name}
-                        onChange={(e) => updatePlotline(pl.id, { name: e.target.value })}
-                      />
-                      <button className="lane-btn" title="Move up" aria-label={`move lane up ${pl.id}`} onClick={() => moveLane(index, -1)}>▲</button>
-                      <button className="lane-btn" title="Move down" aria-label={`move lane down ${pl.id}`} onClick={() => moveLane(index, 1)}>▼</button>
-                      <button className="lane-btn lane-del" title="Delete lane" aria-label={`delete lane ${pl.id}`} onClick={() => deletePlotline(pl.id)}>×</button>
-                    </div>
+                  <th className={pl.kind === 'structure' ? 'grid-lane grid-lane-structure' : 'grid-lane'} style={{ borderLeft: `3px solid ${pl.color}` }}>
+                    {pl.kind === 'structure' ? (
+                      <span className="grid-lane-structure-name">{pl.name}</span>
+                    ) : (
+                      <div className="grid-lane-controls">
+                        <button
+                          className="lane-swatch"
+                          title="Change color"
+                          aria-label={`lane color ${pl.id}`}
+                          style={{ background: pl.color }}
+                          onClick={() => cycleColor(pl)}
+                        />
+                        <input
+                          className="lane-name"
+                          aria-label={`lane name ${pl.id}`}
+                          value={pl.name}
+                          onChange={(e) => updatePlotline(pl.id, { name: e.target.value })}
+                        />
+                        <button className="lane-btn" title="Move up" aria-label={`move lane up ${pl.id}`} onClick={() => moveLane(pl, -1)}>▲</button>
+                        <button className="lane-btn" title="Move down" aria-label={`move lane down ${pl.id}`} onClick={() => moveLane(pl, 1)}>▼</button>
+                        <button className="lane-btn lane-del" title="Delete lane" aria-label={`delete lane ${pl.id}`} onClick={() => deletePlotline(pl.id)}>×</button>
+                      </div>
+                    )}
                   </th>
                   {columns.map((s) => {
                     const key = `${pl.id}:${s.id}`
@@ -139,7 +155,18 @@ export default function BookGridView({ bookId }: { bookId: string }) {
                             onBlur={() => commitEdit(pl.id, s.id, beat)}
                           />
                         ) : beat ? (
-                          <span className="grid-beat" style={{ background: `${pl.color}22` }}>{beat.note}</span>
+                          <span className="grid-beat" style={{ background: `${pl.color}22` }}>
+                            {beat.label && <strong className="grid-beat-label">{beat.label}</strong>}
+                            {beat.note}
+                            {pl.kind === 'structure' && (
+                              <button
+                                className="grid-beat-unplace"
+                                aria-label={`unplace beat ${beat.id}`}
+                                title="Send back to tray"
+                                onClick={(e) => { e.stopPropagation(); updateBeat(beat.id, { sceneId: null }) }}
+                              >×</button>
+                            )}
+                          </span>
                         ) : (
                           <span className="grid-cell-add">＋</span>
                         )}
