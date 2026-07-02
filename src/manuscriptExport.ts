@@ -1,4 +1,6 @@
+import JSZip from 'jszip'
 import { sanitizeHtml } from './sanitize'
+import { db } from './db'
 import type { Book, Chapter, Scene } from './db'
 
 function escapeHtml(s: string): string {
@@ -112,4 +114,48 @@ export function buildEpub(book: Book, chapters: Chapter[], scenes: Scene[]): Rec
 </html>`
 
   return files
+}
+
+// --- DB + download/print wrappers (side effects; not unit-tested) -------------
+
+async function loadBook(bookId: string) {
+  const [book, chapters, scenes] = await Promise.all([
+    db.books.get(bookId),
+    db.chapters.where('bookId').equals(bookId).toArray(),
+    db.scenes.where('bookId').equals(bookId).toArray(),
+  ])
+  return { book, chapters, scenes }
+}
+
+export async function exportBookEpub(bookId: string): Promise<void> {
+  const { book, chapters, scenes } = await loadBook(bookId)
+  if (!book) return
+  const files = buildEpub(book, chapters, scenes)
+
+  const zip = new JSZip()
+  // mimetype first and stored (uncompressed), per the EPUB OCF spec.
+  zip.file('mimetype', files['mimetype'], { compression: 'STORE' })
+  for (const [path, content] of Object.entries(files)) {
+    if (path === 'mimetype') continue
+    zip.file(path, content)
+  }
+  const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${book.title.replace(/[^\w.-]+/g, '_') || 'book'}.epub`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export async function printBook(bookId: string): Promise<void> {
+  const { book, chapters, scenes } = await loadBook(bookId)
+  if (!book) return
+  const html = compileBookHtml(book, chapters, scenes)
+  const win = window.open('', '_blank')
+  if (!win) return
+  win.document.write(html)
+  win.document.close()
+  win.focus()
+  win.print()
 }
