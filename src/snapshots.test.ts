@@ -13,10 +13,20 @@ async function addPage() {
   } as never)
 }
 
+async function addScene() {
+  await db.scenes.add({
+    id: crypto.randomUUID(),
+    bookId: 'b', chapterId: 'c', title: 'S', content: '', synopsis: '',
+    notes: '', status: 'outline', order: 0, wordCount: 0, povPageId: null,
+    castPageIds: [], locationPageIds: [], createdAt: Date.now(), updatedAt: Date.now(),
+  } as never)
+}
+
 describe('maybeTakeSnapshot', () => {
   beforeEach(async () => {
     await db.pages.clear()
     await db.events.clear()
+    await db.scenes.clear()
     await db.snapshots.clear()
     await db.meta.clear()
   })
@@ -38,6 +48,14 @@ describe('maybeTakeSnapshot', () => {
     await setMeta(SNAPSHOT_TIME_KEY, Date.now() - 1000)
     await updateSettings({ snapshotChangeThreshold: 1 })
     await addPage()
+    await maybeTakeSnapshot()
+    expect(await db.snapshots.count()).toBe(1)
+  })
+
+  it('counts scene edits toward the change threshold', async () => {
+    await setMeta(SNAPSHOT_TIME_KEY, Date.now() - 1000)
+    await updateSettings({ snapshotChangeThreshold: 1 })
+    await addScene()
     await maybeTakeSnapshot()
     expect(await db.snapshots.count()).toBe(1)
   })

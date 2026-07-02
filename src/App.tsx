@@ -16,6 +16,8 @@ import GraphRoute from './routes/GraphRoute'
 import TimelineRoute from './routes/TimelineRoute'
 import LoreSelectorRoute from './routes/LoreSelectorRoute'
 import SettingsRoute from './routes/SettingsRoute'
+import ManuscriptRoute from './routes/ManuscriptRoute'
+import BookRoute from './routes/BookRoute'
 import { requestPersistentStorage } from './backup'
 import { seedTemplates, seedDefaultCalendar, db } from './db'
 import { maybeTakeSnapshot } from './snapshots'
@@ -79,6 +81,8 @@ export default function App() {
             <Route path="/timeline" element={<TimelineRoute />} />
             <Route path="/templates" element={<TemplatesRoute />} />
             <Route path="/settings" element={<SettingsRoute />} />
+            <Route path="/manuscript" element={<ManuscriptRoute />} />
+            <Route path="/book/:bookId" element={<BookRoute />} />
             <Route path="/browse/:category" element={<CategoryRoute />} />
             <Route path="/tag/:tag" element={<TagRoute />} />
           </Routes>

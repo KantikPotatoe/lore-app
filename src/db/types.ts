@@ -194,3 +194,84 @@ export interface Snapshot {
   editCount: number   // distinct pages changed since the previous snapshot
   data: string        // raw exportAll() JSON
 }
+
+// ---------------------------------------------------------------------------
+// Manuscript authoring (the author's real novel — distinct from wiki pages and
+// from the in-world Document page type). Book → Chapter → Scene, plus a Plottr-
+// style plotline grid (Plotline lanes × Scene columns, Beat cells).
+// ---------------------------------------------------------------------------
+
+/** A book/volume in the world. A world can hold several (a series). */
+export interface Book {
+  id: string
+  title: string
+  synopsis: string          // short, plain text
+  order: number             // position in the world's book list
+  targetWordCount?: number  // optional word-count goal
+  createdAt: number
+  updatedAt: number
+}
+
+/** A chapter within a book. */
+export interface Chapter {
+  id: string
+  bookId: string
+  title: string
+  order: number             // position within the book
+  targetWordCount?: number
+  createdAt: number
+  updatedAt: number
+}
+
+/** A scene's draft state, distinct from the page `STATUSES`. */
+export type SceneStatus = 'outline' | 'draft' | 'revised' | 'done'
+
+/** A scene — the atomic writing unit. Holds the prose. */
+export interface Scene {
+  id: string
+  bookId: string
+  chapterId: string
+  title: string
+  content: string           // Tiptap HTML (rendered by LoreEditor)
+  synopsis: string          // short card summary, plain text
+  notes: string             // private notes, plain text
+  status: SceneStatus
+  order: number             // position within the chapter
+  wordCount: number         // cached, recomputed on every content write
+  targetWordCount?: number
+  povPageId: string | null  // wiki page: POV character
+  castPageIds: string[]     // wiki pages present in the scene
+  locationPageIds: string[] // wiki pages: setting(s)
+  createdAt: number
+  updatedAt: number
+}
+
+/** Which built-in story structure a structure-track lane was seeded from. */
+export type StructureType = 'save-the-cat' | 'heros-journey' | 'snowflake'
+
+/** A lane on the grid. 'plot' = a storyline you track; 'structure' = a
+ *  story-structure track (fixed named beats). At most one 'structure' lane per book. */
+export interface Plotline {
+  id: string
+  bookId: string
+  name: string
+  color: string
+  kind: 'plot' | 'structure'
+  structureType?: StructureType   // set only when kind==='structure'
+  order: number
+  createdAt: number
+  updatedAt: number
+}
+
+/** A cell on the grid: what a plotline does in a scene. */
+export interface Beat {
+  id: string
+  bookId: string
+  plotlineId: string
+  sceneId: string | null    // null = a structure beat not yet aligned to a scene
+  label: string             // structure beats carry a fixed name ("Catalyst"); plot beats optional
+  note: string              // the card text
+  order: number             // structure beats: canonical order; plot beats: placement fallback
+  createdAt: number
+  updatedAt: number
+}

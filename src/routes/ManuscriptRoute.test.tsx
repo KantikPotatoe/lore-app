@@ -1,0 +1,49 @@
+import { afterEach, describe, expect, it } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import { db, createBook, createChapter, createScene, updateScene } from '../db'
+import ManuscriptRoute from './ManuscriptRoute'
+
+afterEach(async () => {
+  cleanup()
+  await Promise.all([db.books.clear(), db.chapters.clear(), db.scenes.clear()])
+})
+
+describe('ManuscriptRoute', () => {
+  it('renders the Manuscript heading', () => {
+    render(
+      <MemoryRouter>
+        <ManuscriptRoute />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('heading', { name: /manuscript/i })).toBeTruthy()
+  })
+
+  it('lists existing books', async () => {
+    await db.books.add({ id: 'b1', title: 'The Long Road', synopsis: '', order: 0, createdAt: 1, updatedAt: 1 })
+    render(
+      <MemoryRouter>
+        <ManuscriptRoute />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText('The Long Road')).toBeTruthy()
+  })
+
+  it('shows an empty hint when there are no books', async () => {
+    render(
+      <MemoryRouter>
+        <ManuscriptRoute />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText(/no books yet/i)).toBeTruthy()
+  })
+
+  it('shows a book’s scene count and word total', async () => {
+    const book = await createBook('Counted')
+    const ch = await createChapter(book.id, 'C')
+    const sc = await createScene(book.id, ch.id, 'S')
+    await updateScene(sc.id, { content: '<p>one two three</p>' })
+    render(<MemoryRouter><ManuscriptRoute /></MemoryRouter>)
+    expect(await screen.findByText(/1 scene · 3 words/i)).toBeTruthy()
+  })
+})
