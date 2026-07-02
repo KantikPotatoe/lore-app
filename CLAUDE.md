@@ -42,10 +42,11 @@ Single source of truth (types, schema, CRUD, templates, backlinks, graph, export
 | `calendar.ts` | timeline calendar/event CRUD (distinct from pure `src/calendar.ts`) |
 | `backup.ts` | `exportAll`/`importAll`/`parseBackup` + versioning + import sanitization (`CURRENT_SCHEMA_VERSION` mirrors Dexie store version) |
 | `snapshots.ts` | snapshot CRUD |
+| `manuscript.ts` | manuscript authoring CRUD: `Book`→`Chapter`→`Scene`, plotline/beat grid, story structures, word counts, `sceneAppearances()` |
 
 **Per-lore DB:** `db = new LoreDB(dbNameFor(currentLoreId()))` binds at module load, so the active world is fixed for the page's lifetime. `switchLore()` and deleting the active world call `window.location.reload()` to rebind.
 
-**Key types:** `LorePage` (HTML `content`, `summary`, `tags`, `status`, optional `Infobox`) · `Infobox`/`InfoboxField` (`kind:'separator'`=heading; `fieldType:'text'|'ref'|'number'`, `'ref'` stores `[[Title]]` tokens bound to `refType`) · `InfoboxTemplate`/`TemplateItem` (a **page type**: named coloured category + starter rows + optional `sections` starter body headings) · `WorldMap`/`MapPin`/`MapRegion` · `Calendar`/`CalendarMonth`/`CalendarEra` · `TimelineEvent` (in-world date + cached `startAbsolute`/`endAbsolute`) · `Snapshot` · `MetaEntry` (Dexie schema **v9**) · `Lore` (in `src/lores.ts`, separate `lore-registry` DB).
+**Key types:** `LorePage` (HTML `content`, `summary`, `tags`, `status`, optional `Infobox`) · `Infobox`/`InfoboxField` (`kind:'separator'`=heading; `fieldType:'text'|'ref'|'number'`, `'ref'` stores `[[Title]]` tokens bound to `refType`) · `InfoboxTemplate`/`TemplateItem` (a **page type**: named coloured category + starter rows + optional `sections` starter body headings) · `WorldMap`/`MapPin`/`MapRegion` · `Calendar`/`CalendarMonth`/`CalendarEra` · `TimelineEvent` (in-world date + cached `startAbsolute`/`endAbsolute`) · `Snapshot` · `Book`/`Chapter`/`Scene` (`SceneStatus`, POV/cast/location page refs) · `Plotline`/`Beat` (`kind:'plot'|'structure'`, `StructureType`) · `MetaEntry` (Dexie schema **v11**) · `Lore` (in `src/lores.ts`, separate `lore-registry` DB).
 
 **Helpers:** `BUILTIN_TEMPLATES`, `DEFAULT_CATEGORY`, `TYPE_COLORS`, `STATUSES`+`pageStatus()`/`statusColor()`. Page types are DB-backed: `seedTemplates()` (on start) reconciles built-ins (adds missing, removes dropped built-ins, backfills colours + `sections` from `BUILTIN_SECTIONS`; leaves custom types alone); CRUD `getTemplates`/`createTemplate`/`updateTemplate`/`deleteTemplate`/`resetTemplate`; `applyTemplate()` swaps rows preserving values. A type also carries optional `sections` (starter `<h2>` body headings); `sectionNodes()` (`src/sectionNodes.ts`) turns them into editor nodes for the editor's "+ Sections" button. `categoryColor()` reads a `liveQuery`-synced cache. `getBacklinks()`/`linkedTitles()` scan body `<a data-wikilink>` + infobox `[[…]]` (via `src/html.ts`). `renamePage(id, title)` atomically rewrites all references, throws on title clash. `findPageIdByTitle()` is **resolve-only** (callers confirm before creating). Calendar/event mutations recompute cached absolute days and cascade-delete on calendar removal.
 
@@ -63,6 +64,8 @@ Single source of truth (types, schema, CRUD, templates, backlinks, graph, export
 | `/map` | `MapRoute` | Leaflet map with pins/regions |
 | `/graph` | `GraphRoute` | force-directed relationship graph |
 | `/timeline` | `TimelineRoute` | timeline (list or axis view) |
+| `/manuscript` | `ManuscriptRoute` | book library (grid of books + word-count stats) |
+| `/book/:bookId` | `BookRoute` | book workspace: Write / Grid views, EPUB / Print-PDF compile |
 | `/templates` | `TemplatesRoute` | manage page-type templates |
 | `/settings` | `SettingsRoute` | per-lore settings, backup/import, HTML export, snapshots, delete world |
 
@@ -82,6 +85,10 @@ Tiptap with `StarterKit` (Link → external `ext-link`, new tab), `WikiLink` (`[
 ### Timeline & calendars — `src/calendar.ts` + `TimelineRoute`
 
 `calendar.ts` is **pure date math** (no React/Dexie): `dateToAbsolute()`/`absoluteToDate()` map to a shared absolute-day integer so calendars share one axis (no leap rules; `yearLength` = sum of months); plus `eraForYear()`, `formatDate()`. Events cache `startAbsolute`/`endAbsolute`, recomputed on event/calendar change (`updateCalendar()` rewrites all its events in one tx). `TimelineRoute` → `TimelineVertical` (list) / `TimelineHorizontal` (zoom/pan axis); `CalendarEditor`/`EventEditor` modals.
+
+### Manuscript authoring — `src/db/manuscript.ts` + `ManuscriptRoute`/`BookRoute`
+
+The author's real novel, distinct from wiki pages and the in-world Document page type. Per-lore, id-based tables (Dexie stores added in **v11**), all cascade on delete: `Book`→`Chapter`→`Scene` (rich-text `content`, cached `wordCount` recomputed on `updateScene`, `SceneStatus` = Outline→Draft→Revised→Done via `SCENE_STATUSES`, separate from page `STATUSES`). Scenes carry POV/cast/location **page refs** (id-based) → `sceneAppearances(pageId)` lists every scene referencing a page (by ref or inline `[[wiki-link]]`), surfaced on the page. A **Plottr-style grid** of `Plotline` lanes × `Beat` cells (`kind:'plot'`); a `kind:'structure'` lane holds a built-in story structure (`manuscriptStructures.ts`: Save the Cat / Hero's Journey / Snowflake) whose beats align to scenes — deleting an aligned scene reverts its structure beat to unplaced (`sceneId=null`) rather than deleting it (`detachBeatsForScene`). `ManuscriptRoute` = book library; `BookRoute` = workspace with **Write** (`BookWriteView`: `BinderTree` + `SceneEditor` + `SceneMetaPanel`) and **Grid** (`BookGridView` + `StructureControls`) views, plus EPUB / Print-PDF compile buttons. **Export (`src/manuscriptExport.ts`):** pure `buildEpub()` (path→content map, valid EPUB 3 with nav, `mimetype` stored first) + `compileBookHtml()` (self-contained print/Save-as-PDF doc); `exportBookEpub()`/`printBook()` are the DB+download/print wrappers. Manuscript tables are **included in backups** (`exportAll`/`importAll`, scene `content` sanitized on import).
 
 ### Relationship graph — `GraphView.tsx` + `GraphRoute`
 

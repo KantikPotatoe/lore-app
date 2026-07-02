@@ -7,6 +7,7 @@
 Write, link, and map the lore of your fictional worlds — inspired by World Anvil
 and LoreKeeper. No account, no server, fully offline. Your world never leaves your machine.
 
+[![Version](https://img.shields.io/github/package-json/v/KantikPotatoe/lore-app?style=flat-square&color=c9a24b&label=version)](https://github.com/KantikPotatoe/lore-app/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-c9a24b.svg?style=flat-square)](LICENSE.md)
 ![React](https://img.shields.io/badge/React-19-1d1a14.svg?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-1d1a14.svg?style=flat-square&logo=typescript)
@@ -56,6 +57,16 @@ settings going at once without them bleeding together.
 | **Interactive maps** | Upload a map image and drop pins linked to lore pages. Draw regions as polygons and nest maps inside one another. |
 | **Relationship graph** | A force-directed graph of every page and the links between them — node size shows how connected a page is, surfacing hubs and orphans. |
 | **Timeline & calendars** | Define custom calendars (months, eras, year lengths) and place events on a shared timeline — list or zoomable axis. Calendars share one absolute-day axis so events line up. |
+
+### ✒️ Writing the novel
+
+| | |
+|---|---|
+| **Manuscript workspace** | Write the actual book alongside its lore. Organize it as **Book → Chapter → Scene**, draft each scene in the same rich-text editor, and track live word counts per scene, chapter, and book. |
+| **Scene metadata** | Give each scene a POV, cast, and location by linking wiki pages — then any page shows the scenes it "appears in". Scenes carry their own draft status (Outline → Draft → Revised → Done), separate from page statuses. |
+| **Plotline grid** | A Plottr-style board of plotline lanes and beat cells for planning arcs across scenes. |
+| **Story structures** | Drop in a built-in framework — Save the Cat, Hero's Journey, or Snowflake — as a structure track and align your scenes to its beats. |
+| **Compile & export** | Export a finished book to **EPUB** (a valid `.epub` with navigation) or open a print-ready page for **Save-as-PDF**. |
 
 ### 🔍 Finding things
 
@@ -139,6 +150,7 @@ src/
     graph.ts             Relationship-graph builder
     calendar.ts          Timeline calendar / event CRUD
     snapshots.ts         Snapshot CRUD
+    manuscript.ts        Book / chapter / scene / plotline / beat CRUD + word counts
     backup.ts            Export / import + versioned migrations + sanitization
   loreId.ts              Active-world id + per-world database naming
   lores.ts               World registry + create/rename/delete/switch
@@ -151,6 +163,8 @@ src/
   sectionNodes.ts        Turns a page type's starter sections into editor nodes
   imageUtils.ts          Client-side image resize / compression
   htmlExport.ts          HTML static-site export (JSZip)
+  manuscriptExport.ts    Compile a book to EPUB (JSZip) + print-ready HTML
+  manuscriptStructures.ts Built-in story structures (Save the Cat, etc.)
   sanitize.ts            DOMPurify whitelist for imported / raw-rendered HTML
   html.ts                Shared HTML parsing helpers
   backup.ts              Download/import helpers + backup-overdue tracking
@@ -168,9 +182,12 @@ src/
     MapRoute.tsx           Maps, pins, regions
     GraphRoute.tsx         Relationship graph
     TimelineRoute.tsx      Timeline (list / axis)
+    ManuscriptRoute.tsx    Book library (grid of books + word-count stats)
+    BookRoute.tsx          Book workspace: Write / Grid views + EPUB / PDF compile
     TemplatesRoute.tsx     Manage page-type templates
     SettingsRoute.tsx      Settings, backup / import, HTML export, snapshots
   components/
+    manuscript/            Binder tree, scene editor + meta, grid, structure controls
     Sidebar.tsx            Navigation, page list, search trigger
     LoreEditor.tsx         Rich-text editor (TipTap) with toolbar
     Infobox.tsx            Page sidebar card with typed fields
