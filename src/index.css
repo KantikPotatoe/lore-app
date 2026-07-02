@@ -1976,3 +1976,242 @@ button.wiki-link { background: none; border-top: none; border-left: none; border
   margin-top: 0.5rem;
   max-width: 22rem;
 }
+
+/* ------------------------------------------------------------------ */
+/* Manuscript — books index + book workspace (Book → Chapter → Scene) */
+/* ------------------------------------------------------------------ */
+.manuscript-page {
+  padding: 1.5rem 2rem;
+}
+.manuscript-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 1rem;
+}
+.book-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--ink);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.book-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.book-card-title {
+  font-family: var(--display);
+  font-size: 1.1rem;
+  color: var(--accent-soft);
+}
+.book-card-synopsis {
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+}
+.book-card-stats {
+  color: var(--ink-faint);
+  font-size: 0.8rem;
+  margin-top: 0.15rem;
+}
+
+/* Book workspace */
+.book-workspace {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 1.25rem 1.5rem;
+}
+.book-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.seg-control {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.seg {
+  padding: 0.4rem 1rem;
+  background: transparent;
+  border: none;
+  color: var(--ink-dim);
+  cursor: pointer;
+  font-family: var(--sans);
+}
+.seg.active {
+  background: var(--accent);
+  color: var(--bg);
+}
+.book-grid-view {
+  padding: 3rem;
+  text-align: center;
+}
+
+/* Write view: binder + editor two-pane */
+.book-write {
+  display: grid;
+  grid-template-columns: 16rem 1fr;
+  gap: 1.25rem;
+  flex: 1;
+  min-height: 0;
+}
+.book-write-main {
+  min-width: 0;
+}
+
+/* Binder */
+.binder {
+  border-right: 1px solid var(--border);
+  padding-right: 0.75rem;
+  overflow-y: auto;
+}
+.binder-chapter {
+  margin-bottom: 1rem;
+}
+.binder-chapter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+.binder-chapter-title {
+  font-family: var(--display);
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+.binder-add,
+.binder-add-chapter {
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--ink-faint);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.4rem;
+}
+.binder-add:hover,
+.binder-add-chapter:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.binder-add-chapter {
+  width: 100%;
+  padding: 0.4rem;
+  margin-top: 0.5rem;
+}
+.binder-scene {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--ink-dim);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--sans);
+}
+.binder-scene:hover {
+  background: var(--panel);
+}
+.binder-scene.active {
+  background: var(--panel);
+  color: var(--ink);
+}
+.binder-scene-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.binder-scene-words {
+  color: var(--ink-faint);
+  font-size: 0.75rem;
+}
+
+/* Scene editor + meta panel */
+.scene-editor {
+  display: grid;
+  grid-template-columns: 1fr 18rem;
+  gap: 1.25rem;
+  height: 100%;
+  min-height: 0;
+}
+.scene-editor-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.scene-title-input {
+  font-family: var(--display);
+  font-size: 1.4rem;
+  color: var(--accent-soft);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  padding: 0.25rem 0;
+}
+.scene-title-input:focus {
+  outline: none;
+  border-bottom-color: var(--border);
+}
+.scene-meta {
+  border-left: 1px solid var(--border);
+  padding-left: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.scene-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--ink-dim);
+}
+.scene-meta-row.scene-meta-col {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+}
+.scene-meta textarea {
+  min-height: 4rem;
+  resize: vertical;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 0.4rem;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+}
+.scene-meta select,
+.scene-meta input[type='number'] {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 0.25rem 0.4rem;
+}
