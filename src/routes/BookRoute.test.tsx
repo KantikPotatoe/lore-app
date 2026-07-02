@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { db } from '../db'
 import BookRoute from './BookRoute'
@@ -26,5 +26,12 @@ describe('BookRoute', () => {
     expect(await screen.findByText('My Novel')).toBeTruthy()
     expect(screen.getByRole('button', { name: /write/i })).toBeTruthy()
     expect(screen.getByRole('button', { name: /grid/i })).toBeTruthy()
+  })
+
+  it('switches to the grid view', async () => {
+    await db.books.add({ id: 'b1', title: 'My Novel', synopsis: '', order: 0, createdAt: 1, updatedAt: 1 })
+    renderAt('/book/b1')
+    fireEvent.click(await screen.findByRole('button', { name: /grid/i }))
+    expect(await screen.findByText(/no plotlines yet/i)).toBeTruthy()
   })
 })
