@@ -12,6 +12,11 @@ import type {
   TimelineEvent,
   PageImage,
   DocLink,
+  Book,
+  Chapter,
+  Scene,
+  Plotline,
+  Beat,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -107,6 +112,11 @@ export class LoreDB extends Dexie {
   events!: Table<TimelineEvent, string>
   images!: Table<PageImage, string>
   docLinks!: Table<DocLink, string>
+  books!: Table<Book, string>
+  chapters!: Table<Chapter, string>
+  scenes!: Table<Scene, string>
+  plotlines!: Table<Plotline, string>
+  beats!: Table<Beat, string>
 
   constructor(name: string = 'lore-app') {
     super(name)
@@ -214,6 +224,26 @@ export class LoreDB extends Dexie {
       events: 'id, calendarId, startAbsolute, pageId',
       images: 'id, pageId, order',
       docLinks: 'id, pageId, documentId',
+    })
+    // v11 adds the manuscript authoring tables (books, chapters, scenes, plotlines,
+    // beats); existing data is preserved (new tables need no data migration).
+    this.version(11).stores({
+      pages: 'id, title, category, updatedAt',
+      maps: 'id, name, createdAt',
+      pins: 'id, mapId, pageId, childMapId',
+      regions: 'id, mapId, pageId, childMapId',
+      meta: '&key',
+      templates: 'id, name',
+      snapshots: '++id, timestamp',
+      calendars: 'id, name, createdAt',
+      events: 'id, calendarId, startAbsolute, pageId',
+      images: 'id, pageId, order',
+      docLinks: 'id, pageId, documentId',
+      books: 'id, order',
+      chapters: 'id, bookId, order',
+      scenes: 'id, bookId, chapterId, order, updatedAt',
+      plotlines: 'id, bookId, order',
+      beats: 'id, bookId, plotlineId, sceneId',
     })
   }
 }
