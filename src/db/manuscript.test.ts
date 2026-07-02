@@ -3,6 +3,7 @@ import { db } from './schema'
 import {
   SCENE_STATUSES, sceneStatusColor, computeWordCount,
   createBook, updateBook, deleteBook, listBooks, reorderBooks,
+  createChapter, updateChapter, listChapters, reorderChapters, deleteChapter,
 } from './manuscript'
 
 afterEach(async () => {
@@ -81,5 +82,52 @@ describe('book CRUD', () => {
     expect(await db.plotlines.count()).toBe(0)
     expect(await db.beats.count()).toBe(0)
     expect(await db.books.get(a.id)).toBeUndefined()
+  })
+})
+
+describe('chapter CRUD', () => {
+  it('creates chapters ordered within their book', async () => {
+    const book = await createBook('B')
+    const c1 = await createChapter(book.id, 'One')
+    const c2 = await createChapter(book.id, 'Two')
+    expect(c1.order).toBe(0)
+    expect(c2.order).toBe(1)
+    expect((await listChapters(book.id)).map((c) => c.title)).toEqual(['One', 'Two'])
+  })
+
+  it('scopes ordering per book', async () => {
+    const b1 = await createBook('B1')
+    const b2 = await createBook('B2')
+    await createChapter(b1.id, 'A')
+    const other = await createChapter(b2.id, 'B')
+    expect(other.order).toBe(0) // independent of b1's chapters
+  })
+
+  it('updates a chapter title', async () => {
+    const book = await createBook('B')
+    const ch = await createChapter(book.id, 'One')
+    await updateChapter(ch.id, { title: 'First' })
+    expect((await listChapters(book.id))[0].title).toBe('First')
+  })
+
+  it('reorders chapters within a book', async () => {
+    const book = await createBook('B')
+    const c1 = await createChapter(book.id, 'One')
+    const c2 = await createChapter(book.id, 'Two')
+    await reorderChapters(book.id, [c2.id, c1.id])
+    expect((await listChapters(book.id)).map((c) => c.title)).toEqual(['Two', 'One'])
+  })
+
+  it('deleteChapter removes its scenes', async () => {
+    const book = await createBook('B')
+    const ch = await createChapter(book.id, 'One')
+    await db.scenes.add({
+      id: 's1', bookId: book.id, chapterId: ch.id, title: 'Sc', content: '', synopsis: '',
+      notes: '', status: 'outline', order: 0, wordCount: 0, povPageId: null,
+      castPageIds: [], locationPageIds: [], createdAt: 1, updatedAt: 1,
+    })
+    await deleteChapter(ch.id)
+    expect(await db.chapters.get(ch.id)).toBeUndefined()
+    expect(await db.scenes.count()).toBe(0)
   })
 })
