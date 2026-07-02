@@ -9,6 +9,7 @@ import DraftInput from '../components/DraftInput'
 import Backlinks from '../components/Backlinks'
 import ImageGallery from '../components/ImageGallery'
 import TableOfContents from '../components/TableOfContents'
+import DocumentLinks from '../components/DocumentLinks'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { maybeTakeSnapshot } from '../snapshots'
 import Breadcrumb from '../components/Breadcrumb'
@@ -286,6 +287,7 @@ export default function PageRoute() {
             onWikiClick={followWikiLink}
             onBackref={scrollToMarker}
           />
+          <DocumentLinks page={page} editable={editing} />
         </div>
 
         <div className="page-aside">
