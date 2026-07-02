@@ -108,3 +108,28 @@ describe('docLinks CRUD', () => {
     expect(rows.map((r) => r.order)).toEqual([0, 1, 2])
   })
 })
+
+import { deletePage } from '../db'
+
+describe('docLinks cascade on deletePage', () => {
+  beforeEach(async () => {
+    await db.docLinks.clear()
+    await db.pages.clear()
+  })
+
+  it('removes edges when the owning page is deleted', async () => {
+    const s = await createPage({ title: 'Owner' })
+    const d = await createPage({ title: 'Doc', category: 'Document' })
+    await attachDocument(s, d)
+    await deletePage(s)
+    expect(await db.docLinks.count()).toBe(0)
+  })
+
+  it('removes edges when the attached document is deleted', async () => {
+    const s = await createPage({ title: 'Owner' })
+    const d = await createPage({ title: 'Doc', category: 'Document' })
+    await attachDocument(s, d)
+    await deletePage(d)
+    expect(await db.docLinks.count()).toBe(0)
+  })
+})
