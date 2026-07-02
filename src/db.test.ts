@@ -42,6 +42,11 @@ describe('parseBackup — acceptance and counts', () => {
       events: 0,
       images: 0,
       docLinks: 0,
+      books: 0,
+      chapters: 0,
+      scenes: 0,
+      plotlines: 0,
+      beats: 0,
     })
   })
 
@@ -67,6 +72,11 @@ describe('parseBackup — acceptance and counts', () => {
       events: 2,
       images: 0,
       docLinks: 0,
+      books: 0,
+      chapters: 0,
+      scenes: 0,
+      plotlines: 0,
+      beats: 0,
     })
   })
 
