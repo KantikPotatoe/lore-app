@@ -7,7 +7,7 @@
 Write, link, and map the lore of your fictional worlds — inspired by World Anvil
 and LoreKeeper. No account, no server, fully offline. Your world never leaves your machine.
 
-[![Version](https://img.shields.io/github/package-json/v/KantikPotatoe/lore-app?style=flat-square&color=c9a24b&label=version)](https://github.com/KantikPotatoe/lore-app/releases)
+[![Version](https://img.shields.io/github/package-json/v/KantikPotatoe/Lore-Codex?style=flat-square&color=c9a24b&label=version)](https://github.com/KantikPotatoe/Lore-Codex/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-c9a24b.svg?style=flat-square)](LICENSE.md)
 ![React](https://img.shields.io/badge/React-19-1d1a14.svg?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-1d1a14.svg?style=flat-square&logo=typescript)
