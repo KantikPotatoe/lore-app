@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { db, createChapter, createScene, createPlotline, createBeat } from '../../db'
+import { db, createChapter, createScene, createPlotline, createBeat, applyStructure } from '../../db'
 import BookGridView from './BookGridView'
 
 afterEach(async () => {
@@ -51,5 +51,28 @@ describe('BookGridView', () => {
     render(<BookGridView bookId="b1" />)
     fireEvent.click(await screen.findByRole('button', { name: `delete lane ${pl.id}` }))
     await waitFor(async () => expect(await db.plotlines.get(pl.id)).toBeUndefined())
+  })
+
+  it('renders a placed structure beat with its label in the structure lane', async () => {
+    const ch = await createChapter('b1', 'C')
+    const sc = await createScene('b1', ch.id, 'Opening')
+    await applyStructure('b1', 'save-the-cat')
+    const lane = await db.plotlines.where('bookId').equals('b1').and((p) => p.kind === 'structure').first()
+    const catalyst = (await db.beats.where('plotlineId').equals(lane!.id).toArray()).find((b) => b.label === 'Catalyst')!
+    await db.beats.update(catalyst.id, { sceneId: sc.id })
+    render(<BookGridView bookId="b1" />)
+    expect(await screen.findByText('Catalyst')).toBeTruthy()
+  })
+
+  it('unplaces a structure beat back to the tray', async () => {
+    const ch = await createChapter('b1', 'C')
+    const sc = await createScene('b1', ch.id, 'Opening')
+    await applyStructure('b1', 'snowflake')
+    const lane = await db.plotlines.where('bookId').equals('b1').and((p) => p.kind === 'structure').first()
+    const beat = (await db.beats.where('plotlineId').equals(lane!.id).toArray())[0]
+    await db.beats.update(beat.id, { sceneId: sc.id })
+    render(<BookGridView bookId="b1" />)
+    fireEvent.click(await screen.findByRole('button', { name: `unplace beat ${beat.id}` }))
+    await waitFor(async () => expect((await db.beats.get(beat.id))?.sceneId).toBeNull())
   })
 })

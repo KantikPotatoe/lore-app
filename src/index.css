@@ -2397,3 +2397,85 @@ button.wiki-link { background: none; border-top: none; border-left: none; border
   font-family: var(--sans);
   font-size: 0.85rem;
 }
+.grid-beat-label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--accent-soft);
+}
+.grid-beat-unplace {
+  float: right;
+  background: transparent;
+  border: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+.grid-beat-unplace:hover {
+  color: var(--danger);
+}
+.grid-lane-structure {
+  background: var(--accent-glow);
+}
+.grid-lane-structure-name {
+  font-family: var(--display);
+  color: var(--accent-soft);
+  padding: 0.25rem 0.4rem;
+  display: block;
+}
+
+/* Manuscript structure track — picker + unplaced-beat tray */
+.structure-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.structure-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--ink-dim);
+}
+.structure-pick select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 0.25rem 0.4rem;
+}
+.structure-tray {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.structure-tray-head {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink-faint);
+}
+.structure-tray-beat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.15rem 0.35rem;
+}
+.structure-tray-label {
+  font-size: 0.8rem;
+  color: var(--ink);
+}
+.structure-tray-beat select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 0.75rem;
+}

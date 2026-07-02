@@ -1,5 +1,6 @@
 import { db, uid, now, TYPE_COLORS } from './schema'
 import { stripHtml, wikiLinkTitles } from '../html'
+import { structureDef } from '../manuscriptStructures'
 import type { Book, Chapter, Scene, SceneStatus, StructureType, Plotline, Beat } from './types'
 
 // ---------------------------------------------------------------------------
@@ -363,4 +364,28 @@ export async function deleteBeat(id: string): Promise<void> {
 
 export async function listBeats(bookId: string): Promise<Beat[]> {
   return db.beats.where('bookId').equals(bookId).toArray()
+}
+
+// --- Story-structure track ----------------------------------------------------
+
+export async function getStructurePlotline(bookId: string): Promise<Plotline | undefined> {
+  return db.plotlines.where('bookId').equals(bookId).and((p) => p.kind === 'structure').first()
+}
+
+/** Apply a story structure to a book: replace any existing structure lane, then
+ *  seed one beat per structure beat (unplaced) in a new structure-kind lane. */
+export async function applyStructure(bookId: string, type: StructureType): Promise<void> {
+  const def = structureDef(type)
+  if (!def) return
+  await removeStructure(bookId)
+  const lane = await createPlotline(bookId, def.name, { kind: 'structure', structureType: type, color: '#c9a24b' })
+  for (let i = 0; i < def.beats.length; i++) {
+    const beat = await createBeat(bookId, lane.id, null, '')
+    await updateBeat(beat.id, { label: def.beats[i], order: i })
+  }
+}
+
+export async function removeStructure(bookId: string): Promise<void> {
+  const lane = await getStructurePlotline(bookId)
+  if (lane) await deletePlotline(lane.id)
 }

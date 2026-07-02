@@ -8,6 +8,7 @@ import {
   chapterWordCount, bookWordCount, sceneAppearances,
   createPlotline, updatePlotline, listPlotlines, reorderPlotlines, deletePlotline,
   createBeat, updateBeat, deleteBeat, listBeats,
+  applyStructure, removeStructure, getStructurePlotline,
 } from './manuscript'
 
 afterEach(async () => {
@@ -314,6 +315,37 @@ describe('beat CRUD', () => {
     await updateBeat(beat.id, { note: 'edited' })
     expect((await db.beats.get(beat.id))?.note).toBe('edited')
     await deleteBeat(beat.id)
+    expect(await db.beats.count()).toBe(0)
+  })
+})
+
+describe('structure track', () => {
+  afterEach(async () => { await Promise.all([db.plotlines.clear(), db.beats.clear()]) })
+
+  it('applies a structure as a single structure-kind lane with seeded, unplaced beats', async () => {
+    await applyStructure('b1', 'save-the-cat')
+    const lane = await getStructurePlotline('b1')
+    expect(lane?.kind).toBe('structure')
+    expect(lane?.structureType).toBe('save-the-cat')
+    const beats = await db.beats.where('plotlineId').equals(lane!.id).toArray()
+    expect(beats).toHaveLength(15)
+    expect(beats.every((b) => b.sceneId === null)).toBe(true)
+    expect(beats.map((b) => b.label)).toContain('Catalyst')
+  })
+
+  it('re-applying replaces the previous structure lane (no duplicates)', async () => {
+    await applyStructure('b1', 'save-the-cat')
+    await applyStructure('b1', 'heros-journey')
+    const lanes = await db.plotlines.where('bookId').equals('b1').and((p) => p.kind === 'structure').toArray()
+    expect(lanes).toHaveLength(1)
+    expect(lanes[0].structureType).toBe('heros-journey')
+    expect(await db.beats.where('plotlineId').equals(lanes[0].id).count()).toBe(12)
+  })
+
+  it('removeStructure deletes the lane and its beats', async () => {
+    await applyStructure('b1', 'snowflake')
+    await removeStructure('b1')
+    expect(await getStructurePlotline('b1')).toBeUndefined()
     expect(await db.beats.count()).toBe(0)
   })
 })
