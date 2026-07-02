@@ -1,6 +1,6 @@
-import { db, uid, now } from './schema'
+import { db, uid, now, TYPE_COLORS } from './schema'
 import { stripHtml, wikiLinkTitles } from '../html'
-import type { Book, Chapter, Scene, SceneStatus } from './types'
+import type { Book, Chapter, Scene, SceneStatus, StructureType, Plotline, Beat } from './types'
 
 // ---------------------------------------------------------------------------
 // Manuscript authoring — the author's real novel (Book → Chapter → Scene) plus a
@@ -281,4 +281,86 @@ export async function sceneAppearances(pageId: string): Promise<SceneAppearance[
     a.sort[0] - b.sort[0] || a.sort[1] - b.sort[1] || a.sort[2] - b.sort[2],
   )
   return out.map((o) => o.appearance)
+}
+
+// --- Plotlines (grid lanes) ---------------------------------------------------
+
+export async function createPlotline(
+  bookId: string,
+  name: string,
+  opts: { color?: string; kind?: 'plot' | 'structure'; structureType?: StructureType } = {},
+): Promise<Plotline> {
+  const existing = await db.plotlines.where('bookId').equals(bookId).toArray()
+  const order = existing.reduce((max, p) => Math.max(max, p.order + 1), 0)
+  const color = opts.color ?? TYPE_COLORS[existing.length % TYPE_COLORS.length]
+  const plotline: Plotline = {
+    id: uid(), bookId, name, color, kind: opts.kind ?? 'plot',
+    structureType: opts.structureType, order, createdAt: now(), updatedAt: now(),
+  }
+  await db.plotlines.add(plotline)
+  return plotline
+}
+
+export async function updatePlotline(
+  id: string,
+  patch: Partial<Omit<Plotline, 'id' | 'bookId' | 'createdAt'>>,
+): Promise<void> {
+  await db.plotlines.update(id, { ...patch, updatedAt: now() })
+}
+
+export async function listPlotlines(bookId: string): Promise<Plotline[]> {
+  return db.plotlines.where('bookId').equals(bookId).sortBy('order')
+}
+
+export async function reorderPlotlines(bookId: string, orderedIds: string[]): Promise<void> {
+  await db.transaction('rw', db.plotlines, async () => {
+    const byId = new Map((await db.plotlines.where('bookId').equals(bookId).toArray()).map((p) => [p.id, p]))
+    let index = 0
+    for (const id of orderedIds) {
+      if (byId.has(id)) {
+        await db.plotlines.update(id, { order: index })
+        index++
+      }
+    }
+  })
+}
+
+export async function deletePlotline(id: string): Promise<void> {
+  await db.transaction('rw', [db.plotlines, db.beats], async () => {
+    await db.beats.where('plotlineId').equals(id).delete()
+    await db.plotlines.delete(id)
+  })
+}
+
+// --- Beats (grid cells) -------------------------------------------------------
+
+export async function createBeat(
+  bookId: string,
+  plotlineId: string,
+  sceneId: string | null,
+  note = '',
+): Promise<Beat> {
+  const existing = await db.beats.where('plotlineId').equals(plotlineId).toArray()
+  const order = existing.reduce((max, b) => Math.max(max, b.order + 1), 0)
+  const beat: Beat = {
+    id: uid(), bookId, plotlineId, sceneId, label: '', note, order,
+    createdAt: now(), updatedAt: now(),
+  }
+  await db.beats.add(beat)
+  return beat
+}
+
+export async function updateBeat(
+  id: string,
+  patch: Partial<Omit<Beat, 'id' | 'bookId' | 'createdAt'>>,
+): Promise<void> {
+  await db.beats.update(id, { ...patch, updatedAt: now() })
+}
+
+export async function deleteBeat(id: string): Promise<void> {
+  await db.beats.delete(id)
+}
+
+export async function listBeats(bookId: string): Promise<Beat[]> {
+  return db.beats.where('bookId').equals(bookId).toArray()
 }

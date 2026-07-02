@@ -6,6 +6,8 @@ import {
   createChapter, updateChapter, listChapters, reorderChapters, deleteChapter,
   createScene, updateScene, listScenes, reorderScenes, moveScene, deleteScene,
   chapterWordCount, bookWordCount, sceneAppearances,
+  createPlotline, updatePlotline, listPlotlines, reorderPlotlines, deletePlotline,
+  createBeat, updateBeat, deleteBeat, listBeats,
 } from './manuscript'
 
 afterEach(async () => {
@@ -266,5 +268,52 @@ describe('sceneAppearances', () => {
     const out = await sceneAppearances('alice')
     expect(out).toHaveLength(1)
     expect(out[0].roles).toEqual(expect.arrayContaining(['pov', 'mention']))
+  })
+})
+
+describe('plotline CRUD', () => {
+  afterEach(async () => { await Promise.all([db.plotlines.clear(), db.beats.clear()]) })
+
+  it('creates plotlines ordered within a book, with a default color and kind', async () => {
+    const a = await createPlotline('b1', 'Main Arc')
+    const b = await createPlotline('b1', 'Romance')
+    expect(a.order).toBe(0)
+    expect(b.order).toBe(1)
+    expect(a.kind).toBe('plot')
+    expect(a.color).toMatch(/^#/)
+    expect((await listPlotlines('b1')).map((p) => p.name)).toEqual(['Main Arc', 'Romance'])
+  })
+
+  it('updates and reorders plotlines', async () => {
+    const a = await createPlotline('b1', 'A')
+    const b = await createPlotline('b1', 'B')
+    await updatePlotline(a.id, { name: 'A-prime', color: '#123456' })
+    await reorderPlotlines('b1', [b.id, a.id])
+    const list = await listPlotlines('b1')
+    expect(list.map((p) => p.name)).toEqual(['B', 'A-prime'])
+    expect(list[1].color).toBe('#123456')
+  })
+
+  it('deletePlotline cascades its beats', async () => {
+    const a = await createPlotline('b1', 'A')
+    await db.beats.add({ id: 'bt1', bookId: 'b1', plotlineId: a.id, sceneId: 's1', label: '', note: 'x', order: 0, createdAt: 1, updatedAt: 1 })
+    await deletePlotline(a.id)
+    expect(await db.plotlines.get(a.id)).toBeUndefined()
+    expect(await db.beats.count()).toBe(0)
+  })
+})
+
+describe('beat CRUD', () => {
+  afterEach(async () => { await Promise.all([db.plotlines.clear(), db.beats.clear()]) })
+
+  it('creates, updates, lists and deletes beats', async () => {
+    const p = await createPlotline('b1', 'A')
+    const beat = await createBeat('b1', p.id, 's1', 'first note')
+    expect(beat.note).toBe('first note')
+    expect((await listBeats('b1')).length).toBe(1)
+    await updateBeat(beat.id, { note: 'edited' })
+    expect((await db.beats.get(beat.id))?.note).toBe('edited')
+    await deleteBeat(beat.id)
+    expect(await db.beats.count()).toBe(0)
   })
 })
