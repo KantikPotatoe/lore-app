@@ -4,6 +4,8 @@ import {
   SCENE_STATUSES, sceneStatusColor, computeWordCount,
   createBook, updateBook, deleteBook, listBooks, reorderBooks,
   createChapter, updateChapter, listChapters, reorderChapters, deleteChapter,
+  createScene, updateScene, listScenes, reorderScenes, moveScene, deleteScene,
+  chapterWordCount, bookWordCount,
 } from './manuscript'
 
 afterEach(async () => {
@@ -129,5 +131,83 @@ describe('chapter CRUD', () => {
     await deleteChapter(ch.id)
     expect(await db.chapters.get(ch.id)).toBeUndefined()
     expect(await db.scenes.count()).toBe(0)
+  })
+})
+
+describe('scene CRUD', () => {
+  it('creates a scene with sensible defaults', async () => {
+    const book = await createBook('B')
+    const ch = await createChapter(book.id, 'One')
+    const sc = await createScene(book.id, ch.id, 'Opening')
+    expect(sc).toMatchObject({
+      status: 'outline', order: 0, wordCount: 0, content: '',
+      povPageId: null, castPageIds: [], locationPageIds: [],
+    })
+  })
+
+  it('recomputes wordCount when content changes', async () => {
+    const book = await createBook('B')
+    const ch = await createChapter(book.id, 'One')
+    const sc = await createScene(book.id, ch.id, 'Opening')
+    await updateScene(sc.id, { content: '<p>one two three</p>' })
+    expect((await db.scenes.get(sc.id))?.wordCount).toBe(3)
+  })
+
+  it('does not touch wordCount when content is not in the patch', async () => {
+    const book = await createBook('B')
+    const ch = await createChapter(book.id, 'One')
+    const sc = await createScene(book.id, ch.id, 'Opening')
+    await updateScene(sc.id, { content: '<p>a b</p>' })
+    await updateScene(sc.id, { status: 'draft' })
+    expect((await db.scenes.get(sc.id))?.wordCount).toBe(2)
+  })
+
+  it('rolls up word counts by chapter and book', async () => {
+    const book = await createBook('B')
+    const ch = await createChapter(book.id, 'One')
+    const a = await createScene(book.id, ch.id, 'A')
+    const b = await createScene(book.id, ch.id, 'B')
+    await updateScene(a.id, { content: '<p>one two</p>' })
+    await updateScene(b.id, { content: '<p>three</p>' })
+    expect(await chapterWordCount(ch.id)).toBe(3)
+    expect(await bookWordCount(book.id)).toBe(3)
+  })
+
+  it('reorders scenes within a chapter', async () => {
+    const book = await createBook('B')
+    const ch = await createChapter(book.id, 'One')
+    const a = await createScene(book.id, ch.id, 'A')
+    const b = await createScene(book.id, ch.id, 'B')
+    await reorderScenes(ch.id, [b.id, a.id])
+    expect((await listScenes(ch.id)).map((s) => s.title)).toEqual(['B', 'A'])
+  })
+
+  it('moves a scene to another chapter at an index', async () => {
+    const book = await createBook('B')
+    const c1 = await createChapter(book.id, 'One')
+    const c2 = await createChapter(book.id, 'Two')
+    const sc = await createScene(book.id, c1.id, 'Wanderer')
+    await moveScene(sc.id, c2.id, 0)
+    const moved = await db.scenes.get(sc.id)
+    expect(moved?.chapterId).toBe(c2.id)
+    expect((await listScenes(c1.id)).length).toBe(0)
+    expect((await listScenes(c2.id)).map((s) => s.id)).toEqual([sc.id])
+  })
+
+  it('deleteScene removes plot beats but unplaces structure beats', async () => {
+    const book = await createBook('B')
+    const ch = await createChapter(book.id, 'One')
+    const sc = await createScene(book.id, ch.id, 'A')
+    await db.plotlines.bulkAdd([
+      { id: 'plot', bookId: book.id, name: 'Main', color: '#fff', kind: 'plot', order: 0, createdAt: 1, updatedAt: 1 },
+      { id: 'struct', bookId: book.id, name: 'Save the Cat', color: '#000', kind: 'structure', structureType: 'save-the-cat', order: 1, createdAt: 1, updatedAt: 1 },
+    ])
+    await db.beats.bulkAdd([
+      { id: 'plotBeat', bookId: book.id, plotlineId: 'plot', sceneId: sc.id, label: '', note: 'x', order: 0, createdAt: 1, updatedAt: 1 },
+      { id: 'structBeat', bookId: book.id, plotlineId: 'struct', sceneId: sc.id, label: 'Catalyst', note: '', order: 0, createdAt: 1, updatedAt: 1 },
+    ])
+    await deleteScene(sc.id)
+    expect(await db.beats.get('plotBeat')).toBeUndefined()
+    expect((await db.beats.get('structBeat'))?.sceneId).toBeNull()
   })
 })

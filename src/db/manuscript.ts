@@ -1,6 +1,6 @@
 import { db, uid, now } from './schema'
 import { stripHtml } from '../html'
-import type { Book, Chapter, SceneStatus } from './types'
+import type { Book, Chapter, Scene, SceneStatus } from './types'
 
 // ---------------------------------------------------------------------------
 // Manuscript authoring — the author's real novel (Book → Chapter → Scene) plus a
@@ -135,4 +135,90 @@ export async function deleteChapter(id: string): Promise<void> {
     }
     await db.chapters.delete(id)
   })
+}
+
+// --- Scenes -----------------------------------------------------------------
+
+export async function createScene(
+  bookId: string,
+  chapterId: string,
+  title: string,
+): Promise<Scene> {
+  const existing = await db.scenes.where('chapterId').equals(chapterId).toArray()
+  const order = existing.reduce((max, s) => Math.max(max, s.order + 1), 0)
+  const scene: Scene = {
+    id: uid(), bookId, chapterId, title, content: '', synopsis: '', notes: '',
+    status: 'outline', order, wordCount: 0, povPageId: null,
+    castPageIds: [], locationPageIds: [], createdAt: now(), updatedAt: now(),
+  }
+  await db.scenes.add(scene)
+  return scene
+}
+
+export async function updateScene(
+  id: string,
+  patch: Partial<Omit<Scene, 'id' | 'bookId' | 'createdAt'>>,
+): Promise<void> {
+  const next: Partial<Scene> = { ...patch, updatedAt: now() }
+  if (typeof patch.content === 'string') {
+    next.wordCount = computeWordCount(patch.content)
+  }
+  await db.scenes.update(id, next)
+}
+
+export async function listScenes(chapterId: string): Promise<Scene[]> {
+  return db.scenes.where('chapterId').equals(chapterId).sortBy('order')
+}
+
+export async function reorderScenes(chapterId: string, orderedIds: string[]): Promise<void> {
+  await db.transaction('rw', db.scenes, async () => {
+    const byId = new Map((await db.scenes.where('chapterId').equals(chapterId).toArray()).map((s) => [s.id, s]))
+    let index = 0
+    for (const id of orderedIds) {
+      if (byId.has(id)) {
+        await db.scenes.update(id, { order: index })
+        index++
+      }
+    }
+  })
+}
+
+export async function moveScene(
+  sceneId: string,
+  toChapterId: string,
+  toIndex: number,
+): Promise<void> {
+  await db.transaction('rw', db.scenes, async () => {
+    const scene = await db.scenes.get(sceneId)
+    if (!scene) return
+    const target = (await db.scenes.where('chapterId').equals(toChapterId).sortBy('order'))
+      .filter((s) => s.id !== sceneId)
+    target.splice(Math.max(0, Math.min(toIndex, target.length)), 0, { ...scene, chapterId: toChapterId })
+    let index = 0
+    for (const s of target) {
+      await db.scenes.update(s.id, {
+        chapterId: toChapterId, order: index, updatedAt: now(),
+      })
+      index++
+    }
+  })
+}
+
+export async function deleteScene(id: string): Promise<void> {
+  await db.transaction('rw', [db.scenes, db.plotlines, db.beats], async () => {
+    await detachBeatsForScene(id)
+    await db.scenes.delete(id)
+  })
+}
+
+// --- Word-count rollups -----------------------------------------------------
+
+export async function chapterWordCount(chapterId: string): Promise<number> {
+  const scenes = await db.scenes.where('chapterId').equals(chapterId).toArray()
+  return scenes.reduce((sum, s) => sum + s.wordCount, 0)
+}
+
+export async function bookWordCount(bookId: string): Promise<number> {
+  const scenes = await db.scenes.where('bookId').equals(bookId).toArray()
+  return scenes.reduce((sum, s) => sum + s.wordCount, 0)
 }
