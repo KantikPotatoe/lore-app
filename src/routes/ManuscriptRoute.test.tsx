@@ -18,4 +18,23 @@ describe('ManuscriptRoute', () => {
     )
     expect(screen.getByRole('heading', { name: /manuscript/i })).toBeTruthy()
   })
+
+  it('lists existing books', async () => {
+    await db.books.add({ id: 'b1', title: 'The Long Road', synopsis: '', order: 0, createdAt: 1, updatedAt: 1 })
+    render(
+      <MemoryRouter>
+        <ManuscriptRoute />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText('The Long Road')).toBeTruthy()
+  })
+
+  it('shows an empty hint when there are no books', async () => {
+    render(
+      <MemoryRouter>
+        <ManuscriptRoute />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText(/no books yet/i)).toBeTruthy()
+  })
 })
