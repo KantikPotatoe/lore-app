@@ -68,7 +68,7 @@ Rejected alternatives:
 ## Data model
 
 New module **`src/db/manuscript.ts`**, re-exported from the `db/index.ts` barrel.
-Dexie schema bumped **v9 → v10**. All tables are per-lore (same DB binding as the
+Dexie schema bumped **v10 → v11** (v10 already holds the `docLinks` table). All tables are per-lore (same DB binding as the
 rest). Types live in `src/db/types.ts` alongside the existing interfaces.
 
 ```ts
@@ -238,8 +238,8 @@ Rendered as a new **"Appears in"** section on the page aside (near `Backlinks.ts
 kept visually distinct from wiki backlinks.
 
 **Backup / import.** Extend `exportAll`/`importAll` (`src/db/backup.ts`) to serialize
-the five new tables. **Bump `CURRENT_SCHEMA_VERSION`** and add a `MIGRATIONS` step
-(older backups get empty manuscript tables). On import, **sanitize** each
+the five new tables. **Bump `CURRENT_SCHEMA_VERSION` 10 → 11** and add a
+`MIGRATIONS` step keyed at 10 (older backups get empty manuscript tables). On import, **sanitize** each
 `scene.content` through `sanitizeHtml()` (same boundary as page content + event
 descriptions); `synopsis`/`notes`/`title` are plain text (React-escaped).
 `parseBackup()` counts the new records before any `clear()`.
