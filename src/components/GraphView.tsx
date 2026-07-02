@@ -7,6 +7,7 @@ import ForceGraph2D, {
 } from 'react-force-graph-2d'
 import { type GraphData, type GraphNode, type GraphLink } from '../db'
 import { nodeFill, type ColorBy } from '../graphColor'
+import { radiusFor } from '../graphGeometry'
 import type { GraphCam } from '../useGraphPrefs'
 
 // The force simulation augments our plain nodes/links in place (adds x/y and
@@ -14,15 +15,6 @@ import type { GraphCam } from '../useGraphPrefs'
 // the canvas callbacks see these richer shapes.
 type GNode = NodeObject<GraphNode>
 type GLink = LinkObject<GraphNode, GraphLink>
-
-// Node radius grows with connection count but stays within these bounds so a
-// lone page is still visible and a hub does not swallow the screen.
-const MIN_RADIUS = 4
-const MAX_RADIUS = 16
-
-function radiusFor(degree: number): number {
-  return Math.min(MAX_RADIUS, MIN_RADIUS + degree * 1.5)
-}
 
 // A link end is an id string before the simulation runs and the resolved node
 // object after, so accept either shape.
