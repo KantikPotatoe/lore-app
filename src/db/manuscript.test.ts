@@ -5,7 +5,7 @@ import {
   createBook, updateBook, deleteBook, listBooks, reorderBooks,
   createChapter, updateChapter, listChapters, reorderChapters, deleteChapter,
   createScene, updateScene, listScenes, reorderScenes, moveScene, deleteScene,
-  chapterWordCount, bookWordCount,
+  chapterWordCount, bookWordCount, sceneAppearances,
 } from './manuscript'
 
 afterEach(async () => {
@@ -209,5 +209,62 @@ describe('scene CRUD', () => {
     await deleteScene(sc.id)
     expect(await db.beats.get('plotBeat')).toBeUndefined()
     expect((await db.beats.get('structBeat'))?.sceneId).toBeNull()
+  })
+})
+
+describe('sceneAppearances', () => {
+  afterEach(async () => { await db.pages.clear() })
+
+  async function seedPage(id: string, title: string) {
+    await db.pages.add({
+      id, title, category: 'Character', content: '', summary: '', tags: [],
+      createdAt: 1, updatedAt: 1,
+    } as never)
+  }
+
+  it('finds scenes by pov/cast/location refs', async () => {
+    await seedPage('alice', 'Alice')
+    const book = await createBook('B')
+    const ch = await createChapter(book.id, 'Chapter One')
+    const sc = await createScene(book.id, ch.id, 'The Meeting')
+    await updateScene(sc.id, { castPageIds: ['alice'] })
+    const out = await sceneAppearances('alice')
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({
+      sceneTitle: 'The Meeting', chapterTitle: 'Chapter One', bookTitle: 'B',
+    })
+    expect(out[0].roles).toContain('cast')
+  })
+
+  it('finds scenes that mention the page via an inline wiki link', async () => {
+    await seedPage('bob', 'Bob')
+    const book = await createBook('B')
+    const ch = await createChapter(book.id, 'C')
+    const sc = await createScene(book.id, ch.id, 'S')
+    await updateScene(sc.id, {
+      content: '<p><a data-wikilink="" data-title="Bob" class="wiki-link">Bob</a> arrives.</p>',
+    })
+    const out = await sceneAppearances('bob')
+    expect(out).toHaveLength(1)
+    expect(out[0].roles).toContain('mention')
+  })
+
+  it('returns empty for a page with no appearances', async () => {
+    await seedPage('nobody', 'Nobody')
+    expect(await sceneAppearances('nobody')).toEqual([])
+  })
+
+  it('collapses multiple roles for one scene into a single entry', async () => {
+    await seedPage('alice', 'Alice')
+    const book = await createBook('B')
+    const ch = await createChapter(book.id, 'C')
+    const sc = await createScene(book.id, ch.id, 'S')
+    await updateScene(sc.id, {
+      povPageId: 'alice',
+      content: '<p><a data-wikilink="" data-title="Alice" class="wiki-link">Alice</a></p>',
+    })
+    const out = await sceneAppearances('alice')
+    expect(out).toHaveLength(1)
+    expect(out[0].roles).toEqual(expect.arrayContaining(['pov', 'mention']))
   })
 })

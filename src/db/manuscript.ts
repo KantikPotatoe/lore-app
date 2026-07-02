@@ -1,5 +1,5 @@
 import { db, uid, now } from './schema'
-import { stripHtml } from '../html'
+import { stripHtml, wikiLinkTitles } from '../html'
 import type { Book, Chapter, Scene, SceneStatus } from './types'
 
 // ---------------------------------------------------------------------------
@@ -221,4 +221,64 @@ export async function chapterWordCount(chapterId: string): Promise<number> {
 export async function bookWordCount(bookId: string): Promise<number> {
   const scenes = await db.scenes.where('bookId').equals(bookId).toArray()
   return scenes.reduce((sum, s) => sum + s.wordCount, 0)
+}
+
+// --- "Appears in": which scenes reference a wiki page --------------------------
+
+export type AppearanceRole = 'pov' | 'cast' | 'location' | 'mention'
+
+export interface SceneAppearance {
+  sceneId: string
+  bookId: string
+  bookTitle: string
+  chapterTitle: string
+  sceneTitle: string
+  roles: AppearanceRole[]
+}
+
+/** Every manuscript scene that references `pageId` — via its POV/cast/location
+ *  refs (id-based) or an inline [[wiki-link]] to the page's title in the prose.
+ *  Ordered by book, then chapter, then scene. */
+export async function sceneAppearances(pageId: string): Promise<SceneAppearance[]> {
+  const page = await db.pages.get(pageId)
+  if (!page) return []
+  const titleLc = page.title.trim().toLowerCase()
+
+  const [scenes, chapters, books] = await Promise.all([
+    db.scenes.toArray(),
+    db.chapters.toArray(),
+    db.books.toArray(),
+  ])
+  const chapterById = new Map(chapters.map((c) => [c.id, c]))
+  const bookById = new Map(books.map((b) => [b.id, b]))
+
+  const out: { appearance: SceneAppearance; sort: [number, number, number] }[] = []
+  for (const s of scenes) {
+    const roles: AppearanceRole[] = []
+    if (s.povPageId === pageId) roles.push('pov')
+    if (s.castPageIds.includes(pageId)) roles.push('cast')
+    if (s.locationPageIds.includes(pageId)) roles.push('location')
+    if (wikiLinkTitles(s.content).some((t) => t.trim().toLowerCase() === titleLc)) {
+      roles.push('mention')
+    }
+    if (roles.length === 0) continue
+    const ch = chapterById.get(s.chapterId)
+    const bk = bookById.get(s.bookId)
+    out.push({
+      appearance: {
+        sceneId: s.id,
+        bookId: s.bookId,
+        bookTitle: bk?.title ?? '(book)',
+        chapterTitle: ch?.title ?? '(chapter)',
+        sceneTitle: s.title,
+        roles,
+      },
+      sort: [bk?.order ?? 0, ch?.order ?? 0, s.order],
+    })
+  }
+
+  out.sort((a, b) =>
+    a.sort[0] - b.sort[0] || a.sort[1] - b.sort[1] || a.sort[2] - b.sort[2],
+  )
+  return out.map((o) => o.appearance)
 }
